@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - web
+
+  backend:
+    build: ./backend
+    container_name: backend
+    env_file:
+      - .env
+    depends_on:
+      - db
+    ports:
+      - "5001:5000"   # host:container
+    networks:
+      - web
+
+  ai_service:
+    build: ./ai_service
+    container_name: ai_service
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    networks:
+      - web
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    env_file:
+      - .env
+    depends_on:
+      - backend
+      - ai_service
+    ports:
+      - "3000:3000"
+    networks:
+      - web
+
+volumes:
+  db_data:
+
+networks:
+  web:
+    external: false
