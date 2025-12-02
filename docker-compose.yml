@@ -33,6 +33,8 @@ services:
       - .env
     ports:
       - "8000:8000"
+    volumes:
+      - ai_model_cache:/app/LivePortrait/pretrained_weights
     networks:
       - web
 
@@ -62,6 +64,7 @@ services:
 volumes:
   db_data:
   ollama_data:
+  ai_model_cache:
 
 networks:
   web:
