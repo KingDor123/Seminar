@@ -361,13 +361,13 @@ export default function ChatInterface() {
       </div>
 
       {/* Chat Overlay (Captions) */}
-      <div className="absolute bottom-20 left-0 right-0 px-8 flex flex-col gap-2 pointer-events-none z-50">
+      <div className="absolute bottom-4 left-0 right-0 px-4 flex flex-col gap-2 pointer-events-none z-50">
         {messages.slice(-2).map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] p-3 rounded-2xl backdrop-blur-md ${
                     msg.role === 'user' 
-                    ? 'bg-blue-600/80 text-white' 
-                    : 'bg-gray-800/80 text-white'
+                    ? 'bg-blue-600/50 text-white' 
+                    : 'bg-gray-800/50 text-white'
                 } shadow-lg text-lg`} dir="auto">
                     {msg.content}
                 </div>

@@ -53,7 +53,7 @@ function Model({ audioAnalyser, onError }: { audioAnalyser: AnalyserNode | null,
   });
 
   if (!gltf.scene) return null;
-  return <primitive object={gltf.scene} position={[0, -1.6, 0]} scale={1.5} />;
+  return <primitive object={gltf.scene} position={[0, -1.6, 0]} scale={1.0} />;
 }
 
 // --- 2. The 2.5D Fallback Component ---
@@ -99,7 +99,7 @@ function SceneContent({ audioAnalyser }: { audioAnalyser: AnalyserNode | null })
     }
 
     return (
-        <ErrorBoundary onFail={() => setUse3D(false)}>
+        <ErrorBoundary onFail={() => set3D(false)}>
             <Model audioAnalyser={audioAnalyser} onError={() => setUse3D(false)} />
         </ErrorBoundary>
     );
@@ -146,7 +146,7 @@ export default function Avatar3D({ audioElement }: { audioElement: HTMLAudioElem
 
   return (
     <div className="w-full h-full bg-gradient-to-b from-gray-900 to-gray-800">
-      <Canvas camera={{ position: [0, 0, 3], fov: 50 }}>
+      <Canvas camera={{ position: [0, 0, 5], fov: 60 }}>
         <ambientLight intensity={1} />
         <directionalLight position={[5, 5, 5]} intensity={1} />
         <Environment preset="city" />
@@ -155,7 +155,7 @@ export default function Avatar3D({ audioElement }: { audioElement: HTMLAudioElem
            <SceneContent audioAnalyser={analyser} />
         </React.Suspense>
 
-        <OrbitControls enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 2.2} maxPolarAngle={Math.PI / 1.8} />
+        <OrbitControls enableZoom={false} enablePan={true} minPolarAngle={Math.PI / 2.2} maxPolarAngle={Math.PI / 1.8} />
       </Canvas>
     </div>
   );
