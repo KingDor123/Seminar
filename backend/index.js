@@ -9,7 +9,7 @@ dotenv.config();
 
 const app = express();
 
-const REQUEST_TIMEOUT_MS = 10000;
+const REQUEST_TIMEOUT_MS = 300000;
 const MAX_QUEUE_LENGTH = 50;
 const HEARTBEAT_INTERVAL_MS = 30000;
 

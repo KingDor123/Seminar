@@ -5,6 +5,8 @@ import io
 import logging
 import os
 import sys
+import soundfile as sf
+import librosa # Import librosa for audio feature extraction
 
 # Add LivePortrait to path
 sys.path.append("/app/LivePortrait")
@@ -12,6 +14,8 @@ sys.path.append("/app/LivePortrait")
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+SAMPLE_RATE = 16000 # Standard sample rate for speech
 
 class AvatarEngine:
     def __init__(self):
@@ -21,12 +25,13 @@ class AvatarEngine:
         
         self.base_height, self.base_width = self.avatar_image.shape[:2]
         self.use_live_portrait = False
-        
+        self.sample_rate = SAMPLE_RATE # Store sample rate
+
         # Maps for remapping
         self.map_x = None
         self.map_y = None
 
-        logger.info("Avatar Engine Initialized (Wav2Lip Mode).")
+        logger.info("Avatar Engine Initialized.")
 
     def _init_maps(self):
         """Initialize the grid for distortion."""
@@ -50,15 +55,15 @@ class AvatarEngine:
         except Exception as e:
             logger.error(f"Error loading avatar: {e}")
 
-    def process_audio_frame(self, audio_amplitude: float) -> str:
+    def _generate_frame_with_grid_distortion(self, amplitude: float) -> str:
         """
-        Generates a frame using Grid Distortion to mimic mouth opening.
+        Generates a frame using Grid Distortion to mimic mouth opening based on amplitude.
         """
         if self.avatar_image is None:
             return ""
 
         if self.use_live_portrait:
-            pass
+            pass # LivePortrait logic would go here
 
         # --- GRID DISTORTION SIMULATION ---
         # This mimics a jaw drop by stretching pixels in the mouth region downwards.
@@ -77,29 +82,30 @@ class AvatarEngine:
         radius = int(min(h, w) * 0.15)
         
         # Strength of opening (0 to 15 pixels down)
-        strength = audio_amplitude * 20.0 
+        # Introduce a piecewise function for strength based on amplitude for more nuanced control
+        if amplitude < 0.1:  # Neutral/closed mouth
+            strength = 0.0
+        elif amplitude < 0.3: # Slightly open
+            strength = amplitude * 5.0  # Scale up slightly
+        elif amplitude < 0.6: # Moderately open
+            strength = 1.5 + (amplitude - 0.3) * 10.0 # Start from a base and scale more aggressively
+        else: # Widely open
+            strength = 4.5 + (amplitude - 0.6) * 15.0 # Even wider, capping at a reasonable max
         
-        if strength < 1.0:
-            # Optimization: If silent, return original
-             return self.encode_frame(self.avatar_image)
+        # Cap strength to prevent extreme distortion
+        strength = min(strength, 15.0) # Maximum jaw drop of 15 pixels
 
         # Create a copy of the base map to distort
         map_y_distorted = self.map_y.copy()
         
         # Calculate distance from mouth center
-        # We use a simple mask to speed up numpy
         y_indices, x_indices = np.indices((h, w))
-        
-        # Vectorized Gaussian-like drop
-        # dy = strength * exp(-distance^2 / radius^2)
-        # We only care about the region around the mouth
         
         y_min = max(0, center_y - radius * 2)
         y_max = min(h, center_y + radius * 2)
         x_min = max(0, center_x - radius * 2)
         x_max = min(w, center_x + radius * 2)
         
-        # Slice for speed
         slice_y = y_indices[y_min:y_max, x_min:x_max]
         slice_x = x_indices[y_min:y_max, x_min:x_max]
         
@@ -108,10 +114,6 @@ class AvatarEngine:
         # Gaussian falloff
         delta = strength * np.exp(-dist_sq / (radius**2))
         
-        # Apply distortion: The pixels we want at (x, y) should come from (x, y - delta)
-        # Wait, to move pixels DOWN, we need to pull from UP.
-        # So map_y should be y - delta.
-        
         map_y_distorted[y_min:y_max, x_min:x_max] -= delta
 
         # Remap
@@ -119,6 +121,43 @@ class AvatarEngine:
 
         return self.encode_frame(frame)
 
+    def process_audio_chunk_for_lip_sync(self, audio_chunk: bytes) -> str:
+        """
+        Processes an audio chunk to extract features and generate a lip-synced avatar frame.
+        """
+        if not audio_chunk:
+            return self.encode_frame(self.avatar_image) # Return static image if no audio
+
+        try:
+            # Convert bytes to a file-like object
+            audio_buffer = io.BytesIO(audio_chunk)
+            
+            # Read audio data using soundfile
+            # sf.read returns (data, samplerate)
+            audio_data, _ = sf.read(audio_buffer, dtype='float32') # Use float32 for librosa compatibility
+
+            if audio_data.size == 0:
+                return self.encode_frame(self.avatar_image)
+
+            # Ensure audio data is mono for librosa
+            if audio_data.ndim > 1:
+                audio_data = librosa.to_mono(audio_data)
+
+            # Calculate RMS as a simple amplitude measure
+            # librosa.feature.rms returns a 2D array, take the mean
+            rms = librosa.feature.rms(y=audio_data, frame_length=len(audio_data), hop_length=len(audio_data) + 1).mean()
+            amplitude = float(np.clip(rms * 10, 0, 1)) # Scale RMS to get a 0-1 amplitude for distortion
+
+            logger.debug(f"Processed audio chunk, amplitude: {amplitude:.2f}")
+
+            # Use the existing grid distortion for now
+            return self._generate_frame_with_grid_distortion(amplitude)
+
+        except Exception as e:
+            logger.error(f"Error processing audio chunk: {e}", exc_info=True)
+            return self.encode_frame(self.avatar_image) # Return static image on error
+
     def encode_frame(self, frame):
         _, buffer = cv2.imencode('.jpg', frame)
         return base64.b64encode(buffer).decode('utf-8')
+

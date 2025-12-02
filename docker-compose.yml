@@ -31,6 +31,8 @@ services:
     container_name: ai_service
     env_file:
       - .env
+    depends_on:
+      - ollama
     ports:
       - "8000:8000"
     volumes:
@@ -45,6 +47,8 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    # Run server in background, pull model, then wait for server
+    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5 && ollama pull llama3 && wait"]
     networks:
       - web
 

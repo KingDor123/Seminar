@@ -95,18 +95,16 @@ def generate_text(request: GenerateRequest):
 @app.websocket("/ai/avatar_stream")
 async def avatar_stream(websocket: WebSocket):
     await websocket.accept()
+    logger.info("Avatar Stream Client connected")
     try:
         while True:
-            # Expecting a float value as text (amplitude 0.0 - 1.0)
-            data = await websocket.receive_text()
-            try:
-                amplitude = float(data)
-                # Generate frame
-                frame_base64 = avatar_engine.process_audio_frame(amplitude)
+            # Expecting raw audio data as bytes
+            audio_chunk = await websocket.receive_bytes()
+            if audio_chunk:
+                # Process audio chunk for lip-sync
+                frame_base64 = avatar_engine.process_audio_chunk_for_lip_sync(audio_chunk)
                 if frame_base64:
                     await websocket.send_text(frame_base64)
-            except ValueError:
-                pass # Ignore non-float messages
     except WebSocketDisconnect:
         logger.info("Avatar Stream Client disconnected")
     except Exception as e:

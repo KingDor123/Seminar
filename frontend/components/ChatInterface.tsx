@@ -43,7 +43,8 @@ export default function ChatInterface() {
   const resolveApiBase = () => {
     if (apiBase) return apiBase;
     if (typeof window !== "undefined") {
-      return window.location.origin;
+      // Direct connection to backend to avoid Next.js proxy timeout (30s)
+      return "http://localhost:5001";
     }
     return "";
   };
@@ -338,6 +339,7 @@ export default function ChatInterface() {
                         src="/avatar.png" 
                         alt="AI Coach" 
                         fill 
+                        sizes="320px" 
                         className="object-cover"
                     />
                 </div>
