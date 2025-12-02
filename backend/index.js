@@ -9,6 +9,10 @@ dotenv.config();
 
 const app = express();
 
+const REQUEST_TIMEOUT_MS = 10000;
+const MAX_QUEUE_LENGTH = 50;
+const HEARTBEAT_INTERVAL_MS = 30000;
+
 // Middlewares
 app.use(cors());
 app.use(express.json());
@@ -18,48 +22,90 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
-// Proxy TTS endpoint
-app.post("/api/tts", async (req, res) => {
+const validateMediaPayload = (body) => {
+  if (!body || typeof body !== "object") {
+    return "Request body must be a JSON object.";
+  }
+
+  if (typeof body.text !== "string" || body.text.trim().length === 0) {
+    return "Field 'text' is required and must be a non-empty string.";
+  }
+
+  if (body.voice && typeof body.voice !== "string") {
+    return "Field 'voice', when provided, must be a string.";
+  }
+
+  return null;
+};
+
+const proxyWithTimeout = async (url, payload, expectedContentType) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   try {
-    const response = await fetch("http://ai_service:8000/ai/tts", {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(payload),
+      signal: controller.signal,
     });
 
-    if (!response.ok) throw new Error("TTS Failed");
+    if (!response.ok) {
+      throw new Error(`${url} responded with status ${response.status}`);
+    }
 
-    // Pipe audio buffer
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    
-    res.set("Content-Type", "audio/mpeg");
+
+    return { buffer, contentType: expectedContentType };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+// Proxy TTS endpoint
+app.post("/api/tts", async (req, res) => {
+  const validationError = validateMediaPayload(req.body);
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
+
+  try {
+    const { buffer, contentType } = await proxyWithTimeout(
+      "http://ai_service:8000/ai/tts",
+      req.body,
+      "audio/mpeg",
+    );
+
+    res.set("Content-Type", contentType);
     res.send(buffer);
   } catch (error) {
+    const status = error.name === "AbortError" ? 504 : 502;
     console.error("TTS Proxy Error:", error);
-    res.status(500).json({ error: "TTS Generation Failed" });
+    res.status(status).json({ error: "TTS Generation Failed" });
   }
 });
 
 // Proxy Video Endpoint
 app.post("/api/video", async (req, res) => {
+  const validationError = validateMediaPayload(req.body);
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
+
   try {
-    const response = await fetch("http://ai_service:8000/ai/video", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body),
-    });
+    const { buffer, contentType } = await proxyWithTimeout(
+      "http://ai_service:8000/ai/video",
+      req.body,
+      "video/mp4",
+    );
 
-    if (!response.ok) throw new Error("Video Gen Failed");
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    
-    res.set("Content-Type", "video/mp4");
+    res.set("Content-Type", contentType);
     res.send(buffer);
   } catch (error) {
+    const status = error.name === "AbortError" ? 504 : 502;
     console.error("Video Proxy Error:", error);
-    res.status(500).json({ error: "Video Generation Failed" });
+    res.status(status).json({ error: "Video Generation Failed" });
   }
 });
 
@@ -88,6 +134,50 @@ server.on('upgrade', (request, socket, head) => {
   }
 });
 
+const setupHeartbeatInterval = (clientWs, aiWs, messageQueue) => {
+  const heartbeat = { clientAlive: true, aiAlive: true };
+
+  const interval = setInterval(() => {
+    if (clientWs.readyState === WebSocket.OPEN) {
+      if (!heartbeat.clientAlive) {
+        console.warn('Client heartbeat missed - closing sockets.');
+        clientWs.terminate();
+        aiWs.terminate();
+        clearInterval(interval);
+        messageQueue.length = 0;
+        return;
+      }
+
+      heartbeat.clientAlive = false;
+      clientWs.ping();
+    }
+
+    if (aiWs.readyState === WebSocket.OPEN) {
+      if (!heartbeat.aiAlive) {
+        console.warn('AI heartbeat missed - closing sockets.');
+        aiWs.terminate();
+        clientWs.terminate();
+        clearInterval(interval);
+        messageQueue.length = 0;
+        return;
+      }
+
+      heartbeat.aiAlive = false;
+      aiWs.ping();
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+
+  clientWs.on('pong', () => {
+    heartbeat.clientAlive = true;
+  });
+
+  aiWs.on('pong', () => {
+    heartbeat.aiAlive = true;
+  });
+
+  return interval;
+};
+
 // --- Chat Proxy Logic ---
 wssChat.on('connection', (clientWs) => {
   console.log('Client connected to Chat WebSocket');
@@ -95,6 +185,8 @@ wssChat.on('connection', (clientWs) => {
   // Connect to the internal AI service
   const aiWs = new WebSocket('ws://ai_service:8000/ai/stream');
   const messageQueue = [];
+
+  const heartbeatInterval = setupHeartbeatInterval(clientWs, aiWs, messageQueue);
 
   aiWs.on('open', () => {
     console.log('Connected to AI Service (Chat)');
@@ -111,6 +203,9 @@ wssChat.on('connection', (clientWs) => {
     if (aiWs.readyState === WebSocket.OPEN) {
       aiWs.send(msgString);
     } else {
+      if (messageQueue.length >= MAX_QUEUE_LENGTH) {
+        messageQueue.shift();
+      }
       messageQueue.push(msgString);
     }
   });
@@ -122,15 +217,24 @@ wssChat.on('connection', (clientWs) => {
     }
   });
 
-  // Handle closures
-  clientWs.on('close', () => {
-    aiWs.close();
-  });
+  const cleanup = () => {
+    clearInterval(heartbeatInterval);
+    messageQueue.length = 0;
 
-  aiWs.on('close', () => {
-    clientWs.close();
-  });
-  
+    if (aiWs.readyState === WebSocket.OPEN || aiWs.readyState === WebSocket.CONNECTING) {
+      aiWs.close();
+    }
+
+    if (clientWs.readyState === WebSocket.OPEN || clientWs.readyState === WebSocket.CONNECTING) {
+      clientWs.close();
+    }
+  };
+
+  // Handle closures
+  clientWs.on('close', cleanup);
+
+  aiWs.on('close', cleanup);
+
   clientWs.on('error', (err) => console.error('Client Chat WS Error:', err));
   aiWs.on('error', (err) => console.error('AI Chat WS Error:', err));
 });
@@ -140,6 +244,7 @@ wssAvatar.on('connection', (clientWs) => {
   console.log('Client connected to Avatar WebSocket');
 
   const aiWs = new WebSocket('ws://ai_service:8000/ai/avatar_stream');
+  const heartbeatInterval = setupHeartbeatInterval(clientWs, aiWs, []);
 
   aiWs.on('open', () => {
     console.log('Connected to AI Service (Avatar)');
@@ -159,9 +264,21 @@ wssAvatar.on('connection', (clientWs) => {
     }
   });
 
-  clientWs.on('close', () => aiWs.close());
-  aiWs.on('close', () => clientWs.close());
-  
+  const cleanup = () => {
+    clearInterval(heartbeatInterval);
+
+    if (aiWs.readyState === WebSocket.OPEN || aiWs.readyState === WebSocket.CONNECTING) {
+      aiWs.close();
+    }
+
+    if (clientWs.readyState === WebSocket.OPEN || clientWs.readyState === WebSocket.CONNECTING) {
+      clientWs.close();
+    }
+  };
+
+  clientWs.on('close', cleanup);
+  aiWs.on('close', cleanup);
+
   clientWs.on('error', (err) => console.error('Client Avatar WS Error:', err));
   aiWs.on('error', (err) => console.error('AI Avatar WS Error:', err));
 });
@@ -169,7 +286,11 @@ wssAvatar.on('connection', (clientWs) => {
 // Pick port from environment (Docker injects PORT)
 const port = process.env.PORT || 5000;
 
-server.listen(port, () => {
-  console.log(`🚀 Backend server running inside Docker on port ${port}`);
-  console.log(`🔌 WebSocket proxy listening on /api/chat`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(port, () => {
+    console.log(`🚀 Backend server running inside Docker on port ${port}`);
+    console.log(`🔌 WebSocket proxy listening on /api/chat`);
+  });
+}
+
+export { app, server, wssChat, wssAvatar };
