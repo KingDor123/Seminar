@@ -9,6 +9,15 @@ import edge_tts
 import tempfile
 import os
 import uuid
+import logging
+
+# Configure Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 avatar_engine = AvatarEngine()
@@ -36,20 +45,23 @@ async def generate_video(request: TTSRequest):
     1. TTS -> Audio
     2. Wav2Lip -> Video
     """
+    logger.info(f"Received video generation request for text: {request.text[:50]}...")
     try:
         # 1. Generate Audio
         communicate = edge_tts.Communicate(request.text, request.voice)
         audio_filename = f"/tmp/{uuid.uuid4()}.mp3"
         await communicate.save(audio_filename)
+        logger.info(f"Audio generated at: {audio_filename}")
         
         # 2. Generate Video
         video_path = video_generator.generate_lip_sync(audio_filename)
+        logger.info(f"Video generated at: {video_path}")
         
         # Return Video
         return FileResponse(video_path, media_type="video/mp4", filename="response.mp4")
 
     except Exception as e:
-        print(f"Video Generation Error: {e}")
+        logger.error(f"Video Generation Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ai/tts")
@@ -64,6 +76,7 @@ async def generate_speech(request: TTSRequest):
         # Return audio file
         return FileResponse(filename, media_type="audio/mpeg", filename="speech.mp3")
     except Exception as e:
+        logger.error(f"TTS Generation Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ai/generate")
@@ -95,18 +108,19 @@ async def avatar_stream(websocket: WebSocket):
             except ValueError:
                 pass # Ignore non-float messages
     except WebSocketDisconnect:
-        print("Avatar Stream Client disconnected")
+        logger.info("Avatar Stream Client disconnected")
     except Exception as e:
-        print(f"Avatar Stream Error: {e}")
+        logger.error(f"Avatar Stream Error: {e}", exc_info=True)
 
 @app.websocket("/ai/stream")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    logger.info("Chat WebSocket connected")
     try:
         while True:
             # Wait for the user to send a prompt
             prompt = await websocket.receive_text()
-            print(f"Received prompt: {prompt}")
+            logger.info(f"Received prompt: {prompt}")
             
             # Stream response from Ollama
             stream = client.chat(
@@ -137,7 +151,8 @@ async def websocket_endpoint(websocket: WebSocket):
             # but for now we just wait for the next prompt.
             
     except WebSocketDisconnect:
-        print("Client disconnected")
+        logger.info("Client disconnected")
     except Exception as e:
+        logger.error(f"Chat WebSocket Error: {e}", exc_info=True)
         await websocket.send_text(f"Error: {str(e)}")
 
