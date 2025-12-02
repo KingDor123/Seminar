@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import LivingAvatar from "./LivingAvatar";
 
 // Augment window interface for SpeechRecognition
 declare global {
@@ -26,33 +28,53 @@ export default function ChatInterface() {
   const [language, setLanguage] = useState<"en-US" | "he-IL">("he-IL");
   const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[0].id);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  const [streamFrame, setStreamFrame] = useState<string>("");
   
   const wsRef = useRef<WebSocket | null>(null);
+  const wsAvatarRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const ttsBuffer = useRef("");
   const isSpeakingRef = useRef(false);
+  
+  // Audio Queue System
+  const audioQueue = useRef<string[]>([]);
+  const isPlayingAudio = useRef(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
 
-  const speak = (text: string) => {
+  const speak = async (text: string) => {
     if (!text.trim()) return;
-    // Cancel any current speech to avoid overlap if needed, 
-    // but for natural flow we might want to queue. 
-    // For now, let's just speak.
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language;
-    
-    utterance.onstart = () => {
-      isSpeakingRef.current = true;
-      setIsAiSpeaking(true);
-    };
-    utterance.onend = () => {
-      isSpeakingRef.current = false;
-      setIsAiSpeaking(false);
-    };
-    
-    window.speechSynthesis.speak(utterance);
+
+    setIsGeneratingVideo(true);
+    // Select Voice based on language
+    const voice = language === "he-IL" ? "he-IL-HilaNeural" : "en-US-AriaNeural";
+
+    try {
+        // Request VIDEO instead of audio
+        const res = await fetch("http://localhost:5001/api/video", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text, voice })
+        });
+
+        if (!res.ok) throw new Error("Video Gen Error");
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        
+        setVideoUrl(url);
+        setIsGeneratingVideo(false);
+        setIsAiSpeaking(true);
+
+    } catch (err) {
+        console.error("Video failed:", err);
+        setIsGeneratingVideo(false);
+    }
   };
+  
+  // ... (rest of code)
 
   const handleTTS = (chunk: string) => {
     ttsBuffer.current += chunk;
@@ -73,6 +95,9 @@ export default function ChatInterface() {
     };
 
     ws.onmessage = (event) => {
+      // strict mode safety: ensure this is the active socket
+      if (wsRef.current !== ws) return;
+
       const text = event.data;
       setIsThinking(false);
       
@@ -96,11 +121,17 @@ export default function ChatInterface() {
     ws.onerror = (err) => console.error("WebSocket Error:", err);
 
     return () => {
+      // Cleanup: prevent duplicate handling if unmount happens before close completes
+      ws.onmessage = null;
+      ws.onclose = null;
+      ws.onerror = null;
       ws.close();
+      
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
-      window.speechSynthesis.cancel();
+      // Note: We don't cancel speech here anymore to allow finishing the sentence,
+      // or we could use audioQueue.current = [] to stop immediately.
     };
   }, [language]);
 
@@ -216,17 +247,43 @@ export default function ChatInterface() {
       
       {/* Main AI View */}
       <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-        <div className={`text-center transition-transform duration-100 ${isAiSpeaking ? "scale-110" : "scale-100"}`}>
-          <div className="text-9xl mb-4 filter drop-shadow-2xl">
-            {isAiSpeaking ? "🗣️" : "🤖"}
-          </div>
-          <div className="text-2xl font-semibold text-white">AI Coach</div>
-           <div className="text-sm text-gray-400 mt-2">{SCENARIOS.find(s => s.id === selectedScenario)?.label}</div>
-        </div>
+        {videoUrl ? (
+            <video 
+                src={videoUrl} 
+                autoPlay 
+                className="w-full h-full object-cover"
+                onEnded={() => {
+                    setIsAiSpeaking(false);
+                    // setVideoUrl(null); // Keep last frame?
+                }}
+            />
+        ) : (
+            <div className={`flex flex-col items-center transition-transform duration-200 ${isAiSpeaking ? "scale-105" : "scale-100"}`}>
+                {/* Placeholder while loading or idle */}
+                <div className="relative w-80 h-80 mb-6 rounded-full overflow-hidden border-4 border-gray-700 shadow-xl">
+                    <Image 
+                        src="/avatar.png" 
+                        alt="AI Coach" 
+                        fill 
+                        className="object-cover"
+                    />
+                </div>
+                <div className="text-center z-10">
+                    <div className="text-3xl font-bold text-white drop-shadow-md">AI Coach</div>
+                    {isGeneratingVideo ? (
+                        <div className="text-green-400 animate-pulse mt-2 font-bold">Generating Video Response...</div>
+                    ) : (
+                        <div className="text-lg text-gray-300 mt-2 font-medium bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
+                        {SCENARIOS.find(s => s.id === selectedScenario)?.label}
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
       </div>
 
       {/* Chat Overlay (Captions) */}
-      <div className="absolute bottom-20 left-0 right-0 px-8 flex flex-col gap-2 pointer-events-none">
+      <div className="absolute bottom-20 left-0 right-0 px-8 flex flex-col gap-2 pointer-events-none z-50">
         {messages.slice(-2).map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] p-3 rounded-2xl backdrop-blur-md ${
