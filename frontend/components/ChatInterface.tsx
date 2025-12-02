@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import LivingAvatar from "./LivingAvatar";
 
 // Augment window interface for SpeechRecognition
 declare global {
@@ -28,21 +27,34 @@ export default function ChatInterface() {
   const [language, setLanguage] = useState<"en-US" | "he-IL">("he-IL");
   const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[0].id);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
-  const [streamFrame, setStreamFrame] = useState<string>("");
-  
+
   const wsRef = useRef<WebSocket | null>(null);
-  const wsAvatarRef = useRef<WebSocket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const ttsBuffer = useRef("");
-  const isSpeakingRef = useRef(false);
-  
-  // Audio Queue System
-  const audioQueue = useRef<string[]>([]);
-  const isPlayingAudio = useRef(false);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const hasSentScenarioRef = useRef(false);
+  const previousVideoUrlRef = useRef<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+
+  const apiBase = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
+
+  const resolveApiBase = () => {
+    if (apiBase) return apiBase;
+    if (typeof window !== "undefined") {
+      return window.location.origin;
+    }
+    return "";
+  };
+
+  const updateVideoUrl = (url: string | null) => {
+    if (previousVideoUrlRef.current && previousVideoUrlRef.current !== url) {
+      URL.revokeObjectURL(previousVideoUrlRef.current);
+    }
+    previousVideoUrlRef.current = url;
+    setVideoUrl(url);
+  };
 
   const speak = async (text: string) => {
     if (!text.trim()) return;
@@ -52,27 +64,33 @@ export default function ChatInterface() {
     const voice = language === "he-IL" ? "he-IL-HilaNeural" : "en-US-AriaNeural";
 
     try {
-        // Request VIDEO instead of audio
-        const res = await fetch("http://localhost:5001/api/video", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text, voice })
-        });
+      const base = resolveApiBase();
+      const res = await fetch(`${base}/api/video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voice })
+      });
 
-        if (!res.ok) throw new Error("Video Gen Error");
+      if (!res.ok) throw new Error("Video Gen Error");
 
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        
-        setVideoUrl(url);
-        setIsGeneratingVideo(false);
-        setIsAiSpeaking(true);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      updateVideoUrl(url);
+      setIsGeneratingVideo(false);
+      setIsAiSpeaking(true);
 
     } catch (err) {
-        console.error("Video failed:", err);
-        setIsGeneratingVideo(false);
+      console.error("Video failed:", err);
+      setIsGeneratingVideo(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      updateVideoUrl(null);
+    };
+  }, []);
   
   // ... (rest of code)
 
@@ -86,62 +104,110 @@ export default function ChatInterface() {
   };
 
   useEffect(() => {
-    // Connect to WebSocket Proxy
-    const ws = new WebSocket("ws://localhost:5001/api/chat");
-    wsRef.current = ws;
+    let retryAttempt = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let isUnmounted = false;
 
-    ws.onopen = () => {
-      console.log("Connected to Chat Server");
+    const connect = () => {
+      const base = resolveApiBase();
+      const wsUrl = `${base.replace(/^http/, "ws")}/api/chat`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log("Connected to Chat Server");
+        retryAttempt = 0;
+      };
+
+      ws.onmessage = (event) => {
+        // strict mode safety: ensure this is the active socket
+        if (wsRef.current !== ws) return;
+
+        const text = event.data;
+        setIsThinking(false);
+
+        // Handle TTS
+        handleTTS(text);
+
+        setMessages((prev) => {
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg && lastMsg.role === "ai") {
+            return [
+              ...prev.slice(0, -1),
+              { ...lastMsg, content: lastMsg.content + text },
+            ];
+          } else {
+            return [...prev, { role: "ai", content: text }];
+          }
+        });
+      };
+
+      ws.onclose = () => {
+        if (isUnmounted) return;
+        console.log("Chat Server Disconnected - retrying...");
+        const delay = Math.min(1000 * 2 ** retryAttempt, 10000);
+        reconnectTimer = setTimeout(connect, delay);
+        retryAttempt += 1;
+      };
+
+      ws.onerror = (err) => {
+        console.error("WebSocket Error:", err);
+        ws.close();
+      };
     };
 
-    ws.onmessage = (event) => {
-      // strict mode safety: ensure this is the active socket
-      if (wsRef.current !== ws) return;
-
-      const text = event.data;
-      setIsThinking(false);
-      
-      // Handle TTS
-      handleTTS(text);
-      
-      setMessages((prev) => {
-        const lastMsg = prev[prev.length - 1];
-        if (lastMsg && lastMsg.role === "ai") {
-          return [
-            ...prev.slice(0, -1),
-            { ...lastMsg, content: lastMsg.content + text },
-          ];
-        } else {
-          return [...prev, { role: "ai", content: text }];
-        }
-      });
-    };
-
-    ws.onclose = () => console.log("Chat Server Disconnected");
-    ws.onerror = (err) => console.error("WebSocket Error:", err);
+    connect();
 
     return () => {
-      // Cleanup: prevent duplicate handling if unmount happens before close completes
-      ws.onmessage = null;
-      ws.onclose = null;
-      ws.onerror = null;
-      ws.close();
-      
+      isUnmounted = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+
+      if (wsRef.current) {
+        wsRef.current.onmessage = null;
+        wsRef.current.onclose = null;
+        wsRef.current.onerror = null;
+        wsRef.current.close();
+      }
+
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
-      // Note: We don't cancel speech here anymore to allow finishing the sentence,
-      // or we could use audioQueue.current = [] to stop immediately.
     };
-  }, [language]);
+  }, [language, selectedScenario]);
 
   useEffect(() => {
+    const stopLocalStream = () => {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current = null;
+      }
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    };
+
     if (isInCall && videoRef.current) {
       navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(stream => {
           if (videoRef.current) videoRef.current.srcObject = stream;
+          localStreamRef.current = stream;
         })
         .catch(err => console.error("Camera Error:", err));
+    } else {
+      stopLocalStream();
+    }
+
+    return stopLocalStream;
+  }, [isInCall]);
+
+  useEffect(() => {
+    if (!isInCall) {
+      hasSentScenarioRef.current = false;
+      ttsBuffer.current = "";
+      updateVideoUrl(null);
+      setIsAiSpeaking(false);
+      setIsGeneratingVideo(false);
     }
   }, [isInCall]);
 
@@ -188,12 +254,19 @@ export default function ChatInterface() {
     const textToSend = textOverride || input;
     if (!textToSend.trim() || !wsRef.current) return;
 
+    const scenarioPrompt = SCENARIOS.find(s => s.id === selectedScenario)?.prompt;
+    const scenarioPrefix = hasSentScenarioRef.current || !scenarioPrompt
+      ? ""
+      : `Scenario: ${scenarioPrompt}\n`;
+
+    hasSentScenarioRef.current = true;
+
     // Add User Message
     setMessages((prev) => [...prev, { role: "user", content: textToSend }]);
     setIsThinking(true);
 
     // Send to Backend
-    wsRef.current.send(textToSend);
+    wsRef.current.send(`${scenarioPrefix}${textToSend}`);
     setInput("");
   };
 
@@ -248,13 +321,13 @@ export default function ChatInterface() {
       {/* Main AI View */}
       <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
         {videoUrl ? (
-            <video 
-                src={videoUrl} 
-                autoPlay 
+            <video
+                src={videoUrl}
+                autoPlay
                 className="w-full h-full object-cover"
                 onEnded={() => {
                     setIsAiSpeaking(false);
-                    // setVideoUrl(null); // Keep last frame?
+                    updateVideoUrl(null);
                 }}
             />
         ) : (

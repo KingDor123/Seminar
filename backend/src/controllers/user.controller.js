@@ -5,7 +5,10 @@ export class UserController {
     }
 
     async getUser(req, res){
-        const userId = req.params.id;
+        const userId = Number(req.params.id);
+        if (!Number.isInteger(userId) || userId <= 0) {
+            return res.status(400).json({ message: 'User id must be a positive integer' });
+        }
         try {
             const user = await this.userService.getUserById(userId);
             if(user){

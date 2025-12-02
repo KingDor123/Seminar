@@ -13,6 +13,18 @@ class Database {
       return Database.instance;
     }
 
+    if (process.env.NODE_ENV === 'test') {
+      this.pool = {
+        query: async () => {
+          throw new Error('Database access is disabled in test mode');
+        },
+        end: async () => {},
+      };
+
+      Database.instance = this;
+      return;
+    }
+
     this.pool = new Pool({
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
