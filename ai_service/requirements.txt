@@ -3,6 +3,7 @@ uvicorn
 ollama
 websockets
 torch
+torchvision
 numpy
 opencv-python-headless
 scipy
@@ -18,3 +19,5 @@ moviepy
 resampy
 rich
 typer
+soundfile
+numba

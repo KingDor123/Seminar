@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import Avatar3D from "./Avatar3D";
 
 // Augment window interface for SpeechRecognition
 declare global {
@@ -30,65 +31,79 @@ export default function ChatInterface() {
 
   const wsRef = useRef<WebSocket | null>(null);
   const recognitionRef = useRef<any>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const ttsBuffer = useRef("");
+  
+  // User Camera
+  const userVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+
+  // Audio / TTS
+  const ttsBuffer = useRef("");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+
   const hasSentScenarioRef = useRef(false);
-  const previousVideoUrlRef = useRef<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
 
   const apiBase = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 
   const resolveApiBase = () => {
     if (apiBase) return apiBase;
     if (typeof window !== "undefined") {
-      return window.location.origin;
+      // Direct connection to backend to avoid Next.js proxy timeout (30s)
+      return "http://localhost:5001";
     }
     return "";
   };
 
-  const updateVideoUrl = (url: string | null) => {
-    if (previousVideoUrlRef.current && previousVideoUrlRef.current !== url) {
-      URL.revokeObjectURL(previousVideoUrlRef.current);
+  const updateAudioUrl = (url: string | null) => {
+    if (audioUrl && audioUrl !== url) {
+      URL.revokeObjectURL(audioUrl);
     }
-    previousVideoUrlRef.current = url;
-    setVideoUrl(url);
+    setAudioUrl(url);
   };
 
   const speak = async (text: string) => {
     if (!text.trim()) return;
 
-    setIsGeneratingVideo(true);
+    setIsGeneratingAudio(true);
     // Select Voice based on language
     const voice = language === "he-IL" ? "he-IL-HilaNeural" : "en-US-AriaNeural";
 
     try {
       const base = resolveApiBase();
-      const res = await fetch(`${base}/api/video`, {
+      // CHANGED: Call /api/tts instead of /api/video
+      const res = await fetch(`${base}/api/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, voice })
       });
 
-      if (!res.ok) throw new Error("Video Gen Error");
+      if (!res.ok) throw new Error("TTS Gen Error");
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
 
-      updateVideoUrl(url);
-      setIsGeneratingVideo(false);
+      updateAudioUrl(url);
+      setIsGeneratingAudio(false);
       setIsAiSpeaking(true);
 
     } catch (err) {
-      console.error("Video failed:", err);
-      setIsGeneratingVideo(false);
+      console.error("TTS failed:", err);
+      setIsGeneratingAudio(false);
     }
   };
 
+  // Init Audio Element for Avatar3D
+  useEffect(() => {
+    if (audioRef.current) {
+      setAudioElement(audioRef.current);
+    }
+  }, [audioRef.current]);
+
   useEffect(() => {
     return () => {
-      updateVideoUrl(null);
+      updateAudioUrl(null);
     };
   }, []);
   
@@ -182,15 +197,15 @@ export default function ChatInterface() {
         localStreamRef.current = null;
       }
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
+      if (userVideoRef.current) {
+        userVideoRef.current.srcObject = null;
       }
     };
 
-    if (isInCall && videoRef.current) {
+    if (isInCall && userVideoRef.current) {
       navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(stream => {
-          if (videoRef.current) videoRef.current.srcObject = stream;
+          if (userVideoRef.current) userVideoRef.current.srcObject = stream;
           localStreamRef.current = stream;
         })
         .catch(err => console.error("Camera Error:", err));
@@ -205,9 +220,9 @@ export default function ChatInterface() {
     if (!isInCall) {
       hasSentScenarioRef.current = false;
       ttsBuffer.current = "";
-      updateVideoUrl(null);
+      updateAudioUrl(null);
       setIsAiSpeaking(false);
-      setIsGeneratingVideo(false);
+      setIsGeneratingAudio(false);
     }
   }, [isInCall]);
 
@@ -318,51 +333,41 @@ export default function ChatInterface() {
   return (
     <div className="relative h-[600px] w-full max-w-4xl border rounded-xl shadow-2xl bg-black overflow-hidden flex flex-col">
       
-      {/* Main AI View */}
+      {/* Main AI View - 3D Avatar */}
       <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-        {videoUrl ? (
-            <video
-                src={videoUrl}
-                autoPlay
-                className="w-full h-full object-cover"
-                onEnded={() => {
-                    setIsAiSpeaking(false);
-                    updateVideoUrl(null);
-                }}
-            />
-        ) : (
-            <div className={`flex flex-col items-center transition-transform duration-200 ${isAiSpeaking ? "scale-105" : "scale-100"}`}>
-                {/* Placeholder while loading or idle */}
-                <div className="relative w-80 h-80 mb-6 rounded-full overflow-hidden border-4 border-gray-700 shadow-xl">
-                    <Image 
-                        src="/avatar.png" 
-                        alt="AI Coach" 
-                        fill 
-                        className="object-cover"
-                    />
-                </div>
-                <div className="text-center z-10">
-                    <div className="text-3xl font-bold text-white drop-shadow-md">AI Coach</div>
-                    {isGeneratingVideo ? (
-                        <div className="text-green-400 animate-pulse mt-2 font-bold">Generating Video Response...</div>
-                    ) : (
-                        <div className="text-lg text-gray-300 mt-2 font-medium bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
-                        {SCENARIOS.find(s => s.id === selectedScenario)?.label}
-                        </div>
-                    )}
-                </div>
-            </div>
-        )}
+         <Avatar3D audioElement={audioElement} />
+         
+         {/* Hidden Audio Player */}
+         {audioUrl && (
+           <audio 
+             ref={audioRef}
+             src={audioUrl}
+             autoPlay
+             onEnded={() => setIsAiSpeaking(false)}
+             className="hidden"
+           />
+         )}
+
+         {/* Overlay Info */}
+         <div className="absolute top-4 left-4 z-10">
+             {isGeneratingAudio ? (
+                 <div className="text-green-400 animate-pulse font-bold bg-black/50 px-3 py-1 rounded-full">Generating Speech...</div>
+             ) : (
+                 <div className="text-lg text-gray-300 font-medium bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
+                 {SCENARIOS.find(s => s.id === selectedScenario)?.label}
+                 </div>
+             )}
+         </div>
       </div>
 
       {/* Chat Overlay (Captions) */}
-      <div className="absolute bottom-20 left-0 right-0 px-8 flex flex-col gap-2 pointer-events-none z-50">
+      <div className="absolute bottom-4 left-0 right-0 px-4 flex flex-col gap-2 pointer-events-none z-50">
         {messages.slice(-2).map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] p-3 rounded-2xl backdrop-blur-md ${
                     msg.role === 'user' 
-                    ? 'bg-blue-600/80 text-white' 
-                    : 'bg-gray-800/80 text-white'
+                    ? 'bg-blue-600/50 text-white' 
+                    : 'bg-gray-800/50 text-white'
                 } shadow-lg text-lg`} dir="auto">
                     {msg.content}
                 </div>
@@ -372,12 +377,12 @@ export default function ChatInterface() {
       </div>
 
       {/* User PIP (Picture in Picture) */}
-      <div className="absolute top-4 right-4 w-48 h-36 bg-gray-900 rounded-lg border-2 border-white/20 overflow-hidden shadow-xl">
-        <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
+      <div className="absolute top-4 right-4 w-48 h-36 bg-gray-900 rounded-lg border-2 border-white/20 overflow-hidden shadow-xl z-20">
+        <video ref={userVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
       </div>
 
       {/* Controls Bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/90 to-transparent flex items-center justify-center gap-6 pb-4">
+      <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/90 to-transparent flex items-center justify-center gap-6 pb-4 z-20">
         <button
           onClick={() => setIsInCall(false)}
           className="p-4 bg-red-600 rounded-full text-white hover:bg-red-700 shadow-lg transition"

@@ -9,7 +9,7 @@ dotenv.config();
 
 const app = express();
 
-const REQUEST_TIMEOUT_MS = 10000;
+const REQUEST_TIMEOUT_MS = 300000;
 const MAX_QUEUE_LENGTH = 50;
 const HEARTBEAT_INTERVAL_MS = 30000;
 
@@ -199,6 +199,7 @@ wssChat.on('connection', (clientWs) => {
 
   // Forward message from Client -> AI
   clientWs.on('message', (message) => {
+    console.log(`[ChatWS] Received message from client: ${message.toString().substring(0, 50)}...`);
     const msgString = message.toString();
     if (aiWs.readyState === WebSocket.OPEN) {
       aiWs.send(msgString);
@@ -252,6 +253,7 @@ wssAvatar.on('connection', (clientWs) => {
 
   clientWs.on('message', (message) => {
     // Client sends amplitude data -> AI Service
+    if (Math.random() < 0.05) console.log(`[AvatarWS] Received amplitude data (sampling 5%)`); // Log occasionally to avoid spam
     if (aiWs.readyState === WebSocket.OPEN) {
       aiWs.send(message.toString());
     }
