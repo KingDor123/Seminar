@@ -6,7 +6,7 @@ import { useGLTF, Environment, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
 // --- 1. The 3D Model Component (Preferred) ---
-function Model({ audioAnalyser, onError }: { audioAnalyser: AnalyserNode | null, onError: () => void }) {
+function Model({ audioAnalyser, onError, visemes, audioElement }: { audioAnalyser: AnalyserNode | null, onError: () => void, visemes?: any[], audioElement?: HTMLAudioElement | null }) {
   // Attempt to load the GLB. If it fails (404), catch error.
   const gltf = useGLTF("/Businesswoman_Avatar_1202205922_texture.glb", true) as any; 
   
@@ -33,27 +33,45 @@ function Model({ audioAnalyser, onError }: { audioAnalyser: AnalyserNode | null,
   }, [gltf.scene]);
 
   useFrame(() => {
-    if (!headMeshRef.current || !audioAnalyser || !headMeshRef.current.morphTargetInfluences || !headMeshRef.current.morphTargetDictionary) return;
+    if (!headMeshRef.current || !headMeshRef.current.morphTargetInfluences || !headMeshRef.current.morphTargetDictionary) return;
 
-    const dataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
-    audioAnalyser.getByteFrequencyData(dataArray);
+    let targetOpenness = 0;
 
-    let sum = 0;
-    const lowerBin = Math.floor(dataArray.length * 0.05);
-    const upperBin = Math.floor(dataArray.length * 0.25);
-    for (let i = lowerBin; i < upperBin; i++) sum += dataArray[i];
-    const average = sum / (upperBin - lowerBin);
-    const loudness = Math.min(1, (average / 255) * 2.5);
-    
+    // 1. Priority: Visemes (Timing-based Lip Sync)
+    if (visemes && audioElement && !audioElement.paused) {
+      const currentTime = audioElement.currentTime;
+      // Find if current time is within any word boundary
+      const activeWord = visemes.find(v => currentTime >= v.start && currentTime <= v.end);
+      
+      if (activeWord) {
+        // Create a "talking" modulation
+        // 0.3 base open + sine wave variation
+        targetOpenness = 0.3 + Math.sin(currentTime * 25) * 0.2; 
+      }
+    } 
+    // 2. Fallback: Audio Volume Analysis
+    else if (audioAnalyser) {
+        const dataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
+        audioAnalyser.getByteFrequencyData(dataArray);
+
+        let sum = 0;
+        const lowerBin = Math.floor(dataArray.length * 0.05);
+        const upperBin = Math.floor(dataArray.length * 0.25);
+        for (let i = lowerBin; i < upperBin; i++) sum += dataArray[i];
+        const average = sum / (upperBin - lowerBin);
+        targetOpenness = Math.min(1, (average / 255) * 2.5);
+    }
+
     const jawIdx = headMeshRef.current.morphTargetDictionary["jawOpen"] ?? headMeshRef.current.morphTargetDictionary["viseme_aa"];
     if (jawIdx !== undefined) {
       const current = headMeshRef.current.morphTargetInfluences[jawIdx];
-      headMeshRef.current.morphTargetInfluences[jawIdx] = THREE.MathUtils.lerp(current, loudness, 0.2);
+      // Smoothly interpolate to target
+      headMeshRef.current.morphTargetInfluences[jawIdx] = THREE.MathUtils.lerp(current, targetOpenness, 0.2);
     }
   });
 
   if (!gltf.scene) return null;
-  return <primitive object={gltf.scene} position={[0, -1.6, 0]} scale={1.0} />;
+  return <primitive object={gltf.scene} position={[0, -0.8, 0]} scale={1.0} />;
 }
 
 // --- 2. The 2.5D Fallback Component ---
@@ -91,7 +109,7 @@ function TwoDAvatar({ audioAnalyser }: { audioAnalyser: AnalyserNode | null }) {
 }
 
 // --- Wrapper to Handle Suspense & Errors ---
-function SceneContent({ audioAnalyser }: { audioAnalyser: AnalyserNode | null }) {
+function SceneContent({ audioAnalyser, visemes, audioElement }: { audioAnalyser: AnalyserNode | null, visemes?: any[], audioElement?: HTMLAudioElement | null }) {
     const [use3D, setUse3D] = useState(true);
 
     if (!use3D) {
@@ -99,8 +117,13 @@ function SceneContent({ audioAnalyser }: { audioAnalyser: AnalyserNode | null })
     }
 
     return (
-        <ErrorBoundary onFail={() => set3D(false)}>
-            <Model audioAnalyser={audioAnalyser} onError={() => setUse3D(false)} />
+        <ErrorBoundary onFail={() => setUse3D(false)}>
+            <Model 
+              audioAnalyser={audioAnalyser} 
+              onError={() => setUse3D(false)} 
+              visemes={visemes}
+              audioElement={audioElement}
+            />
         </ErrorBoundary>
     );
 }
@@ -124,25 +147,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode, onFail:
   }
 }
 
-export default function Avatar3D({ audioElement }: { audioElement: HTMLAudioElement | null }) {
-  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
-
-  useEffect(() => {
-    if (!audioElement) return;
-    try {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-        const ctx = new AudioContext();
-        const src = ctx.createMediaElementSource(audioElement);
-        const node = ctx.createAnalyser();
-        node.fftSize = 256;
-        src.connect(node);
-        node.connect(ctx.destination);
-        setAnalyser(node);
-        if (ctx.state === "suspended") ctx.resume();
-    } catch (e) {
-        console.error("Audio Context Error:", e);
-    }
-  }, [audioElement]);
+export default function Avatar3D({ audioElement, visemes, audioAnalyser }: { audioElement: HTMLAudioElement | null, visemes?: any[], audioAnalyser?: AnalyserNode | null }) {
+  // Internal analyser state removed; use prop instead.
 
   return (
     <div className="w-full h-full bg-gradient-to-b from-gray-900 to-gray-800">
@@ -151,8 +157,8 @@ export default function Avatar3D({ audioElement }: { audioElement: HTMLAudioElem
         <directionalLight position={[5, 5, 5]} intensity={1} />
         <Environment preset="city" />
 
-        <React.Suspense fallback={<TwoDAvatar audioAnalyser={analyser} />}>
-           <SceneContent audioAnalyser={analyser} />
+        <React.Suspense fallback={<TwoDAvatar audioAnalyser={audioAnalyser || null} />}>
+           <SceneContent audioAnalyser={audioAnalyser || null} visemes={visemes} audioElement={audioElement} />
         </React.Suspense>
 
         <OrbitControls enableZoom={false} enablePan={true} minPolarAngle={Math.PI / 2.2} maxPolarAngle={Math.PI / 1.8} />

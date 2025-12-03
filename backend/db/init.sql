@@ -16,6 +16,24 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- טבלת סשנים (שיחות)
+CREATE TABLE IF NOT EXISTS sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    scenario_id VARCHAR(50) NOT NULL,
+    start_time TIMESTAMP DEFAULT NOW(),
+    end_time TIMESTAMP
+);
+
+-- טבלת הודעות
+CREATE TABLE IF NOT EXISTS messages (
+    id SERIAL PRIMARY KEY,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+    role VARCHAR(10) NOT NULL CHECK (role IN ('user', 'ai', 'system')),
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- טריגר לעדכון updated_at אוטומטי
 CREATE OR REPLACE FUNCTION update_timestamp()
 RETURNS TRIGGER AS $$
@@ -38,5 +56,5 @@ VALUES ('Admin User', 'admin@example.com', 'hashed-password-here', 'admin')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO users (full_name, email, password_hash, role)
-VALUES (' User', 'user@example.com', 'hashed-password-here', 'user')
+VALUES ('Demo User', 'user@example.com', 'hashed-password-here', 'user')
 ON CONFLICT (email) DO NOTHING;
