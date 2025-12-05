@@ -1,15 +1,11 @@
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import ollama
-from avatar_engine import AvatarEngine
-from video_gen import video_generator
-import json
 import edge_tts
-import tempfile
-import os
 import uuid
 import logging
+import json
 
 # Configure Logging
 logging.basicConfig(
@@ -20,9 +16,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-avatar_engine = AvatarEngine()
-# Load the real avatar image
-avatar_engine.load_avatar("avatar.png")
 
 # Initialize the client to talk to the docker container 'ollama'
 client = ollama.Client(host='http://ollama:11434')
@@ -38,43 +31,34 @@ class TTSRequest(BaseModel):
 def ping():
     return {"status": "ai ok"}
 
-@app.post("/ai/video")
-async def generate_video(request: TTSRequest):
-    """
-    Generates a Lip-Synced Video from text.
-    1. TTS -> Audio
-    2. Wav2Lip -> Video
-    """
-    logger.info(f"Received video generation request for text: {request.text[:50]}...")
-    try:
-        # 1. Generate Audio
-        communicate = edge_tts.Communicate(request.text, request.voice)
-        audio_filename = f"/tmp/{uuid.uuid4()}.mp3"
-        await communicate.save(audio_filename)
-        logger.info(f"Audio generated at: {audio_filename}")
-        
-        # 2. Generate Video
-        video_path = video_generator.generate_lip_sync(audio_filename)
-        logger.info(f"Video generated at: {video_path}")
-        
-        # Return Video
-        return FileResponse(video_path, media_type="video/mp4", filename="response.mp4")
+import base64
 
-    except Exception as e:
-        logger.error(f"Video Generation Error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+# ... (imports)
 
 @app.post("/ai/tts")
 async def generate_speech(request: TTSRequest):
     try:
         communicate = edge_tts.Communicate(request.text, request.voice)
         
-        # Generate a unique filename
-        filename = f"/tmp/{uuid.uuid4()}.mp3"
-        await communicate.save(filename)
+        audio_data = b""
+        word_timings = []
+
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_data += chunk["data"]
+            elif chunk["type"] == "WordBoundary":
+                # chunk is dict: {"offset": 123, "duration": 456, "text": "hello"}
+                # offset and duration are in 100ns units (ticks)
+                # Convert to seconds: ticks / 10,000,000
+                word_timings.append({
+                    "start": chunk["offset"] / 1e7,
+                    "end": (chunk["offset"] + chunk["duration"]) / 1e7,
+                    "word": chunk["text"]
+                })
+
+        audio_base64 = base64.b64encode(audio_data).decode("utf-8")
         
-        # Return audio file
-        return FileResponse(filename, media_type="audio/mpeg", filename="speech.mp3")
+        return {"audio": audio_base64, "visemes": word_timings}
     except Exception as e:
         logger.error(f"TTS Generation Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -92,65 +76,52 @@ def generate_text(request: GenerateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.websocket("/ai/avatar_stream")
-async def avatar_stream(websocket: WebSocket):
-    await websocket.accept()
-    logger.info("Avatar Stream Client connected")
-    try:
-        while True:
-            # Expecting raw audio data as bytes
-            audio_chunk = await websocket.receive_bytes()
-            if audio_chunk:
-                # Process audio chunk for lip-sync
-                frame_base64 = avatar_engine.process_audio_chunk_for_lip_sync(audio_chunk)
-                if frame_base64:
-                    await websocket.send_text(frame_base64)
-    except WebSocketDisconnect:
-        logger.info("Avatar Stream Client disconnected")
-    except Exception as e:
-        logger.error(f"Avatar Stream Error: {e}", exc_info=True)
-
 @app.websocket("/ai/stream")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("Chat WebSocket connected")
     try:
         while True:
-            # Wait for the user to send a prompt
-            prompt = await websocket.receive_text()
-            logger.info(f"Received prompt: {prompt}")
+            # Wait for the user to send a JSON payload
+            data_text = await websocket.receive_text()
             
-            # Stream response from Ollama
-            stream = client.chat(
-                model='llama3',
-                messages=[
-                    {
-                        'role': 'system',
-                        'content': (
-                            "You are a roleplay partner designed to help people practice social skills. "
-                            "You are simulating a realistic human interaction. "
-                            "1. Stay in character at all times. "
-                            "2. Reply in the SAME language the user speaks (English, Hebrew, etc.). "
-                            "3. Keep your responses concise (1-3 sentences) like a real conversation. "
-                            "4. Do not act like an AI assistant. Act like the person in the scenario."
-                        ),
-                    },
-                    {'role': 'user', 'content': prompt}
-                ],
-                stream=True,
-            )
+            try:
+                data = json.loads(data_text)
+                system_prompt = data.get("system_prompt", "You are a helpful assistant.")
+                history = data.get("history", []) # List of {role, content}
+                
+                # Construct messages for Ollama
+                messages = [{'role': 'system', 'content': system_prompt}]
+                messages.extend(history)
+                
+                logger.info(f"Received request with history length: {len(history)}")
 
-            for chunk in stream:
-                content = chunk['message']['content']
-                if content:
-                    await websocket.send_text(content)
-            
-            # Optional: Send a special token or message to indicate done, 
-            # but for now we just wait for the next prompt.
+                # Stream response from Ollama
+                stream = client.chat(
+                    model='llama3',
+                    messages=messages,
+                    stream=True,
+                )
+
+                for chunk in stream:
+                    content = chunk['message']['content']
+                    if content:
+                        await websocket.send_text(content)
+
+            except json.JSONDecodeError:
+                # Fallback for legacy plain text prompts (if any)
+                logger.warning("Received non-JSON prompt, falling back to simple chat.")
+                stream = client.chat(
+                    model='llama3',
+                    messages=[{'role': 'user', 'content': data_text}],
+                    stream=True,
+                )
+                for chunk in stream:
+                    if chunk['message']['content']:
+                        await websocket.send_text(chunk['message']['content'])
             
     except WebSocketDisconnect:
         logger.info("Client disconnected")
     except Exception as e:
         logger.error(f"Chat WebSocket Error: {e}", exc_info=True)
         await websocket.send_text(f"Error: {str(e)}")
-
