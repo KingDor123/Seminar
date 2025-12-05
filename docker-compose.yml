@@ -36,7 +36,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ai_model_cache:/app/LivePortrait/pretrained_weights
+      - huggingface_cache:/root/.cache/huggingface
     networks:
       - web
 
@@ -48,7 +48,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     # Run server in background, pull model, then wait for server
-    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5 && ollama pull llama3 && wait"]
+    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5 && ollama pull llama3.2 && wait"]
     networks:
       - web
 
@@ -68,7 +68,7 @@ services:
 volumes:
   db_data:
   ollama_data:
-  ai_model_cache:
+  huggingface_cache:
 
 networks:
   web:

@@ -2,22 +2,16 @@ fastapi
 uvicorn
 ollama
 websockets
-torch
-torchvision
 numpy
-opencv-python-headless
-scipy
-imageio
 edge-tts
 aiofiles
-librosa
-ffmpeg-python
-onnxruntime
-pyyaml
-tqdm
-moviepy
-resampy
-rich
-typer
+faster-whisper
+python-multipart
+# For audio processing if needed
+scipy
 soundfile
-numba
+
+# Testing
+pytest
+pytest-asyncio
+httpx
