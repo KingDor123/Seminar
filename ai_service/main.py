@@ -23,6 +23,6 @@ def health_check():
         "status": "ok",
         "config": {
             "whisper": settings.WHISPER_MODEL_SIZE,
-            "llm": settings.OLLAMA_MODEL
+            "llm_host": settings.OLLAMA_HOST
         }
     }
