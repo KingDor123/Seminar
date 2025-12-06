@@ -128,10 +128,13 @@ export const useChatWebSocket = ({
         const scenario = SCENARIOS.find(s => s.id === selectedScenario);
         const systemPrompt = scenario?.prompt || "You are a helpful assistant.";
         
-        // We send a "system" injection disguised as a user prompt to trigger the greeting, 
-        // or just the history (which is empty) and let the system prompt dictate "Start now".
-        // Llama 3 often needs a user prompt to start.
-        const triggerMessage = { role: "user", content: "(The user has entered. Please greet them professionally according to your role.)" } as ChatMessage;
+        let triggerContent = "(The user has entered. Please greet them professionally according to your role.)";
+        
+        if (selectedScenario === "bank") {
+             triggerContent = "(User joins the video call)";
+        }
+
+        const triggerMessage = { role: "user", content: triggerContent } as ChatMessage;
         
         onThinkingStateChange(true);
         sendPayload(systemPrompt, [triggerMessage]);

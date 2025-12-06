@@ -19,8 +19,8 @@ def main():
         f"--train "
         f"--data {DATA_PATH} "
         f"--iters 600 " # Increased iterations for better learning
-        f"--batch-size 4 "
-        f"--num-layers 16 " # Train more layers for better adaptation
+        f"--batch-size 1 " # Reduced from 4 to 1 to save memory
+        f"--num-layers 8 " # Reduced from 16 to 8 to save memory
         f"--adapter-path {ADAPTER_PATH} "
         f"--learning-rate 1e-4"
     )

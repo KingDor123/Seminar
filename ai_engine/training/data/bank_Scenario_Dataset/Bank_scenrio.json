@@ -1,0 +1,741 @@
+
+{"stage":1,"speaker":"Dana","message":"Hello, my name is Dana and I’m your banking representative. I see you're interested in a loan. How can I help you today?","expected_user_behavior":"User acknowledges interest in a loan.","examples_ok":["Yes, I want to take a loan.","I’d like to learn more about the loan process."],"examples_bad":["How's the weather?","Do you like cats?"],"redirect_message":"That’s interesting, but let's stay focused on your loan so I can help you properly."}
+
+{"stage":1,"speaker":"Dana","message":"Hi, this is Dana from the bank. I noticed you requested information about a loan. What would you like to know?","expected_user_behavior":"User confirms they want loan info.","examples_ok":["Yes, I’m looking for a loan.","I want to understand the options."],"examples_bad":["Are you real?","I'm hungry."],"redirect_message":"We can talk about that later. First, let's go over your loan so I can guide you."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! Dana here. I saw you started a loan request. How can I support you today?","expected_user_behavior":"User responds about the loan.","examples_ok":["I need a loan.","I want to understand how loans work."],"examples_bad":["Is my camera working?","Do you have filters?"],"redirect_message":"Your camera looks good. Let’s focus on the loan so we can move forward."}
+
+{"stage":1,"speaker":"Dana","message":"Nice to meet you! I'm Dana, your loan advisor for today. I understand you're considering a loan.","expected_user_behavior":"User confirms interest.","examples_ok":["Yes, I need a loan.","I’m not sure how it works."],"examples_bad":["What day is it?","Where is your branch located?"],"redirect_message":"Good questions, but first let’s handle your loan request so we can continue smoothly."}
+
+{"stage":1,"speaker":"Dana","message":"Welcome to the video call! I’m Dana. I see that you're interested in a loan. Where would you like to start?","expected_user_behavior":"User mentions a loan-related topic.","examples_ok":["How much can I borrow?","What are the steps?"],"examples_bad":["Can you hear me?","Why is my screen blue?"],"redirect_message":"I hear and see you well. Now let's go over your loan so we can help you properly."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! Dana here from your bank. What would you like to understand about the loan you inquired about?","expected_user_behavior":"User expresses loan-related interest.","examples_ok":["I want to know the loan terms.","I need a specific amount."],"examples_bad":["Look at my shirt!","I like your background."],"redirect_message":"That’s nice, but let’s stay focused on your loan for now."}
+
+{"stage":1,"speaker":"Dana","message":"Hello, I’m Dana, your banking representative. I saw your interest in a loan. How can I help you today?","expected_user_behavior":"User acknowledges loan topic.","examples_ok":["I need money for something.","I want loan details."],"examples_bad":["Do you play games?","What's your Instagram?"],"redirect_message":"We can talk about that later. Let's start with your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hi, Dana speaking. I noticed you started a loan process. What step would you like to take first?","expected_user_behavior":"User selects a loan-related topic.","examples_ok":["I want to understand the process.","What documents do I need?"],"examples_bad":["Where are you located?","Why is the light weird?"],"redirect_message":"Good observation, but first let's discuss your loan so we can proceed."}
+
+{"stage":1,"speaker":"Dana","message":"Hey! This is Dana. How can I help you with the loan you're checking?","expected_user_behavior":"User asks about loan.","examples_ok":["What are the terms?","How long does approval take?"],"examples_bad":["My camera is tilted.","Do you like pizza?"],"redirect_message":"We’ll figure that out later. Let’s focus on your loan request."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! Dana here. You're here for the loan, right? How can I help you get started?","expected_user_behavior":"User confirms purpose.","examples_ok":["Yes, I need a loan.","I want to understand how it works."],"examples_bad":["What's your favorite color?","You look familiar."],"redirect_message":"Let’s return to your loan—I'll help with everything step by step."}
+
+{"stage":1,"speaker":"Dana","message":"Hi there, I’m Dana. I’m here to help you with anything related to your loan request. What would you like to know first?","expected_user_behavior":"Loan-related question.","examples_ok":["How much interest will I pay?","What’s the maximum amount?"],"examples_bad":["Are you wearing glasses?","Do you like chocolate?"],"redirect_message":"Nice question, but let’s stay focused on the loan so I can support you properly."}
+
+{"stage":1,"speaker":"Dana","message":"Great to meet you! I'm Dana. You scheduled this call to discuss a loan, right?","expected_user_behavior":"User acknowledges the purpose.","examples_ok":["Yes, exactly.","Correct, I need a loan."],"examples_bad":["Not sure.","Why does it matter?"],"redirect_message":"It matters so I can help you correctly. Let’s continue with your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hey! Dana here. I saw you're looking into a loan. What’s the first thing you'd like to understand?","expected_user_behavior":"User asks loan-related question.","examples_ok":["Tell me about loan amounts.","How does repayment work?"],"examples_bad":["Do you like cats?","I'm bored."],"redirect_message":"I get that, but let’s focus on the loan so we make progress."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! I’m Dana, your personal loan advisor for today. What would you like help with regarding your loan?","expected_user_behavior":"User mentions loan topic.","examples_ok":["I need money for something.","I need guidance."],"examples_bad":["Look at my room.","Is my hair okay?"],"redirect_message":"Looks fine! Now let’s talk about your loan so we can move forward."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! Dana here. Before we begin, just confirming—you’re here to talk about a loan, right?","expected_user_behavior":"User says yes.","examples_ok":["Yes.","Right, that’s why I’m here."],"examples_bad":["I don't know.","Who are you?"],"redirect_message":"No problem—I'm here to help. Let’s focus on your loan together."}
+
+{"stage":1,"speaker":"Dana","message":"Hello again! I’m Dana. What part of the loan process would you like to start with?","expected_user_behavior":"User picks a topic.","examples_ok":["Interest rate.","Loan amount."],"examples_bad":["My screen is blurry.","I feel weird."],"redirect_message":"It’s okay. Let’s focus on your loan step by step."}
+
+{"stage":1,"speaker":"Dana","message":"Welcome! I'm Dana, and I'll guide you through your loan request. What’s your first question?","expected_user_behavior":"Loan-related question.","examples_ok":["What documents do I need?","How long does approval take?"],"examples_bad":["Do you like movies?","Is my mic on?"],"redirect_message":"Your mic is fine! Now let’s continue with your loan request."}
+
+{"stage":1,"speaker":"Dana","message":"Hi there, Dana speaking. Let’s begin your loan discussion. What would you like to know?","expected_user_behavior":"User asks loan question.","examples_ok":["Loan terms.","Monthly payments."],"examples_bad":["What do you eat?","How old are you?"],"redirect_message":"We’ll stay focused on your loan so I can help you properly."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! I’m Dana. How can I support you today regarding your loan?","expected_user_behavior":"User expresses interest.","examples_ok":["I want loan details.","I want to borrow money."],"examples_bad":["Why is my background purple?","Can you see my cat?"],"redirect_message":"Yes, I see everything clearly. Let’s stay focused on your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! I see you're checking loan options. What is your main question to start with?","expected_user_behavior":"Loan-related question.","examples_ok":["How much can I get?","What are the interest rates?"],"examples_bad":["Do you like music?","Why does my face look weird?"],"redirect_message":"No worries—your video is fine. Now let’s talk about your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Welcome! Dana here. Before we continue, what interests you most about the loan process?","expected_user_behavior":"User selects topic.","examples_ok":["Eligibility.","Monthly repayment."],"examples_bad":["The lighting in my room.","My internet seems slow"],"redirect_message":"We’ll solve that later. Let's talk about your loan now."}
+
+{"stage":1,"speaker":"Dana","message":"Hi, Dana here. You’re here for loan assistance, right? How can I help?","expected_user_behavior":"User agrees or asks loan question.","examples_ok":["Yes, I need help.","Tell me how loans work."],"examples_bad":["I’m bored.","What are you wearing?"],"redirect_message":"Let’s stay focused on the loan so I can properly assist you."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! What would you like to achieve today regarding your loan request?","expected_user_behavior":"Loan goal.","examples_ok":["I want to borrow money.","I want to understand the terms."],"examples_bad":["Can you hear me now?","Is my camera too dark?"],"redirect_message":"We’ll handle the camera later—let’s continue with your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! I’m Dana. How can I help you start your loan process today?","expected_user_behavior":"User responds with a loan-related need.","examples_ok":["I need a loan for something.","I want guidance."],"examples_bad":["Look at this funny thing.","My chair is squeaky."],"redirect_message":"That’s fine—now let’s return to your loan so we can proceed."}
+{"stage":1,"speaker":"Dana","message":"Hello again, this is Dana. Let's begin your loan consultation. What would you like to discuss first?","expected_user_behavior":"User provides a loan-related topic.","examples_ok":["Loan amount.","Interest."],"examples_bad":["Why is my face shiny?","Do you like dogs?"],"redirect_message":"We’ll talk about that later. For now, let's focus on your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! Dana here. What’s the main thing you’d like to understand about your loan?","expected_user_behavior":"Loan-related question or confirmation.","examples_ok":["How much can I take?","What are the requirements?"],"examples_bad":["Why is my camera lagging?","How tall are you?"],"redirect_message":"Your camera looks fine. Let’s continue with your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Welcome! I’m Dana, your banking advisor. What brings you here regarding your loan today?","expected_user_behavior":"User confirms loan purpose.","examples_ok":["I need a loan.","I want details."],"examples_bad":["I’m tired.","My room is messy."],"redirect_message":"That’s okay. Let’s stay focused on your loan so I can assist you."}
+
+{"stage":1,"speaker":"Dana","message":"Hi, this is Dana. How can I help guide you through your loan request today?","expected_user_behavior":"User states a need.","examples_ok":["I want to borrow money.","I need to understand the rules."],"examples_bad":["Do you like coffee?","Can you hear the noise outside?"],"redirect_message":"No worries—let’s return to your loan request."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! I’m Dana. What’s the first thing you’d like to understand regarding the loan?","expected_user_behavior":"User asks about the loan.","examples_ok":["Loan steps.","Interest rates."],"examples_bad":["Is my microphone loud?","Do you like sports?"],"redirect_message":"Your mic is fine. Let's continue with your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! Dana speaking. What information do you need about your loan request?","expected_user_behavior":"Loan-related question.","examples_ok":["How long is repayment?","What documents do I need?"],"examples_bad":["Want to see my cat?","Does my hair look weird?"],"redirect_message":"Everything looks fine. Let’s stay focused on your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hello, I'm Dana. Before we begin, just checking — you're here to talk about your loan, right?","expected_user_behavior":"User says yes.","examples_ok":["Yes.","Correct."],"examples_bad":["Not sure.","Why do you ask?"],"redirect_message":"I ask so I can help you properly. Let’s continue with your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hi there! Dana here. What would you like to understand first about the loan process?","expected_user_behavior":"User chooses a topic.","examples_ok":["Loan amount.","Loan terms."],"examples_bad":["Is my voice echoing?","I’m bored."],"redirect_message":"It's okay. Let’s focus on the loan so we can make progress."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! I’m Dana. What’s the first detail about your loan that you’d like me to explain?","expected_user_behavior":"Loan-related detail.","examples_ok":["Interest.","Monthly payments."],"examples_bad":["Do you like pizza?","My screen froze?"],"redirect_message":"Everything is fine. Let’s keep going with your loan discussion."}
+
+{"stage":1,"speaker":"Dana","message":"Hi, Dana here. How can I best support you with your loan today?","expected_user_behavior":"User expresses a need.","examples_ok":["I want a loan.","I don’t know how it works."],"examples_bad":["Is my lighting okay?","Do you hear me breathing?"],"redirect_message":"Your setup is good. Let’s return to your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! Dana speaking. You're here about a loan, correct? How can I help?","expected_user_behavior":"User confirms loan topic.","examples_ok":["Yes.","That’s right."],"examples_bad":["Maybe.","I forgot why I'm here."],"redirect_message":"That's okay — you're here about a loan. Let’s continue."}
+
+{"stage":1,"speaker":"Dana","message":"Welcome! I’m Dana. What would you like to talk about first regarding your loan?","expected_user_behavior":"User asks a loan question.","examples_ok":["Loan steps.","Eligibility."],"examples_bad":["Is this live?","What city are you in?"],"redirect_message":"This is a live call — now let's focus on your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! Dana here. What’s your main concern or question about taking a loan?","expected_user_behavior":"Loan-related concern.","examples_ok":["Interest rate.","Repayment time."],"examples_bad":["My face looks weird.","Is my audio loud?"],"redirect_message":"Everything looks fine. Let’s continue with your loan conversation."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! I’m Dana. What do you want to better understand about the loan you’re applying for?","expected_user_behavior":"User asks about the loan.","examples_ok":["How much can I get?","What are fees?"],"examples_bad":["What’s your favorite movie?","Do you like dogs?"],"redirect_message":"Great question — but let’s return to your loan so I can help you."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! Dana here. Let’s get started. What’s your first question about the loan?","expected_user_behavior":"Loan question.","examples_ok":["How much money can I take?","How long is the approval?"],"examples_bad":["My chair is squeaky.","Do you see my shirt?"],"redirect_message":"Everything looks fine. Let’s stay on the loan so we can move forward."}
+
+{"stage":1,"speaker":"Dana","message":"Hello and welcome! I’m Dana. What would you like to know about your loan?","expected_user_behavior":"User expresses need.","examples_ok":["I need money.","Tell me the steps."],"examples_bad":["This is boring.","What’s behind you?"],"redirect_message":"We’ll keep it simple. Let’s continue with your loan request."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! It’s Dana. Before we continue — what part of the loan process interests you most?","expected_user_behavior":"Pick a topic.","examples_ok":["Interest.","Amount."],"examples_bad":["Why is the light weird?","My hair is messy."],"redirect_message":"Looks okay — let’s stay focused on your loan."}
+
+{"stage":1,"speaker":"Dana","message":"Hello again! I’m Dana. Tell me, what are you hoping to achieve with this loan?","expected_user_behavior":"State purpose.","examples_ok":["I need money for something.","I want to finance something."],"examples_bad":["I feel awkward.","I’m nervous."],"redirect_message":"It’s totally okay. Let’s continue with your loan step by step."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! Dana here. What is the main thing you’d like me to help you understand about your loan?","expected_user_behavior":"Ask a loan question.","examples_ok":["Eligibility.","Terms."],"examples_bad":["Do you smoke?","Are you married?"],"redirect_message":"Let’s keep focused on your loan so I can help effectively."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! I’m Dana. What would you like to clarify about your loan today?","expected_user_behavior":"Clarification request.","examples_ok":["How interest works.","Repayment timeline."],"examples_bad":["Do you like cake?","Can you hear my TV?"],"redirect_message":"Everything is fine. Let’s continue with the loan information."}
+
+{"stage":1,"speaker":"Dana","message":"Hi there! Dana speaking. What part of the loan would you like to discuss first?","expected_user_behavior":"Topic selection.","examples_ok":["Amount.","Requirements."],"examples_bad":["Is my mic broken?","Do you see my dog?"],"redirect_message":"All good — let's focus on your loan now."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! I'm Dana. Before diving in, do you want to understand the loan amount, the interest rate, or something else first?","expected_user_behavior":"User chooses loan subtopic.","examples_ok":["Loan amount.","Interest."],"examples_bad":["Why is my face red?","I’m confused."],"redirect_message":"It’s okay — let’s focus on your loan step by step."}
+
+{"stage":1,"speaker":"Dana","message":"Welcome! Dana here. What’s the first thing you'd like me to explain about the loan?","expected_user_behavior":"Loan question.","examples_ok":["Fees.","Requirements."],"examples_bad":["My chair is squeaking.","Do you like cats?"],"redirect_message":"We’ll get to that later — let’s talk about your loan first."}
+
+{"stage":1,"speaker":"Dana","message":"Hi! I’m Dana. How can I help you get started with your loan today?","expected_user_behavior":"Loan need.","examples_ok":["I need information.","I want to borrow money."],"examples_bad":["Look at this object.","Why is my camera green?"],"redirect_message":"Your video is fine. Let's continue with your loan request."}
+
+{"stage":1,"speaker":"Dana","message":"Hello! I’m Dana, your loan specialist. What would you like to begin with today?","expected_user_behavior":"State loan interest.","examples_ok":["Tell me the steps.","How much can I borrow?"],"examples_bad":["Is this a real call?","Do you have pets?"],"redirect_message":"Yes, real call — now let’s focus on your loan."}
+{"stage":2,"speaker":"Dana","message":"Great. To guide you properly, could you tell me what loan amount you're thinking about?","expected_user_behavior":"User provides a loan amount or a rough estimate.","examples_ok":["I'm thinking about 20,000.","Maybe around 10k."],"examples_bad":["Do you like music?","My screen looks weird."],"redirect_message":"Your screen is fine. Let's stay focused on the loan amount so I can help you."}
+
+{"stage":2,"speaker":"Dana","message":"To continue, I need to know what amount you want to borrow. What’s your estimate?","expected_user_behavior":"User gives a number.","examples_ok":["25,000.","About 5,000."],"examples_bad":["I'm tired.","You sound nice."],"redirect_message":"Thank you, but let’s focus on the amount you want to borrow."}
+
+{"stage":2,"speaker":"Dana","message":"Before we move forward, what loan amount do you think you need?","expected_user_behavior":"User states amount.","examples_ok":["Maybe 15,000.","Around 30k."],"examples_bad":["My camera is blurry.","I feel awkward."],"redirect_message":"That's totally okay. Let’s focus on the amount you need so I can help you properly."}
+
+{"stage":2,"speaker":"Dana","message":"To check eligibility, I need to understand the loan amount you're aiming for. How much do you need?","expected_user_behavior":"User states amount.","examples_ok":["10,000.","Somewhere between 20 and 25k."],"examples_bad":["My room is messy.","Do you hear an echo?"],"redirect_message":"I can hear you well. Let’s continue with the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"Could you tell me roughly how much money you want to borrow?","expected_user_behavior":"Number or range.","examples_ok":["5,000.","40,000."],"examples_bad":["I like pizza.","My lighting is strange."],"redirect_message":"Lighting looks fine. Let's continue with the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"To build a simulation for you, I need the loan amount you're considering. What is it?","expected_user_behavior":"User gives an amount.","examples_ok":["Maybe 12k.","Around 18,000."],"examples_bad":["I’m hungry.","Do you like dogs?"],"redirect_message":"We can chat later—but right now let’s focus on the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"Great. What loan amount would help you reach your goal?","expected_user_behavior":"Amount request.","examples_ok":["20k.","7,000."],"examples_bad":["Why is my screen green?","Can you see my chair?"],"redirect_message":"Everything is fine. Let’s stay on the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"Before we go deeper, could you tell me what amount you want to borrow?","expected_user_behavior":"User states amount.","examples_ok":["15,000.","About 50,000."],"examples_bad":["I'm bored.","This feels strange."],"redirect_message":"I understand. Let's take it step-by-step, starting with the loan amount you need."}
+
+{"stage":2,"speaker":"Dana","message":"Alright — what amount are you considering for your loan?","expected_user_behavior":"Amount.","examples_ok":["10k.","25,000."],"examples_bad":["Look at this!","My mic is weird."],"redirect_message":"Your mic is fine. Let's get back to the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"To help you properly, I need to know the loan amount. What are you thinking of?","expected_user_behavior":"User gives numeric info.","examples_ok":["30k.","Something around 8,000."],"examples_bad":["I'm anxious.","This is confusing."],"redirect_message":"It's okay to feel that way. Let's start simple: what amount do you need?"}
+
+{"stage":2,"speaker":"Dana","message":"Could you tell me how much money you'd like to borrow?","expected_user_behavior":"Amount or estimate.","examples_ok":["40,000.","5,000."],"examples_bad":["The cat walked across my keyboard.","Do you like chocolate milk?"],"redirect_message":"That happens! Now let's return to your loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"Great. What is the approximate loan amount you’re aiming for?","expected_user_behavior":"Numeric response.","examples_ok":["Around 20k.","Something like 12k."],"examples_bad":["This call is funny.","I can't stop laughing."],"redirect_message":"No worries. Let's stay focused on your loan amount so we can proceed."}
+
+{"stage":2,"speaker":"Dana","message":"To continue evaluating your request, I need the loan amount. What do you have in mind?","expected_user_behavior":"Amount.","examples_ok":["15k.","Somewhere between 5k and 10k."],"examples_bad":["I need water.","I feel weird talking online."],"redirect_message":"I understand. Let’s continue gently — what loan amount do you need?"}
+
+{"stage":2,"speaker":"Dana","message":"What loan amount would be helpful for your situation?","expected_user_behavior":"Numeric response.","examples_ok":["10,000.","25,000."],"examples_bad":["Do you hear my fan?","Why is my nose shiny?"],"redirect_message":"Everything looks fine — let's focus on the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"Let’s talk numbers. How much money do you want to borrow?","expected_user_behavior":"Amount.","examples_ok":["20k.","30k."],"examples_bad":["My headphone hurts.","I want to sleep."],"redirect_message":"We can slow down. First, what amount do you need?"}
+
+{"stage":2,"speaker":"Dana","message":"Could you share what loan amount you're currently considering?","expected_user_behavior":"User states number.","examples_ok":["7,000.","18,000."],"examples_bad":["My shirt is uncomfortable.","I'm cold."],"redirect_message":"Understood. Let’s return to the loan amount so we can continue."}
+
+{"stage":2,"speaker":"Dana","message":"To make sure I explain things correctly, what amount would you like to borrow?","expected_user_behavior":"Numeric.","examples_ok":["50k.","8,000."],"examples_bad":["Do you hear my neighbor?","My screen froze for a second."],"redirect_message":"That happens sometimes. Let's stay focused on your loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"What amount of money do you think you'll need?","expected_user_behavior":"Amount.","examples_ok":["10,000.","Something around 15,000."],"examples_bad":["I don’t know if I like this.","My voice sounds strange."],"redirect_message":"That's okay. Let's start with the amount you think you need."}
+
+{"stage":2,"speaker":"Dana","message":"Before I show you loan options, I need to know how much you want to borrow. What’s the amount?","expected_user_behavior":"Number.","examples_ok":["5,000.","22,000."],"examples_bad":["I’m confused.","This is awkward."],"redirect_message":"I get it. We'll go step by step. What amount do you need?"}
+
+{"stage":2,"speaker":"Dana","message":"What’s your target loan amount? Even an estimate is perfectly fine.","expected_user_behavior":"Estimate.","examples_ok":["Around 12k.","Maybe 30 thousand."],"examples_bad":["Do I look okay?","My hair is messy."],"redirect_message":"You look fine. Now let’s talk about your loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"Could you give me a rough idea of how much you want to borrow?","expected_user_behavior":"Estimate or number.","examples_ok":["10k.","50k."],"examples_bad":["I feel silly.","This is strange."],"redirect_message":"It's normal to feel that way. Let's return to the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"For your financial plan, how much money do you think you'll need?","expected_user_behavior":"Amount.","examples_ok":["20k.","8,000."],"examples_bad":["I just saw a bird.","Look at my window."],"redirect_message":"Interesting! For now, let's continue with your loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"What size loan are you hoping to take?","expected_user_behavior":"Numeric response.","examples_ok":["15,000.","30k."],"examples_bad":["I’m nervous.","I can’t focus."],"redirect_message":"No problem — let's take it slow. What amount do you need?"}
+
+{"stage":2,"speaker":"Dana","message":"Tell me the amount you're thinking of borrowing. Even approximate is okay.","expected_user_behavior":"Estimate.","examples_ok":["10k.","Somewhere around 18k."],"examples_bad":["Do you like jokes?","My chair squeaks."],"redirect_message":"That’s fine! Now please tell me the loan amount you need."}
+
+{"stage":2,"speaker":"Dana","message":"To suggest the right loan for you, I need to understand the amount you're looking for. What is it?","expected_user_behavior":"Numeric.","examples_ok":["25,000.","40k."],"examples_bad":["I feel emotional.","My voice is shaking."],"redirect_message":"That's okay. We're here together. Let's continue with the amount you need."}
+{"stage":2,"speaker":"Dana","message":"Thanks for sharing so far. Could you tell me the specific amount you'd like to borrow?","expected_user_behavior":"User states exact or approximate amount.","examples_ok":["I think 12,000.","About 30k."],"examples_bad":["My headphones feel weird.","I’m stretching."],"redirect_message":"No worries — let's bring our focus back to the loan amount you need."}
+
+{"stage":2,"speaker":"Dana","message":"Alright, what loan amount do you feel would best help your situation right now?","expected_user_behavior":"Amount or range.","examples_ok":["Maybe 20k.","Around 8,000."],"examples_bad":["I’m cold.","My camera is crooked."],"redirect_message":"We'll adjust things later. For now, let's focus on your loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"To continue, I need the amount you're aiming for. Could you tell me the figure you have in mind?","expected_user_behavior":"Numeric response.","examples_ok":["25k.","10,000."],"examples_bad":["Look at my wall.","I’m feeling silly."],"redirect_message":"That's completely fine. Let’s gently return to the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"What amount of money will help you accomplish your goal?","expected_user_behavior":"User specifies amount.","examples_ok":["7k.","15,000."],"examples_bad":["Do you hear birds?","My screen flickered."],"redirect_message":"Everything is okay — let's continue with your loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"Could you tell me the approximate loan amount you are considering today?","expected_user_behavior":"Amount or rough estimate.","examples_ok":["Around 5k.","Something like 40k."],"examples_bad":["I feel overwhelmed.","I forgot why I'm here."],"redirect_message":"That's okay. I'm here with you. Let's start with the loan amount you need."}
+
+{"stage":2,"speaker":"Dana","message":"To prepare the right loan plan, I need to know the amount you'd like to borrow. What is it?","expected_user_behavior":"User gives an amount.","examples_ok":["18k.","30,000."],"examples_bad":["My phone vibrated.","I spaced out."],"redirect_message":"That happens. Let’s return to your loan amount so we can proceed."}
+
+{"stage":2,"speaker":"Dana","message":"Let’s focus on the numbers for a moment. What amount do you want to borrow from the bank?","expected_user_behavior":"Numeric or approximate answer.","examples_ok":["10k.","Between 15 and 20k."],"examples_bad":["I'm embarrassed.","My breathing sounds loud."],"redirect_message":"It’s okay — let's keep things simple and focus on the amount you need."}
+
+{"stage":2,"speaker":"Dana","message":"Could you share the amount you’d feel comfortable borrowing?","expected_user_behavior":"Amount.","examples_ok":["5k.","12,000."],"examples_bad":["Do you like memes?","My lighting is too yellow."],"redirect_message":"Lighting is fine. Let's bring our attention back to the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"Before calculating monthly payments, I need to know how much you're planning to borrow. What’s the number?","expected_user_behavior":"User states number.","examples_ok":["30k.","20,000."],"examples_bad":["I’m annoyed.","This is hard."],"redirect_message":"I understand. Let's start slowly. What amount do you think you need?"}
+
+{"stage":2,"speaker":"Dana","message":"What’s the amount that would best support what you're trying to accomplish financially?","expected_user_behavior":"Amount.","examples_ok":["8k.","22k."],"examples_bad":["My eye itches.","I need to fix my chair."],"redirect_message":"Take your time. When you're ready, tell me the loan amount you need."}
+
+{"stage":2,"speaker":"Dana","message":"Thanks for being patient. What loan amount should we work with today?","expected_user_behavior":"User provides a number.","examples_ok":["15k.","40,000."],"examples_bad":["I want coffee.","My neck hurts."],"redirect_message":"That sounds uncomfortable. Let's continue with the loan amount so I can help you."}
+
+{"stage":2,"speaker":"Dana","message":"Could you give me the loan amount you're considering? It will help me determine eligibility.","expected_user_behavior":"Numeric answer.","examples_ok":["10k.","About 25k."],"examples_bad":["Oops, dropped something.","One second, sorry."],"redirect_message":"Take your time — and when you're ready, just tell me the amount you need."}
+
+{"stage":2,"speaker":"Dana","message":"To support you properly, I need to know how much you’d like to borrow. What amount works for you?","expected_user_behavior":"User states amount.","examples_ok":["5,000.","30,000."],"examples_bad":["Do you see my shirt?","I'm distracted."],"redirect_message":"It’s okay to feel distracted. Let's bring focus back to the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"What’s the approximate loan amount you'd like to request today?","expected_user_behavior":"Amount.","examples_ok":["18k.","Something like 10k."],"examples_bad":["My hair looks weird.","This is awkward."],"redirect_message":"You’re doing fine. Let's continue with the amount you want to borrow."}
+
+{"stage":2,"speaker":"Dana","message":"Alright, let’s proceed. What’s the loan amount you're looking at?","expected_user_behavior":"Amount.","examples_ok":["20,000.","8,000."],"examples_bad":["Oops, I zoned out.","My camera is shaking."],"redirect_message":"That’s totally fine. When you’re ready, tell me the amount you need."}
+
+{"stage":2,"speaker":"Dana","message":"To make sure the loan fits your needs, I need to know the amount. What’s your number?","expected_user_behavior":"User provides numeric response.","examples_ok":["12k.","25,000."],"examples_bad":["I feel silly.","I'm overthinking."],"redirect_message":"Totally normal. Let's start with the amount you're thinking about."}
+
+{"stage":2,"speaker":"Dana","message":"Let’s continue. What loan amount do you want to request today?","expected_user_behavior":"Number or range.","examples_ok":["10k.","Around 20k."],"examples_bad":["My headphones fell.","I can’t hear myself."],"redirect_message":"Happens sometimes. Let's refocus on your loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"Before we move on, I need the amount you're planning to borrow. How much do you need?","expected_user_behavior":"Amount.","examples_ok":["7,000.","15k."],"examples_bad":["My lighting flickered.","I got distracted."],"redirect_message":"No worries. Whenever you're ready, tell me the amount you need."}
+
+{"stage":2,"speaker":"Dana","message":"Could you tell me the loan amount you're aiming for? Even approximate is great.","expected_user_behavior":"Amount.","examples_ok":["30k.","5k."],"examples_bad":["My mind drifted.","I'm thinking about something else."],"redirect_message":"That’s okay. Let's focus again on the loan amount."}
+
+{"stage":2,"speaker":"Dana","message":"What’s the estimated loan amount that would help your financial situation right now?","expected_user_behavior":"Estimate or number.","examples_ok":["10k.","20k."],"examples_bad":["I feel uncomfortable.","I'm nervous."],"redirect_message":"It’s okay to feel that way. Let's take it slowly — what's the amount you need?"}
+
+{"stage":2,"speaker":"Dana","message":"To prepare the right loan terms for you, how much money would you like to borrow?","expected_user_behavior":"User states amount.","examples_ok":["15,000.","8,000."],"examples_bad":["My hand is itchy.","My chair squeaked."],"redirect_message":"It’s fine. Now let’s return to the amount you're requesting."}
+
+{"stage":2,"speaker":"Dana","message":"Could you let me know what loan amount you're considering so I can check your eligibility?","expected_user_behavior":"Amount.","examples_ok":["22k.","9,000."],"examples_bad":["I’m zoning out.","I’m overwhelmed."],"redirect_message":"Totally normal — let's keep it simple. What amount do you need?"}
+
+{"stage":2,"speaker":"Dana","message":"Before we proceed, tell me what amount would be most helpful for your goals.","expected_user_behavior":"Amount.","examples_ok":["40k.","12k."],"examples_bad":["I lost my thought.","This is a lot."],"redirect_message":"No rush — let's start with one step: the loan amount you need."}
+
+{"stage":2,"speaker":"Dana","message":"Thank you for staying with me. What’s the final loan amount you'd like to apply for?","expected_user_behavior":"User provides final amount.","examples_ok":["20,000.","10k."],"examples_bad":["I need to sneeze.","My camera angle is weird."],"redirect_message":"Everything is okay. Just let me know the amount you’d like to borrow."}
+{"stage":3,"speaker":"Dana","message":"Great. Now let’s talk about your interest rate. Interest is the cost of borrowing money. Would you like a simple breakdown of how it works?","expected_user_behavior":"User asks for clarification or confirms they want the explanation.","examples_ok":["Yes, please explain.","I want a simple explanation."],"examples_bad":["Do you like coffee?","My camera is lagging."],"redirect_message":"Your camera looks fine. Let’s stay focused on understanding your interest rate."}
+
+{"stage":3,"speaker":"Dana","message":"Perfect. Your interest rate depends on income, credit history, and the amount you borrow. Would you like me to show an example calculation?","expected_user_behavior":"User expresses interest or confusion.","examples_ok":["Yes, show me.","I'm not sure I understand."],"examples_bad":["Why is my voice echoing?","What time is it?"],"redirect_message":"Everything sounds normal. Let’s focus on your interest rate so you can understand it clearly."}
+
+{"stage":3,"speaker":"Dana","message":"Let me explain interest simply: when you borrow money, you repay slightly more than what you took. Does that make sense so far?","expected_user_behavior":"User confirms understanding or asks for clarification.","examples_ok":["Yes, I get it.","Can you explain more?"],"examples_bad":["My hair looks weird.","Is that a plant behind you?"],"redirect_message":"Don’t worry about that. Let’s stay focused on the interest explanation."}
+
+{"stage":3,"speaker":"Dana","message":"Interest is calculated monthly in most loan types. Would you like me to walk you through an example of how your monthly interest is calculated?","expected_user_behavior":"User wants the example or asks about interest details.","examples_ok":["Yes, please.","How does it work?"],"examples_bad":["Can you see my cat?","My desk is shaking."],"redirect_message":"I see everything fine. Let’s return to understanding your interest rate."}
+
+{"stage":3,"speaker":"Dana","message":"There are two key parts: the principal amount and the interest. The interest is a percentage of what you borrow. Do you want the full formula or just a simple version?","expected_user_behavior":"User chooses simple or detailed explanation.","examples_ok":["Simple version.","Full formula."],"examples_bad":["I feel nervous.","My chair squeaked."],"redirect_message":"That’s okay. Let's continue step by step — which explanation would help you most?"}
+
+{"stage":3,"speaker":"Dana","message":"Your interest rate also depends on your repayment period—the longer it is, the more interest you pay overall. Would you like an example comparing short-term vs long-term?","expected_user_behavior":"User expresses preference.","examples_ok":["Yes, please.","I want the comparison."],"examples_bad":["My screen flickered.","I think my mic is too loud."],"redirect_message":"Your audio is good. Let’s continue learning about interest."}
+
+{"stage":3,"speaker":"Dana","message":"Think of interest as a fee charged by the bank for letting you use the money. Does that explanation feel clear so far?","expected_user_behavior":"User acknowledges or asks for more detail.","examples_ok":["Yes, that’s clear.","Can you explain it differently?"],"examples_bad":["I'm bored.","I want to talk about something else."],"redirect_message":"We’ll get there. First, let’s understand interest so you can make confident decisions."}
+
+{"stage":3,"speaker":"Dana","message":"Your interest rate will be shown to you as an annual percentage. Do you know what an APR is, or should I explain it?","expected_user_behavior":"User acknowledges or requests explanation.","examples_ok":["Please explain.","I know what APR is."],"examples_bad":["I don’t like percentages.","I feel distracted."],"redirect_message":"Totally fine. Let's bring our focus back to understanding your loan interest."}
+
+{"stage":3,"speaker":"Dana","message":"Let me clarify something: interest is not random. It’s based on clear factors like income and credit score. Want me to show how your score affects your rate?","expected_user_behavior":"User agrees or asks about credit score.","examples_ok":["Yes, explain.","How does my score affect it?"],"examples_bad":["Can you hear a noise?","Is my internet slow?"],"redirect_message":"Everything is working fine. Let’s continue with your interest rate."}
+
+{"stage":3,"speaker":"Dana","message":"A higher interest rate means higher monthly payments. Would you like me to show you the difference using your loan amount?","expected_user_behavior":"User asks for demonstration.","examples_ok":["Yes, please.","Show me the difference."],"examples_bad":["My camera froze.","I see myself backwards."],"redirect_message":"That’s okay. I’ll help you — let's focus on your interest rate first."}
+
+{"stage":3,"speaker":"Dana","message":"Your interest rate determines how much extra you'll pay over time. Shall I show you the total cost of the loan with your current amount?","expected_user_behavior":"User agrees or asks for totals.","examples_ok":["Yes, show me.","What's the total?"],"examples_bad":["This is stressful.","I feel strange."],"redirect_message":"You're doing great. Let's keep going at your pace — want to see the total cost?"}
+
+{"stage":3,"speaker":"Dana","message":"Interest is simply the ‘price’ of borrowing money. The longer you borrow, the more interest you pay. Is this clear so far?","expected_user_behavior":"User indicates understanding.","examples_ok":["Yes, it's clear.","I think so."],"examples_bad":["I’m confused about something else.","My mic is buzzing."],"redirect_message":"We'll fix that later — let’s keep going with the interest explanation."}
+
+{"stage":3,"speaker":"Dana","message":"Interest rate changes your monthly payment. Would you like to see a payment breakdown for your specific amount?","expected_user_behavior":"User says yes or no.","examples_ok":["Yes.","Show me the breakdown."],"examples_bad":["Do you hear static?","Is my lighting okay?"],"redirect_message":"Lighting looks fine. Let’s continue with your loan details."}
+
+{"stage":3,"speaker":"Dana","message":"I can show you an example: if you borrow 10,000 at 5% interest, your payments look very different than 12%. Want to see both versions?","expected_user_behavior":"User asks for comparison.","examples_ok":["Yes, please.","Show me both."],"examples_bad":["My ears feel weird.","I think I froze."],"redirect_message":"You're okay. Let’s go back to learning about your interest options."}
+
+{"stage":3,"speaker":"Dana","message":"The bank updates interest rates based on the economy too. Would you like me to explain how that affects your loan?","expected_user_behavior":"User requests explanation.","examples_ok":["Yes.","How does it affect me?"],"examples_bad":["What's your favorite food?","My background looks odd."],"redirect_message":"Everything looks good — let's focus on how interest affects you."}
+
+{"stage":3,"speaker":"Dana","message":"Interest is calculated on your remaining balance each month. Would you like me to walk you through the math step-by-step?","expected_user_behavior":"User asks for breakdown.","examples_ok":["Yes, step-by-step.","Show me the math."],"examples_bad":["My cat is meowing.","My screen is crooked."],"redirect_message":"That’s okay. Let’s continue with the interest explanation for now."}
+
+{"stage":3,"speaker":"Dana","message":"To help you make confident decisions, I can show you how interest affects your monthly and total payments. Want to see both?","expected_user_behavior":"User responds yes/no or asks question.","examples_ok":["Yes.","Show me."],"examples_bad":["I’m nervous.","I feel distracted."],"redirect_message":"It's okay to feel that way. Let’s continue learning about your interest rate."}
+
+{"stage":3,"speaker":"Dana","message":"Different loan terms come with different interest rates. Would you like me to show a 3-year vs 5-year comparison?","expected_user_behavior":"User engages.","examples_ok":["Yes.","Show both options."],"examples_bad":["My audio is weird.","I think someone is calling me."],"redirect_message":"We’ll check that later. Let's continue with your loan interest explanation."}
+
+{"stage":3,"speaker":"Dana","message":"Interest is always expressed as a percentage. The higher the percentage, the more you pay. Does that part make sense?","expected_user_behavior":"User confirms understanding.","examples_ok":["Yes.","I understand."],"examples_bad":["Do you see my shirt?","I feel embarrassed."],"redirect_message":"You're doing great. Let’s stay focused on the interest information."}
+
+{"stage":3,"speaker":"Dana","message":"I can show you a visual breakdown of how your interest accumulates over time. Would that help you understand better?","expected_user_behavior":"User requests breakdown.","examples_ok":["Yes, show me.","I want to see it visually."],"examples_bad":["My chair squeaked.","I feel silly."],"redirect_message":"That happens! Let's return to your loan’s interest details."}
+
+{"stage":3,"speaker":"Dana","message":"Let’s simplify it: interest is what the bank charges you for borrowing money. Would you like a very short explanation or a detailed one?","expected_user_behavior":"User chooses simple/detailed.","examples_ok":["Short.","Detailed please."],"examples_bad":["I don’t like numbers.","My face feels hot."],"redirect_message":"You're okay. Let’s continue at your pace — which explanation do you prefer?"}
+
+{"stage":3,"speaker":"Dana","message":"Interest changes based on credit score. Higher score, lower interest. Do you want to see an example of how your score influences your rate?","expected_user_behavior":"User chooses.","examples_ok":["Yes.","Show example."],"examples_bad":["Do you hear my dog?","My video froze."],"redirect_message":"I can hear you fine. Let’s return to understanding your interest rate."}
+
+{"stage":3,"speaker":"Dana","message":"Your interest rate affects how much you'll repay monthly and in total. Should I calculate both for you using your amount?","expected_user_behavior":"User responds yes/no.","examples_ok":["Yes.","Show me both."],"examples_bad":["My lighting is too bright.","I feel tense."],"redirect_message":"No problem. Let’s keep focusing on understanding your loan interest."}
+
+{"stage":3,"speaker":"Dana","message":"To make sure everything is clear, could you tell me what you understand about interest so far?","expected_user_behavior":"User summarizes or expresses confusion.","examples_ok":["It’s the cost of borrowing.","I’m not fully sure yet."],"examples_bad":["I don’t want to talk.","This is boring."],"redirect_message":"You're doing great. Let’s continue step-by-step so you feel confident."}
+{"stage":3,"speaker":"Dana","message":"Great. Interest is added to your monthly payment based on your remaining balance. Want me to show how this changes over time?","expected_user_behavior":"User engages and asks for more detail.","examples_ok":["Yes, show me.","How does it change over time?"],"examples_bad":["My computer is loud.","I feel restless."],"redirect_message":"That’s okay. Let's stay focused so you fully understand your interest rate."}
+
+{"stage":3,"speaker":"Dana","message":"Your interest rate may stay fixed or change over time depending on the loan type. Would you like to learn the difference between fixed and variable interest?","expected_user_behavior":"User chooses an option.","examples_ok":["Yes, what's the difference?","Explain both."],"examples_bad":["I’m stretching.","My camera angle is weird."],"redirect_message":"No problem. Let’s continue learning about interest types."}
+
+{"stage":3,"speaker":"Dana","message":"A fixed interest rate stays the same. A variable one may change during your loan. Should I give you an example using your amount?","expected_user_behavior":"User wants example.","examples_ok":["Yes, please.","Show example."],"examples_bad":["Do you see my keyboard?","Is my lighting bad?"],"redirect_message":"Your setup looks good. Let’s get back to understanding your interest."}
+
+{"stage":3,"speaker":"Dana","message":"To help you compare options, I can calculate the interest for two different loan terms. Would you like that?","expected_user_behavior":"User agrees or declines.","examples_ok":["Yes, calculate it.","Show me."],"examples_bad":["My chair squeaks.","My mic is loud."],"redirect_message":"All good. Let's continue understanding your loan options."}
+
+{"stage":3,"speaker":"Dana","message":"Interest adds up each month. The sooner you repay, the less interest you pay. Would you like to see how early repayment affects the total?","expected_user_behavior":"User asks for demonstration.","examples_ok":["Yes.","Show me how it changes."],"examples_bad":["Oops, I dropped something.","My cat jumped in."],"redirect_message":"That’s fine — when you're ready, let's continue learning about interest."}
+
+{"stage":3,"speaker":"Dana","message":"Here’s something important: even a small change in interest rate can change your monthly payment a lot. Want me to show an example?","expected_user_behavior":"User expresses interest.","examples_ok":["Yes, please.","Show example."],"examples_bad":["I feel stressed.","My hands are cold."],"redirect_message":"You're doing well. Let’s focus on understanding your interest step-by-step."}
+
+{"stage":3,"speaker":"Dana","message":"Interest rates also depend on the type of loan—personal, car, or home loan. Would you like to hear the differences?","expected_user_behavior":"User chooses or asks about loan types.","examples_ok":["Yes.","Tell me the differences."],"examples_bad":["My face looks weird.","I need to fix my hair."],"redirect_message":"You look fine. Let's continue with interest types."}
+
+{"stage":3,"speaker":"Dana","message":"Let’s check your comfort level. Do you feel clearer about what interest is, or should we go over it again slowly?","expected_user_behavior":"User confirms or asks for repetition.","examples_ok":["It’s clear.","Please explain again."],"examples_bad":["I’m bored.","This is confusing."],"redirect_message":"That’s okay. We’ll go slowly until it makes full sense for you."}
+
+{"stage":3,"speaker":"Dana","message":"Sometimes people prefer visual explanations. Would you like a simple diagram of how interest grows over time?","expected_user_behavior":"User chooses.","examples_ok":["Yes.","No, I'm fine."],"examples_bad":["I’m distracted.","My phone buzzed."],"redirect_message":"Take your time. When you're ready, let's return to interest explanations."}
+
+{"stage":3,"speaker":"Dana","message":"Let me ask: do you prefer explanations using numbers, or using real-life examples?","expected_user_behavior":"User states preference.","examples_ok":["Numbers.","Real-life examples."],"examples_bad":["I’m uncomfortable.","I feel awkward."],"redirect_message":"Totally okay. Let's continue in whichever style helps you understand best."}
+
+{"stage":3,"speaker":"Dana","message":"Your interest rate affects how much you pay each month. Would you like me to calculate your estimated monthly payment?","expected_user_behavior":"User asks for estimate.","examples_ok":["Yes.","Please calculate."],"examples_bad":["My mic is muted.","My video is too bright."],"redirect_message":"Your setup is fine. Let's continue with your interest explanation."}
+
+{"stage":3,"speaker":"Dana","message":"I can calculate two scenarios: one with a low interest rate and one with a high one. Would you like that comparison?","expected_user_behavior":"User chooses.","examples_ok":["Yes.","Show both."],"examples_bad":["I feel tired.","My head hurts."],"redirect_message":"I'm here with you. When you’re ready, let's continue with the comparison."}
+
+{"stage":3,"speaker":"Dana","message":"Interest is something you should feel comfortable with before continuing. Do you feel confident so far?","expected_user_behavior":"User expresses confidence or not.","examples_ok":["Yes, I understand.","Not fully."],"examples_bad":["I don’t care.","Why are we talking about this?"],"redirect_message":"We're talking about this so you can make a confident financial decision. Let’s continue together."}
+
+{"stage":3,"speaker":"Dana","message":"Would it help if I show you how interest changes based on loan duration? Short-term vs long-term?","expected_user_behavior":"User accepts comparison.","examples_ok":["Yes.","Show both durations."],"examples_bad":["My camera flickered.","I think my mic is buzzing."],"redirect_message":"Everything is okay. Let’s stay focused on understanding your interest."}
+
+{"stage":3,"speaker":"Dana","message":"If your interest rate increases, your monthly payment increases too. Want me to demonstrate how sensitive it is to changes?","expected_user_behavior":"User asks for demonstration.","examples_ok":["Yes.","Show me how it changes."],"examples_bad":["My chair squeaked.","I can’t focus."],"redirect_message":"Let's pause and breathe. When you're ready, let's continue learning about interest."}
+
+{"stage":3,"speaker":"Dana","message":"Interest can be confusing at first. Would you like me to repeat the basics before moving on?","expected_user_behavior":"User decides.","examples_ok":["Yes, repeat.","No, I’m ready."],"examples_bad":["I'm stressed.","This is too much."],"redirect_message":"You're doing great. We’ll go slowly until you feel confident."}
+
+{"stage":3,"speaker":"Dana","message":"Let’s clarify something: interest is always tied to the amount you borrow and the time you take to repay. Does this feel clearer now?","expected_user_behavior":"User acknowledges understanding.","examples_ok":["Yes, it does.","A little bit."],"examples_bad":["I feel weird.","My camera is crooked."],"redirect_message":"It's okay. Let’s continue building your confidence with interest details."}
+
+{"stage":3,"speaker":"Dana","message":"Would you like to estimate how much interest you'd pay over the full loan period based on your chosen amount?","expected_user_behavior":"User agrees or declines.","examples_ok":["Yes.","Show me the estimate."],"examples_bad":["My room is too noisy.","I'm distracted."],"redirect_message":"No problem. Let's gently return to understanding your interest."}
+
+{"stage":3,"speaker":"Dana","message":"Interest is part of every loan, and understanding it helps you make smart decisions. Want to move on to the next step once you're comfortable?","expected_user_behavior":"User confirms readiness.","examples_ok":["Yes, let's continue.","I think I’m ready."],"examples_bad":["I'm confused.","I want to stop."],"redirect_message":"We can go at your pace. Let me know when you're comfortable to continue."}
+
+{"stage":3,"speaker":"Dana","message":"Before closing this part, do you feel like you understand the basics of interest, or should I explain one more time?","expected_user_behavior":"User answers honestly.","examples_ok":["I understand.","Please explain again."],"examples_bad":["I’m frustrated.","I’m lost."],"redirect_message":"It's totally okay to feel that way. We’ll take it slowly until it’s clear."}
+
+{"stage":3,"speaker":"Dana","message":"If you're comfortable, we can continue to the next step: checking your understanding of the loan details. How do you feel?","expected_user_behavior":"User indicates readiness.","examples_ok":["I’m ready.","Let’s continue."],"examples_bad":["My stomach hurts.","I’m thinking about something else."],"redirect_message":"Take your time. When you're ready, we’ll continue your loan session."}
+
+{"stage":3,"speaker":"Dana","message":"Last question for this section: does interest feel less confusing now?","expected_user_behavior":"User explains understanding.","examples_ok":["Yes, much clearer.","Still a bit confused."],"examples_bad":["This is boring.","I don't want to talk anymore."],"redirect_message":"I understand. We’ll continue at a pace that feels comfortable for you."}
+
+{"stage":3,"speaker":"Dana","message":"Great job so far. When you're ready, we can proceed to reviewing what you've learned. Would you like to continue?","expected_user_behavior":"User confirms moving on.","examples_ok":["Yes, continue.","I’m ready."],"examples_bad":["I’m tired.","My camera looks weird."],"redirect_message":"All good. When you’re ready, we'll continue with the next loan step."}
+{"stage":4,"speaker":"Dana","message":"Before we continue, I want to make sure everything is clear. Could you tell me in your own words what a loan amount is?","expected_user_behavior":"User explains or attempts to explain.","examples_ok":["It's the money I borrow.","It's the amount I take from the bank."],"examples_bad":["Do you like movies?","My camera looks strange."],"redirect_message":"Your camera is fine. Let's stay focused on checking your understanding of loan basics."}
+
+{"stage":4,"speaker":"Dana","message":"Great. And can you tell me what interest means in a simple way?","expected_user_behavior":"User describes interest.","examples_ok":["It's the cost of borrowing.","It's extra money I pay back."],"examples_bad":["I'm hungry.","My room is messy."],"redirect_message":"No problem. Let's return to reviewing your understanding of interest."}
+
+{"stage":4,"speaker":"Dana","message":"Nice. How confident do you feel so far about the loan amount and interest rate topics?","expected_user_behavior":"User shares confidence level.","examples_ok":["Pretty confident.","Still unsure."],"examples_bad":["Why does my mic sound strange?","I feel awkward."],"redirect_message":"That's okay. Let's focus on your understanding for a moment."}
+
+{"stage":4,"speaker":"Dana","message":"If someone asked you what interest is, what would you say?","expected_user_behavior":"User explains.","examples_ok":["It's what I pay extra.","It's the bank's fee."],"examples_bad":["My cat is here.","Look at my window."],"redirect_message":"Cute! But let’s focus on making sure you understand interest clearly."}
+
+{"stage":4,"speaker":"Dana","message":"Do you understand how the interest rate affects your monthly payment?","expected_user_behavior":"User answers yes/no or asks for clarification.","examples_ok":["Yes.","Not really."],"examples_bad":["I’m bored.","I don’t want this."],"redirect_message":"You're doing well. Let's just check your understanding step by step."}
+
+{"stage":4,"speaker":"Dana","message":"If your interest rate goes up, will your monthly payment go up or down?","expected_user_behavior":"User answers.","examples_ok":["Up.","It increases."],"examples_bad":["I feel strange.","My screen flickered."],"redirect_message":"That happens. Let's stay on understanding how the interest rate affects payments."}
+
+{"stage":4,"speaker":"Dana","message":"Can you tell me what happens when you choose a longer repayment period?","expected_user_behavior":"User explains longer term = more interest.","examples_ok":["I pay more interest.","Payments are smaller but longer."],"examples_bad":["The light is weird.","My chair is loud."],"redirect_message":"No worries. Let’s keep checking your understanding of loan terms."}
+
+{"stage":4,"speaker":"Dana","message":"Do you feel comfortable explaining the difference between principal and interest?","expected_user_behavior":"User attempts explanation.","examples_ok":["Principal is the amount I borrow.","Interest is what I pay extra."],"examples_bad":["I'm distracted.","My head hurts."],"redirect_message":"Let's pause and continue gently. When you're ready, let's return to the explanation."}
+
+{"stage":4,"speaker":"Dana","message":"How would you describe the purpose of the loan amount in your own words?","expected_user_behavior":"User explains what the loan amount means.","examples_ok":["It's the money I need.","It's the total I want to borrow."],"examples_bad":["What time is it?","Do you hear music?"],"redirect_message":"Everything sounds normal. Let's continue reviewing your understanding."}
+
+{"stage":4,"speaker":"Dana","message":"Do you understand that a lower interest rate usually means paying less overall?","expected_user_behavior":"User confirms understanding.","examples_ok":["Yes.","I think so."],"examples_bad":["My camera is glitching.","I see myself twice."],"redirect_message":"You're fine. Let's stay focused on confirming your understanding."}
+
+{"stage":4,"speaker":"Dana","message":"What is the main thing you learned about interest today?","expected_user_behavior":"User summarizes learning.","examples_ok":["It's the cost of borrowing.","It changes my monthly payments."],"examples_bad":["I saw a shadow.","I'm not paying attention."],"redirect_message":"That's okay. Let's return to what you understood about interest."}
+
+{"stage":4,"speaker":"Dana","message":"Can you explain why interest depends on the loan duration?","expected_user_behavior":"User attempts explanation.","examples_ok":["Because longer means more time to charge interest.","The bank charges more over time."],"examples_bad":["I'm tired.","My lighting is too bright."],"redirect_message":"That's okay. Let's get back to the topic and check your understanding."}
+
+{"stage":4,"speaker":"Dana","message":"Do you understand the difference between a fixed and a variable interest rate?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Not really."],"examples_bad":["Can you see my microphone?","Is my background okay?"],"redirect_message":"Everything looks good. Let's focus on your understanding."}
+
+{"stage":4,"speaker":"Dana","message":"If you had to explain interest to a friend, what would you say?","expected_user_behavior":"User explains simply.","examples_ok":["It's extra money I pay.","It's the price of borrowing."],"examples_bad":["My dog barked.","My keyboard is loud."],"redirect_message":"That’s okay. Let’s stay focused on reviewing your loan knowledge."}
+
+{"stage":4,"speaker":"Dana","message":"How comfortable are you right now with the topic of interest?","expected_user_behavior":"User expresses confidence level.","examples_ok":["Comfortable.","Still confused."],"examples_bad":["I feel weird.","I'm overwhelmed."],"redirect_message":"You're doing great. Let's take it slowly together."}
+
+{"stage":4,"speaker":"Dana","message":"Do you remember what APR stands for, or do you need another explanation?","expected_user_behavior":"User answers or asks for help.","examples_ok":["Annual Percentage Rate.","Please explain again."],"examples_bad":["I see something outside.","My camera angle is bad."],"redirect_message":"That's okay. Let's stay focused on checking your understanding."}
+
+{"stage":4,"speaker":"Dana","message":"Can you explain why interest exists at all? Why do banks charge it?","expected_user_behavior":"User answers.","examples_ok":["It's how banks earn money.","It's the borrowing fee."],"examples_bad":["I'm cold.","I’m thinking of something else."],"redirect_message":"Totally normal. Let's bring our attention back to understanding interest."}
+
+{"stage":4,"speaker":"Dana","message":"If you borrow more money, do you pay more interest or less interest?","expected_user_behavior":"User answers correctly.","examples_ok":["More.","Higher total interest."],"examples_bad":["My screen froze.","I think I lagged."],"redirect_message":"All good — let's continue with your understanding check."}
+
+{"stage":4,"speaker":"Dana","message":"What happens to your monthly payment if your interest rate is reduced?","expected_user_behavior":"User answers decrease.","examples_ok":["It goes down.","Payments are smaller."],"examples_bad":["My phone buzzed.","I'm distracted."],"redirect_message":"No worries. Let's return to reviewing your knowledge."}
+
+{"stage":4,"speaker":"Dana","message":"Do you feel more confident about the loan concepts now than when we started?","expected_user_behavior":"User expresses confidence.","examples_ok":["Yes, more confident.","A bit better."],"examples_bad":["I'm confused.","This is boring."],"redirect_message":"You're doing great. We'll take it step-by-step."}
+
+{"stage":4,"speaker":"Dana","message":"I want to make sure there's no confusion: could you summarize what we've covered so far?","expected_user_behavior":"User summarizes.","examples_ok":["Loan amount and interest.","How interest affects payments."],"examples_bad":["I forgot.","I don't want to."],"redirect_message":"That's okay. Let's go through it together at your pace."}
+
+{"stage":4,"speaker":"Dana","message":"Do you feel ready to move to the next part, or do you want more clarification about interest?","expected_user_behavior":"User chooses.","examples_ok":["I'm ready.","More clarification."],"examples_bad":["My chair squeaked.","I feel strange."],"redirect_message":"No problem. Let me know when you're ready to continue."}
+
+{"stage":4,"speaker":"Dana","message":"If someone asked you why interest rate matters, what would you tell them?","expected_user_behavior":"User explains importance.","examples_ok":["Because it changes how much I pay.","It affects the total cost."],"examples_bad":["I see a reflection.","My audio sounds odd."],"redirect_message":"That's okay. Let's get back to reviewing your understanding."}
+
+{"stage":4,"speaker":"Dana","message":"Before we move on, is there anything about interest that still feels unclear?","expected_user_behavior":"User states confusion or clarity.","examples_ok":["I understand.","I'm still confused about something."],"examples_bad":["I’m tired.","I want to stop."],"redirect_message":"That's okay — we’ll continue gently. Tell me what part feels unclear."}
+{"stage":4,"speaker":"Dana","message":"Let’s check your understanding of repayment. Do you know what a monthly payment includes?","expected_user_behavior":"User explains principal + interest.","examples_ok":["Principal and interest.","The amount and the extra fee."],"examples_bad":["My nose itches.","My camera looks funny."],"redirect_message":"That's okay. Let’s focus on understanding your repayment basics."}
+
+{"stage":4,"speaker":"Dana","message":"If the interest rate increases, what happens to the total amount you repay over the years?","expected_user_behavior":"User answers correctly.","examples_ok":["It increases.","I pay more overall."],"examples_bad":["I hear something.","Is my background too dark?"],"redirect_message":"Your background is fine. Let's continue checking your understanding."}
+
+{"stage":4,"speaker":"Dana","message":"Can you explain why loans with longer terms usually cost more in total?","expected_user_behavior":"User attempts explanation.","examples_ok":["More months = more interest.","Because it's extended over time."],"examples_bad":["I feel distracted.","My chair squeaked."],"redirect_message":"No worries. Let's bring our attention back to understanding loan terms."}
+
+{"stage":4,"speaker":"Dana","message":"Let’s review: What does the principal refer to in a loan?","expected_user_behavior":"User answers correctly.","examples_ok":["The amount I borrow.","The original loan amount."],"examples_bad":["I don’t know.","My microphone looks weird."],"redirect_message":"That’s fine. Let's continue step by step."}
+
+{"stage":4,"speaker":"Dana","message":"Do you understand why banks check your credit score before giving you an interest rate?","expected_user_behavior":"User explains or asks.","examples_ok":["To assess risk.","To decide interest."],"examples_bad":["Do you like my shirt?","I hear wind."],"redirect_message":"Your shirt looks fine. Let's stay focused on loan concepts."}
+
+{"stage":4,"speaker":"Dana","message":"Could you tell me what a higher credit score usually leads to regarding interest?","expected_user_behavior":"User answers correctly.","examples_ok":["Lower interest.","Better loan options."],"examples_bad":["My screen flickered.","I’m stretching."],"redirect_message":"That's okay. Let's continue with your understanding check."}
+
+{"stage":4,"speaker":"Dana","message":"Do you feel clear about the difference between total repayment and monthly repayment?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes.","Not completely."],"examples_bad":["My chair is loud.","I want to drink water."],"redirect_message":"No problem. Let's return to the topic when you're ready."}
+
+{"stage":4,"speaker":"Dana","message":"If you had to pick one thing that is most important to understand about loans, what would it be?","expected_user_behavior":"User reflects.","examples_ok":["Interest rate.","Total repayment."],"examples_bad":["My screen is too bright.","I'm thinking of something else."],"redirect_message":"That happens. Let's return to your understanding of loan basics."}
+
+{"stage":4,"speaker":"Dana","message":"Let me ask: do you feel you understand how your loan amount affects your approval chances?","expected_user_behavior":"User shares understanding.","examples_ok":["Yes, bigger loans are harder.","I think so."],"examples_bad":["My phone buzzed.","This feels weird."],"redirect_message":"You're doing well. Let's continue step by step."}
+
+{"stage":4,"speaker":"Dana","message":"Can you explain the relationship between interest rate and total cost of the loan?","expected_user_behavior":"User explains.","examples_ok":["Higher interest = higher cost.","Lower interest = cheaper loan."],"examples_bad":["My lighting is strange.","I feel tired."],"redirect_message":"No worries. Let's return to reviewing your understanding."}
+
+{"stage":4,"speaker":"Dana","message":"Before moving on, tell me what part of the loan process feels easiest to understand so far.","expected_user_behavior":"User shares their comfort area.","examples_ok":["Interest.","Loan amount."],"examples_bad":["I don't know.","My face looks weird."],"redirect_message":"You're okay. Let's focus on the concepts step by step."}
+
+{"stage":4,"speaker":"Dana","message":"Do you feel confident explaining interest to someone else now?","expected_user_behavior":"User responds yes/no.","examples_ok":["Yes.","Not really."],"examples_bad":["I'm bored.","I want to leave."],"redirect_message":"You're doing great. Let's keep going gently."}
+
+{"stage":4,"speaker":"Dana","message":"Let’s check something important: What happens if you repay the loan earlier than planned?","expected_user_behavior":"User answers correctly.","examples_ok":["I pay less interest.","Total cost decreases."],"examples_bad":["My mic buzzed.","I lost focus."],"redirect_message":"That's fine. Let's return to the repayment explanation."}
+
+{"stage":4,"speaker":"Dana","message":"If the bank offers you two loans, one with a lower interest rate but shorter period, which one costs less overall?","expected_user_behavior":"User answers correctly.","examples_ok":["The lower interest one.","Shorter term usually costs less."],"examples_bad":["My cat jumped.","I hear a noise."],"redirect_message":"All good — let's stay focused on the question."}
+
+{"stage":4,"speaker":"Dana","message":"Do you understand why loan duration affects your monthly payment amount?","expected_user_behavior":"User expresses understanding.","examples_ok":["Yes.","Somewhat."],"examples_bad":["My chair is making noises.","I feel uncomfortable."],"redirect_message":"It's okay. Let's stay focused on checking your understanding."}
+
+{"stage":4,"speaker":"Dana","message":"Please tell me in one sentence what you think interest means.","expected_user_behavior":"User gives short explanation.","examples_ok":["It's what I pay extra.","Cost of borrowing."],"examples_bad":["I don’t know.","This is confusing."],"redirect_message":"That's okay. Let's break it down again if needed."}
+
+{"stage":4,"speaker":"Dana","message":"Do you feel clearer now about interest and repayment than when we began today?","expected_user_behavior":"User reflects.","examples_ok":["Yes, clearer.","A bit more confident."],"examples_bad":["I'm stressed.","I want a break."],"redirect_message":"No problem — we’ll take it at your pace."}
+
+{"stage":4,"speaker":"Dana","message":"What’s one thing about interest that still feels unclear to you?","expected_user_behavior":"User expresses confusion.","examples_ok":["How it's calculated.","Why it changes."],"examples_bad":["I don't know.","Everything."],"redirect_message":"That's okay. We'll review it together."}
+
+{"stage":4,"speaker":"Dana","message":"Can you explain why loans with lower interest rates are usually preferred?","expected_user_behavior":"User answers correctly.","examples_ok":["Less to repay.","Lower monthly cost."],"examples_bad":["My video is slow.","I feel weird."],"redirect_message":"You're okay. Let's return to reviewing your understanding."}
+
+{"stage":4,"speaker":"Dana","message":"Last question for this section: Do you feel ready to continue to the documentation stage?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","I’m ready."],"examples_bad":["I'm tired.","My screen is too dark."],"redirect_message":"Take your time. When you're ready, we’ll continue."}
+
+{"stage":4,"speaker":"Dana","message":"You’ve done great so far. Understanding loans takes practice. Want to move to the next step together?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","Sure."],"examples_bad":["No.","I feel stressed."],"redirect_message":"That's okay — we’ll continue when you feel ready."}
+
+{"stage":4,"speaker":"Dana","message":"If you're ready, we’ll start reviewing the documents required for your loan application. Should we continue?","expected_user_behavior":"User chooses.","examples_ok":["Yes.","Let's move on."],"examples_bad":["I don’t know.","I'm confused."],"redirect_message":"No worries. I'll guide you step-by-step when you're ready."}
+
+{"stage":4,"speaker":"Dana","message":"Great. Before we advance, is there anything you'd like to review again?","expected_user_behavior":"User asks for repetition or says no.","examples_ok":["No, I'm good.","Yes, explain interest again."],"examples_bad":["I feel weird.","My hair looks messy."],"redirect_message":"You're fine. Let's focus on what you'd like to review."}
+
+{"stage":4,"speaker":"Dana","message":"Perfect. When you say you're ready, we can move to the next stage of the loan process.","expected_user_behavior":"User signals readiness.","examples_ok":["I'm ready.","Let's continue."],"examples_bad":["I want to stop.","This feels odd."],"redirect_message":"You're doing really well. We'll continue whenever you're comfortable."}
+{"stage":5,"speaker":"Dana","message":"Great. To move forward with your loan application, I’ll need to verify some documents. The first one is a valid ID. Do you know what form of ID you plan to use?","expected_user_behavior":"User mentions passport, ID card, or driver's license.","examples_ok":["My ID card.","My passport."],"examples_bad":["My camera is blurry.","Do you like coffee?"],"redirect_message":"Your camera looks fine. Let's continue with identifying which ID you’ll use."}
+
+{"stage":5,"speaker":"Dana","message":"Perfect. Next, I’ll need your recent pay stubs or proof of income. Do you have access to your last three salary statements?","expected_user_behavior":"User answers yes/no or asks what counts as proof.","examples_ok":["Yes, I have them.","Not sure what counts."],"examples_bad":["I'm hungry.","My chair squeaked."],"redirect_message":"That's okay. Let's stay focused on the income documents you may need."}
+
+{"stage":5,"speaker":"Dana","message":"For income verification, pay stubs from the last three months are usually required. Does that make sense?","expected_user_behavior":"User confirms or asks for clarification.","examples_ok":["Yes, it makes sense.","Can you repeat that?"],"examples_bad":["My screen looks strange.","Do you hear echo?"],"redirect_message":"Everything sounds normal. Let’s continue with understanding the required documents."}
+
+{"stage":5,"speaker":"Dana","message":"Another document we need is a recent bank statement. Do you know how to access your latest bank statement online?","expected_user_behavior":"User responds about access.","examples_ok":["Yes, I can download it.","No, I need help."],"examples_bad":["Why is my face shiny?","My lighting is weird."],"redirect_message":"It's fine. Let's stay focused on gathering your bank statement."}
+
+{"stage":5,"speaker":"Dana","message":"We’ll also need proof of address, usually something like a utility bill. Do you have a document with your current address on it?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes, I have one.","Not sure what counts."],"examples_bad":["Hold on, my pen fell.","Look at my shirt."],"redirect_message":"No problem. Let's return to verifying your proof of address."}
+
+{"stage":5,"speaker":"Dana","message":"To confirm your employment, the bank may ask for an employer letter. Do you know if your employer can provide that?","expected_user_behavior":"User provides status.","examples_ok":["Yes, they can.","I'm not sure."],"examples_bad":["I feel weird.","My camera froze."],"redirect_message":"It's okay. Let’s stay focused on the employment confirmation process."}
+
+{"stage":5,"speaker":"Dana","message":"Just to recap: we need ID, income proof, bank statements, and proof of address. Do you understand why each of these is needed?","expected_user_behavior":"User summarizes or asks why.","examples_ok":["Yes, for verification.","Can you explain why?"],"examples_bad":["I'm distracted.","I don't care."],"redirect_message":"That's alright. Let's gently return to understanding the required documents."}
+
+{"stage":5,"speaker":"Dana","message":"Which of the documents we mentioned do you already have available?","expected_user_behavior":"User lists available docs.","examples_ok":["I have ID and bank statements.","I have my pay stubs."],"examples_bad":["My cat is loud.","I'm stretching."],"redirect_message":"That's fine. Let's keep focusing on the documents you have ready."}
+
+{"stage":5,"speaker":"Dana","message":"If you're missing any documents, I can guide you on how to get them. Do you know which ones you need help obtaining?","expected_user_behavior":"User identifies missing documents.","examples_ok":["I need help with bank statements.","I'm missing proof of address."],"examples_bad":["Do you like music?","My mic is buzzing."],"redirect_message":"Your mic is fine. Let’s continue with the document checklist."}
+
+{"stage":5,"speaker":"Dana","message":"Pay stubs help the bank check your monthly income. Does that purpose make sense to you?","expected_user_behavior":"User confirms clarity.","examples_ok":["Yes, I get it.","Makes sense."],"examples_bad":["I'm bored.","My lighting is too bright."],"redirect_message":"We’ll keep going step-by-step — let's return to the document explanation."}
+
+{"stage":5,"speaker":"Dana","message":"Your bank statement shows your financial activity. Do you understand why the bank needs to see it?","expected_user_behavior":"User answers.","examples_ok":["Yes.","To check stability."],"examples_bad":["I see a shadow.","I think my video flipped."],"redirect_message":"Everything is fine. Let's continue with your understanding."}
+
+{"stage":5,"speaker":"Dana","message":"Proof of address confirms where you live. Does that requirement seem clear?","expected_user_behavior":"User confirms or asks.","examples_ok":["Yes.","Why do they need it?"],"examples_bad":["My chair squeaked.","My head hurts."],"redirect_message":"That's okay. Let's continue reviewing your required documents."}
+
+{"stage":5,"speaker":"Dana","message":"Do you understand the role of identification documents in the loan process?","expected_user_behavior":"User explains or asks.","examples_ok":["Yes, they verify identity.","Can you explain it?"],"examples_bad":["I'm tired.","I feel strange."],"redirect_message":"No problem. Let’s stay focused on understanding the documents."}
+
+{"stage":5,"speaker":"Dana","message":"Which document do you think might be hardest for you to provide?","expected_user_behavior":"User identifies difficulty.","examples_ok":["The employer letter.","Proof of address."],"examples_bad":["My screen blinked.","I zoned out."],"redirect_message":"It’s okay. Let's return to which document feels challenging."}
+
+{"stage":5,"speaker":"Dana","message":"If you’re unsure about any document, I can clarify it. Is there one you'd like me to explain again?","expected_user_behavior":"User chooses a document.","examples_ok":["Explain bank statements.","Explain pay stubs."],"examples_bad":["My mic feels weird.","I feel awkward."],"redirect_message":"You're fine. Let's focus on the document you want clarified."}
+
+{"stage":5,"speaker":"Dana","message":"Just checking—do you know how to download documents from your online bank account?","expected_user_behavior":"User answers or asks for help.","examples_ok":["Yes.","No, I need help."],"examples_bad":["My camera is tilted.","Do you see my lamp?"],"redirect_message":"Everything looks okay. Let's stay focused on the online documents."}
+
+{"stage":5,"speaker":"Dana","message":"Some banks require two forms of ID. Do you have a second identification document available?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes, I have passport.","No, only one."],"examples_bad":["My mouse fell.","I'm distracted."],"redirect_message":"That's alright. Let's return to your identification documents."}
+
+{"stage":5,"speaker":"Dana","message":"Your employer letter should confirm your job title and income. Does that sound familiar to you?","expected_user_behavior":"User acknowledges understanding.","examples_ok":["Yes.","I think so."],"examples_bad":["My hands are cold.","My chair squeaked."],"redirect_message":"That's fine. Let's stay focused on employer verification."}
+
+{"stage":5,"speaker":"Dana","message":"Would you like me to list all required documents clearly in one place for you?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes, list them.","No, I'm good."],"examples_bad":["My lighting is strange.","I hear something outside."],"redirect_message":"Everything is okay. Let's continue with your document checklist."}
+
+{"stage":5,"speaker":"Dana","message":"Here they are: ID, proof of income, bank statements, proof of address, and sometimes employer letter. Do you have questions about any of them?","expected_user_behavior":"User asks or says no.","examples_ok":["Yes, I have a question.","No, I understand."],"examples_bad":["I'm confused.","This is long."],"redirect_message":"You're doing great. Let's take it step by step."}
+
+{"stage":5,"speaker":"Dana","message":"Do you feel confident that you can gather these documents on your own, or would you like guidance?","expected_user_behavior":"User chooses.","examples_ok":["I can gather them.","I need help."],"examples_bad":["My screen froze.","I feel off."],"redirect_message":"No worries. Let's continue focusing on the document process."}
+
+{"stage":5,"speaker":"Dana","message":"To make sure we're aligned, could you tell me which document you plan to upload first?","expected_user_behavior":"User names a document.","examples_ok":["My ID.","Bank statement."],"examples_bad":["My phone buzzed.","I’m zoning out."],"redirect_message":"That’s okay. Let's return to the document you want to start with."}
+
+{"stage":5,"speaker":"Dana","message":"Some documents might take time to get. Are you aware of how long it will take for you to collect everything?","expected_user_behavior":"User estimates time or expresses uncertainty.","examples_ok":["A few days.","Not sure."],"examples_bad":["My neck hurts.","I feel weird."],"redirect_message":"Take your time. Let’s stay focused on preparing your documents."}
+
+{"stage":5,"speaker":"Dana","message":"Do you feel clear on what each document is used for in the loan approval process?","expected_user_behavior":"User confirms or asks.","examples_ok":["Yes.","Not really."],"examples_bad":["Can you hear my computer?","My lighting changed."],"redirect_message":"Everything is okay. Let's continue with document understanding."}
+{"stage":5,"speaker":"Dana","message":"Before we move on, is there any document you feel unsure about providing?","expected_user_behavior":"User identifies uncertainty or asks for help.","examples_ok":["I'm not sure about proof of address.","I don't know how to get employer letter."],"examples_bad":["My camera froze.","I feel distracted."],"redirect_message":"That's okay. Let's return to which document feels unclear."}
+
+{"stage":5,"speaker":"Dana","message":"Many people struggle with finding their bank statements. Would you like me to guide you step-by-step on how to get yours online?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes, please.","No, I know how."],"examples_bad":["I think my mic is weird.","My lighting is flashing."],"redirect_message":"Everything is okay. Let's stay focused on your documents."}
+
+{"stage":5,"speaker":"Dana","message":"If your bank offers digital statements, you can download them as PDF files. Does that sound familiar?","expected_user_behavior":"User agrees or asks question.","examples_ok":["Yes.","Not sure."],"examples_bad":["I'm bored.","I want to stop."],"redirect_message":"You're doing fine. Let's stay focused on the document explanation."}
+
+{"stage":5,"speaker":"Dana","message":"Proof of address must be recent, usually within the last three months. Does your document meet this requirement?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes, it's recent.","No, it's older."],"examples_bad":["I hear a noise.","I can't see well."],"redirect_message":"Everything is okay. Let’s return to your proof of address."}
+
+{"stage":5,"speaker":"Dana","message":"To verify employment, your employer letter should include your role and salary. Do you know if your employer provides such letters?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes, they do.","I'm not sure."],"examples_bad":["My cat jumped.","My chair made noise."],"redirect_message":"That's fine. Let's stay focused on the employment document."}
+
+{"stage":5,"speaker":"Dana","message":"We also need to make sure your ID is not expired. Do you know if your ID is valid and up to date?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes, it's valid.","I need to check."],"examples_bad":["My face looks weird.","I feel tired."],"redirect_message":"It's okay. Let's stay focused on confirming your ID."}
+
+{"stage":5,"speaker":"Dana","message":"Do you know how to scan or photograph your documents clearly? This helps the approval process go smoothly.","expected_user_behavior":"User answers or asks for tips.","examples_ok":["Yes, I know.","How should I scan them?"],"examples_bad":["My phone is buzzing.","I'm distracted."],"redirect_message":"No worries. Let's continue focusing on your document preparation."}
+
+{"stage":5,"speaker":"Dana","message":"Sometimes the bank requests additional documents depending on the case. Would you like me to explain what these might include?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","What additional documents?"],"examples_bad":["My screen blinked.","I feel weird."],"redirect_message":"That's fine. Let's stay on the topic of the loan documents."}
+
+{"stage":5,"speaker":"Dana","message":"The bank might ask for tax documents if needed. Do you know where your last annual tax form is?","expected_user_behavior":"User answers.","examples_ok":["Yes, I know.","No, I need help."],"examples_bad":["I don’t know.","My mic is too loud."],"redirect_message":"Everything is okay. Let's stay focused on tax documents."}
+
+{"stage":5,"speaker":"Dana","message":"Do you have any questions about why each document is required for the loan approval?","expected_user_behavior":"User asks or says no.","examples_ok":["Yes.","No questions."],"examples_bad":["I'm bored.","This is confusing."],"redirect_message":"You're doing well. Let's clarify anything that feels confusing."}
+
+{"stage":5,"speaker":"Dana","message":"When you upload documents, make sure the names and numbers are visible. Does that instruction feel clear?","expected_user_behavior":"User confirms or asks.","examples_ok":["Yes.","What does visible mean?"],"examples_bad":["My chair squeaked.","I hear something."],"redirect_message":"It's okay. Let's stay focused on document instructions."}
+
+{"stage":5,"speaker":"Dana","message":"Are all your documents in digital format, or do you need help converting them?","expected_user_behavior":"User states format.","examples_ok":["They're digital.","I need to scan them."],"examples_bad":["My camera angle is weird.","I'm tired."],"redirect_message":"No worries. Let's continue preparing your documents."}
+
+{"stage":5,"speaker":"Dana","message":"Did you understand why the bank needs to verify your income before approving the loan?","expected_user_behavior":"User answers.","examples_ok":["Yes, to check stability.","To ensure I can repay."],"examples_bad":["My lighting changed.","I heard something."],"redirect_message":"It's all okay. Let's continue with income verification understanding."}
+
+{"stage":5,"speaker":"Dana","message":"Some people submit screenshots instead of PDFs. Would you like tips on how to make your screenshots clear and readable?","expected_user_behavior":"User chooses yes/no.","examples_ok":["Yes.","No, I'm okay."],"examples_bad":["My phone buzzed.","I’m distracted."],"redirect_message":"No problem. Let's continue focusing on proper documentation."}
+
+{"stage":5,"speaker":"Dana","message":"Just checking—do you feel overwhelmed with the list of documents? It's totally okay if you do.","expected_user_behavior":"User expresses feelings.","examples_ok":["A little.","Not really."],"examples_bad":["I want to stop.","This is annoying."],"redirect_message":"I understand. You're doing great. Let's take it slowly."}
+
+{"stage":5,"speaker":"Dana","message":"Which document would you like us to go over again together?","expected_user_behavior":"User selects a document.","examples_ok":["Bank statement.","ID."],"examples_bad":["I'm confused.","I don't know."],"redirect_message":"That's fine. Let's walk through each document calmly."}
+
+{"stage":5,"speaker":"Dana","message":"Do you want me to send you a clear checklist so you can prepare everything after this call?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","That would help."],"examples_bad":["I'm cold.","My video froze."],"redirect_message":"You're okay. Let's focus on finishing the document section."}
+
+{"stage":5,"speaker":"Dana","message":"Before we continue, can you summarize which documents you need to submit?","expected_user_behavior":"User summarizes.","examples_ok":["ID, pay stubs, bank statement, address proof.","All documents you listed."],"examples_bad":["I forgot.","I can’t remember."],"redirect_message":"That’s okay. I’ll help you go through them one more time."}
+
+{"stage":5,"speaker":"Dana","message":"If everything is clear so far, we can move on to preparing your approval check. Are you ready to continue?","expected_user_behavior":"User agrees or asks for more clarification.","examples_ok":["Yes.","I need more explanation."],"examples_bad":["I feel weird.","I'm tired."],"redirect_message":"It's okay. Let me know when you're ready to continue."}
+
+{"stage":5,"speaker":"Dana","message":"Submitting clear, complete documents makes approval faster. Does that instruction feel straightforward to you?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","Makes sense."],"examples_bad":["My screen is dim.","I hear buzzing."],"redirect_message":"Everything is fine. Let's stay focused on the document process."}
+
+{"stage":5,"speaker":"Dana","message":"You’re doing great. Do you have any final questions about the documentation before we move on?","expected_user_behavior":"User asks or says no.","examples_ok":["No.","One more question."],"examples_bad":["I'm distracted.","I want a break."],"redirect_message":"That's okay. We'll continue when you're ready."}
+
+{"stage":5,"speaker":"Dana","message":"If you're comfortable, we’ll now move forward to checking your eligibility based on the documents. Are you ready?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes.","Let's continue."],"examples_bad":["This is too much.","I feel overwhelmed."],"redirect_message":"You're not alone — we'll take it slowly together."}
+
+{"stage":5,"speaker":"Dana","message":"Excellent work collecting your documents. When you're ready, we can proceed to pre-approval. Should we continue?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","Sure."],"examples_bad":["I’m tired.","My camera looks weird."],"redirect_message":"All good. We move only when you're ready."}
+
+{"stage":5,"speaker":"Dana","message":"Great. This completes the document stage. Let me know when you'd like to proceed to the next step of the loan process.","expected_user_behavior":"User signals readiness.","examples_ok":["I'm ready.","Let's go on."],"examples_bad":["I want to stop.","I'm confused."],"redirect_message":"No worries. We'll continue when it feels right for you."}
+{"stage":6,"speaker":"Dana","message":"Great. Now that we reviewed your documents, let's check your eligibility. First question: are you currently employed full-time, part-time, or self-employed?","expected_user_behavior":"User states employment status.","examples_ok":["Full-time.","Self-employed."],"examples_bad":["My camera looks strange.","Do you like coffee?"],"redirect_message":"Your camera is fine. Let’s focus on your employment status so I can check eligibility."}
+
+{"stage":6,"speaker":"Dana","message":"How long have you been at your current job? This helps us understand stability.","expected_user_behavior":"User provides duration.","examples_ok":["Two years.","Six months."],"examples_bad":["My chair squeaked.","I feel awkward."],"redirect_message":"That's okay. Let’s stay focused on your employment duration."}
+
+{"stage":6,"speaker":"Dana","message":"Next, what is your approximate monthly income after taxes?","expected_user_behavior":"User states income.","examples_ok":["Around 6,000.","About 12,000."],"examples_bad":["I’m hungry.","My lighting is weird."],"redirect_message":"No worries. Let's continue with your income information."}
+
+{"stage":6,"speaker":"Dana","message":"Do you have any existing loans or monthly financial commitments we should consider?","expected_user_behavior":"User lists commitments.","examples_ok":["Yes, a car loan.","No, nothing else."],"examples_bad":["My screen flickered.","I hear noise."],"redirect_message":"Everything is fine. Let’s stay focused on your current commitments."}
+
+{"stage":6,"speaker":"Dana","message":"Thank you. Based on what you shared, your repayment ability looks good so far. Would you like me to calculate a safe monthly payment range for you?","expected_user_behavior":"User requests calculation or declines.","examples_ok":["Yes, please.","No, I'm okay."],"examples_bad":["My mic is buzzing.","I’m distracted."],"redirect_message":"Your setup is fine. Let’s stay focused on your repayment analysis."}
+
+{"stage":6,"speaker":"Dana","message":"To check eligibility, I also need to know your approximate monthly expenses. Could you estimate your average?","expected_user_behavior":"User gives estimate.","examples_ok":["About 3,000.","Maybe 5k."],"examples_bad":["I’m tired.","My desk is shaking."],"redirect_message":"That's okay. Let’s slowly return to your monthly expenses."}
+
+{"stage":6,"speaker":"Dana","message":"Do you usually pay your bills on time? This helps the bank understand your credit behavior.","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes.","Sometimes late."],"examples_bad":["My face looks weird.","I feel uncomfortable."],"redirect_message":"You're doing fine. Let's continue with your eligibility check."}
+
+{"stage":6,"speaker":"Dana","message":"Do you know your approximate credit score, or would you like me to explain why it matters?","expected_user_behavior":"User states credit score or asks.","examples_ok":["Around 720.","Please explain."],"examples_bad":["I hear my neighbor.","My camera is off."],"redirect_message":"Everything is okay. Let’s stay focused on your credit information."}
+
+{"stage":6,"speaker":"Dana","message":"Credit score helps the bank predict how likely you are to repay the loan. Does that explanation make sense?","expected_user_behavior":"User confirms understanding.","examples_ok":["Yes.","Makes sense."],"examples_bad":["I'm bored.","I don’t like numbers."],"redirect_message":"I understand. Let's keep it simple and continue step by step."}
+
+{"stage":6,"speaker":"Dana","message":"Do you have any outstanding credit card balances we should factor in?","expected_user_behavior":"User answers.","examples_ok":["Yes, some.","No, none."],"examples_bad":["My microphone is loud.","I see glare."],"redirect_message":"That's alright. Let's return to your eligibility information."}
+
+{"stage":6,"speaker":"Dana","message":"Thank you. Based on your income and expenses, your debt-to-income ratio looks manageable. Should I show you what that means?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Explain it."],"examples_bad":["My phone buzzed.","I'm stretching."],"redirect_message":"No problem. Let's stay focused on the eligibility assessment."}
+
+{"stage":6,"speaker":"Dana","message":"Debt-to-income ratio helps the bank decide if you can handle new monthly payments. Does that concept feel clear?","expected_user_behavior":"User expresses understanding.","examples_ok":["Yes.","A little."],"examples_bad":["I feel weird.","My lighting flickered."],"redirect_message":"You're doing fine. Let’s continue with the eligibility check."}
+
+{"stage":6,"speaker":"Dana","message":"Do you expect any major financial changes in the next few months, like changing jobs or moving?","expected_user_behavior":"User answers.","examples_ok":["No changes.","I might switch jobs."],"examples_bad":["I saw a shadow.","My chair made noise."],"redirect_message":"All good. Let’s keep focusing on your financial situation."}
+
+{"stage":6,"speaker":"Dana","message":"Good to know. Now, do you share financial responsibilities with anyone else, such as a partner?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes.","No."],"examples_bad":["I'm distracted.","My camera angle is odd."],"redirect_message":"You’re okay. Let’s stay focused on your eligibility details."}
+
+{"stage":6,"speaker":"Dana","message":"If you share expenses, does the other person contribute to the household income?","expected_user_behavior":"User answers.","examples_ok":["Yes, they do.","No, it's only me."],"examples_bad":["My hands are cold.","I feel restless."],"redirect_message":"It's okay. Let's continue with the eligibility questions."}
+
+{"stage":6,"speaker":"Dana","message":"Are you currently renting, or do you own your home?","expected_user_behavior":"User states housing situation.","examples_ok":["I rent.","I own."],"examples_bad":["My lighting is changing.","My mic lagged."],"redirect_message":"No problem. Let’s stay focused on your housing details."}
+
+{"stage":6,"speaker":"Dana","message":"How much do you pay monthly for housing? This affects your overall financial picture.","expected_user_behavior":"User states housing cost.","examples_ok":["2,500.","About 4k."],"examples_bad":["My cat is loud.","I’m zoning out."],"redirect_message":"That's okay. Let's gently return to your housing costs."}
+
+{"stage":6,"speaker":"Dana","message":"Have you ever missed a loan or credit card payment in the past year?","expected_user_behavior":"User says yes/no.","examples_ok":["No, never.","Yes, once."],"examples_bad":["My chair squeaked.","My screen blinked."],"redirect_message":"It's okay. Let’s stay focused on your payment history."}
+
+{"stage":6,"speaker":"Dana","message":"Are you currently responsible for any child-support or alimony payments?","expected_user_behavior":"User answers.","examples_ok":["No.","Yes, monthly."],"examples_bad":["I hear noise.","I'm cold."],"redirect_message":"Everything is okay. Let’s stay on your eligibility information."}
+
+{"stage":6,"speaker":"Dana","message":"Do you feel like your income is stable over the next year?","expected_user_behavior":"User states stability.","examples_ok":["Yes.","Mostly."],"examples_bad":["I’m bored.","I'm distracted."],"redirect_message":"No worries. Let’s gently return to your income stability."}
+
+{"stage":6,"speaker":"Dana","message":"Would you like me to tell you whether you currently look eligible for the loan amount you requested?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Please tell me."],"examples_bad":["My mic is weird.","My camera froze."],"redirect_message":"Everything is good. Let’s continue with your eligibility review."}
+
+{"stage":6,"speaker":"Dana","message":"Based on your income and expenses, your repayment ability looks positive. Does that make you feel comfortable moving forward?","expected_user_behavior":"User states feeling.","examples_ok":["Yes.","That's reassuring."],"examples_bad":["I feel strange.","I'm overwhelmed."],"redirect_message":"It's okay. Let's take it slowly together."}
+
+{"stage":6,"speaker":"Dana","message":"Your eligibility also depends on your credit behavior. Would you like me to estimate your approval likelihood based on what you shared?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Please estimate."],"examples_bad":["My chair is noisy.","I’m not paying attention."],"redirect_message":"That's okay. Let's refocus on your approval estimate."}
+
+{"stage":6,"speaker":"Dana","message":"So far, everything looks promising. Would you like to continue to the initial approval simulation?","expected_user_behavior":"User responds yes/no.","examples_ok":["Yes, let's continue.","Sure."],"examples_bad":["I need a break.","I feel confused."],"redirect_message":"That's okay. We'll move forward when you're comfortable."}
+{"stage":6,"speaker":"Dana","message":"Before we continue, do you feel clear about how your income and expenses affect your eligibility?","expected_user_behavior":"User expresses clarity or confusion.","examples_ok":["Yes, it's clear.","Not fully."],"examples_bad":["My video froze.","I’m distracted."],"redirect_message":"That's okay. Let's stay focused on understanding your eligibility."}
+
+{"stage":6,"speaker":"Dana","message":"If your income increased in the future, your eligibility would improve. Does that make sense?","expected_user_behavior":"User confirms understanding.","examples_ok":["Yes.","It makes sense."],"examples_bad":["My headphone fell.","I feel awkward."],"redirect_message":"No problem. Let's continue your eligibility review."}
+
+{"stage":6,"speaker":"Dana","message":"Do you want me to check whether the loan amount you chose fits safely within your financial situation?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Please check."],"examples_bad":["I'm bored.","My mic is buzzing."],"redirect_message":"You're doing fine. Let's refocus on your eligibility check."}
+
+{"stage":6,"speaker":"Dana","message":"Great. Based on everything so far, your financial profile looks balanced. Would you like to hear which parts are strongest?","expected_user_behavior":"User agrees or asks.","examples_ok":["Yes.","Tell me."],"examples_bad":["My lighting changed.","I feel strange."],"redirect_message":"Everything is fine. Let’s continue with your strengths."}
+
+{"stage":6,"speaker":"Dana","message":"One of your strengths is your stable income. Does that feel accurate to you?","expected_user_behavior":"User confirms or denies.","examples_ok":["Yes.","I think so."],"examples_bad":["My screen flickered.","I hear noise."],"redirect_message":"That's okay. Let's return to reviewing your strengths."}
+
+{"stage":6,"speaker":"Dana","message":"Another strong point is your low monthly commitments. Does that match your situation?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes.","Mostly."],"examples_bad":["My chair squeaked.","I'm distracted."],"redirect_message":"No worries. Let's stay focused on your approval information."}
+
+{"stage":6,"speaker":"Dana","message":"Some people worry about missing payments, but your payment history looks good based on what you shared. Do you agree?","expected_user_behavior":"User confirms or clarifies.","examples_ok":["Yes.","I think so."],"examples_bad":["I'm anxious.","I feel off."],"redirect_message":"It's okay. You're doing well. Let’s continue."}
+
+{"stage":6,"speaker":"Dana","message":"Now, let me ask: is there anything about your finances you want me to consider before estimating your approval chances?","expected_user_behavior":"User expresses concerns.","examples_ok":["No.","Yes, one thing."],"examples_bad":["I’m tired.","My screen is too dark."],"redirect_message":"You're okay. Let's stay focused on your eligibility."}
+
+{"stage":6,"speaker":"Dana","message":"Would you like a simple or detailed explanation of how your eligibility is calculated?","expected_user_behavior":"User chooses explanation style.","examples_ok":["Simple.","Detailed."],"examples_bad":["My camera angle is weird.","I feel strange."],"redirect_message":"That's okay. Let's return to choosing the explanation style."}
+
+{"stage":6,"speaker":"Dana","message":"Eligibility is based on income, expenses, credit history, and loan amount. Do you want me to show a score-style breakdown?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Break it down."],"examples_bad":["My headphones hurt.","I'm zoning out."],"redirect_message":"No worries. Let's refocus on your eligibility breakdown."}
+
+{"stage":6,"speaker":"Dana","message":"You currently look eligible for the amount you requested. Does hearing that make you feel more confident?","expected_user_behavior":"User expresses feelings.","examples_ok":["Yes.","That's good."],"examples_bad":["I'm overwhelmed.","I feel nervous."],"redirect_message":"It's okay. We’ll move slowly and clearly together."}
+
+{"stage":6,"speaker":"Dana","message":"Your profile seems strong. Would you like me to continue toward the pre-approval simulation?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Continue."],"examples_bad":["My mic is loud.","I want a break."],"redirect_message":"That's okay. We'll move forward when you're ready."}
+
+{"stage":6,"speaker":"Dana","message":"Before moving on, can you summarize what factors affect your loan eligibility?","expected_user_behavior":"User summarizes.","examples_ok":["Income, expenses, credit, loan amount.","Repayment ability."],"examples_bad":["I forgot.","I'm confused."],"redirect_message":"That's okay — let me help you review them again."}
+
+{"stage":6,"speaker":"Dana","message":"Do you feel clear about how income stability affects your approval chances?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes.","Somewhat."],"examples_bad":["My lighting is too bright.","I hear something."],"redirect_message":"It's okay. Let's continue the review calmly."}
+
+{"stage":6,"speaker":"Dana","message":"Is there anything about your financial situation you'd like to update before we continue?","expected_user_behavior":"User answers or clarifies.","examples_ok":["No updates.","Yes, something changed."],"examples_bad":["My head hurts.","I feel distracted."],"redirect_message":"That's fine. Let’s continue gently when you're ready."}
+
+{"stage":6,"speaker":"Dana","message":"Would you like an estimate of your monthly payment based on your eligibility?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Show me."],"examples_bad":["My camera froze.","I'm tired."],"redirect_message":"That's okay. Let's return to calculating your payment when you're ready."}
+
+{"stage":6,"speaker":"Dana","message":"Before moving on, do you want to ask anything about income, expenses, or credit requirements?","expected_user_behavior":"User asks or says no.","examples_ok":["Yes, a question.","No, I'm fine."],"examples_bad":["My chair is loud.","I'm restless."],"redirect_message":"You're fine. Let's continue with your eligibility process."}
+
+{"stage":6,"speaker":"Dana","message":"If you're comfortable, we can move to your pre-approval result now. Should we continue?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","Let’s proceed."],"examples_bad":["I feel unsure.","This is stressful."],"redirect_message":"You're doing great. We'll go slowly until you feel ready."}
+
+{"stage":6,"speaker":"Dana","message":"Your eligibility is strong overall. Do you want to see the estimated approval percentage for your loan?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Show me."],"examples_bad":["My screen flickered.","I feel off."],"redirect_message":"No worries — when you're ready, I'll show you the estimate."}
+
+{"stage":6,"speaker":"Dana","message":"Your repayment ability appears solid. Do you understand why this increases your approval chances?","expected_user_behavior":"User expresses understanding.","examples_ok":["Yes.","I think so."],"examples_bad":["I'm distracted.","My mic buzzed."],"redirect_message":"It's okay. Let's return to the concept together."}
+
+{"stage":6,"speaker":"Dana","message":"Before we complete this stage, can you tell me in your own words what you think determines eligibility?","expected_user_behavior":"User answers.","examples_ok":["Income, expenses, credit.","My financial situation."],"examples_bad":["I don’t know.","I'm confused."],"redirect_message":"That's okay. I’ll explain it again if needed."}
+
+{"stage":6,"speaker":"Dana","message":"You're doing really well. Are you ready to proceed to Stage 7, where we walk through your loan approval simulation?","expected_user_behavior":"User confirms readiness.","examples_ok":["Yes.","I'm ready."],"examples_bad":["I want to stop.","I feel stressed."],"redirect_message":"That's okay. We move only at your pace."}
+
+{"stage":6,"speaker":"Dana","message":"If you're ready, we can now see whether your loan is likely to be approved based on the information you shared. Should we continue?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Continue."],"examples_bad":["I'm overwhelmed.","My lighting is weird."],"redirect_message":"It’s okay — we’ll go step-by-step until you feel comfortable."}
+
+{"stage":6,"speaker":"Dana","message":"This completes your eligibility assessment. When you're ready, we'll begin your approval simulation.","expected_user_behavior":"User signals readiness.","examples_ok":["I'm ready.","Let's begin."],"examples_bad":["I feel nervous.","I need a moment."],"redirect_message":"Take your time. I'll continue when you’re comfortable."}
+{"stage":7,"speaker":"Dana","message":"Great. Based on everything you shared, we can now simulate your loan approval. First question: would you like to hear your approval likelihood as a percentage or in simple terms?","expected_user_behavior":"User chooses format.","examples_ok":["Percentage.","Simple terms."],"examples_bad":["My camera lagged.","Do you like music?"],"redirect_message":"Your camera is fine. Let's stay focused on your approval results."}
+
+{"stage":7,"speaker":"Dana","message":"Your simulated approval looks strong. You meet the income requirements. Does hearing that feel reassuring?","expected_user_behavior":"User responds with emotion or acknowledgement.","examples_ok":["Yes, reassuring.","That helps."],"examples_bad":["I feel weird.","My lighting is bright."],"redirect_message":"That's okay. Let's stay focused on your approval feedback."}
+
+{"stage":7,"speaker":"Dana","message":"Your debt-to-income ratio falls within a safe range. Do you want me to explain what that means for your approval?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Explain it."],"examples_bad":["My cat jumped.","I'm distracted."],"redirect_message":"No worries. Let's return to understanding your approval results."}
+
+{"stage":7,"speaker":"Dana","message":"The simulation suggests you're likely to be approved for the amount you requested. How does that sound to you?","expected_user_behavior":"User shares feelings.","examples_ok":["Good.","That's great."],"examples_bad":["I'm tired.","I feel tense."],"redirect_message":"You're doing well. Let's continue at your pace."}
+
+{"stage":7,"speaker":"Dana","message":"One factor supporting your approval is your stable income. Does that match your expectations?","expected_user_behavior":"User confirms or comments.","examples_ok":["Yes.","I thought so."],"examples_bad":["My screen flickered.","I feel odd."],"redirect_message":"It's okay. Let's stay focused on your approval strengths."}
+
+{"stage":7,"speaker":"Dana","message":"Your credit behavior also supports approval. Would you like me to explain how your payment history affects this?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Explain that."],"examples_bad":["My mic buzzed.","I'm distracted."],"redirect_message":"That's okay. Let's return to discussing your payment history."}
+
+{"stage":7,"speaker":"Dana","message":"In simple terms: the bank sees you as a reliable borrower. Does that make sense to you?","expected_user_behavior":"User acknowledges.","examples_ok":["Yes.","Makes sense."],"examples_bad":["My lighting changed.","I feel uncomfortable."],"redirect_message":"You're okay. Let's continue with your approval explanation."}
+
+{"stage":7,"speaker":"Dana","message":"Your simulated approval likelihood is approximately 85%. Do you want to know what could raise it even higher?","expected_user_behavior":"User expresses interest.","examples_ok":["Yes.","Sure."],"examples_bad":["My chair squeaked.","I'm zoning out."],"redirect_message":"That's fine. Let's stay focused on improving your approval results."}
+
+{"stage":7,"speaker":"Dana","message":"Increasing your credit score or reducing existing commitments can improve approval chances. Does that sound clear?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","Clear."],"examples_bad":["I'm bored.","I don't get it."],"redirect_message":"Let's go slowly — I’ll explain each part clearly."}
+
+{"stage":7,"speaker":"Dana","message":"You also qualify for a standard interest rate based on your profile. Would you like to hear what range you fall into?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Tell me."],"examples_bad":["My camera is too dark.","I feel strange."],"redirect_message":"Everything is okay. Let's continue with your approval details."}
+
+{"stage":7,"speaker":"Dana","message":"Your estimated interest rate range is between 4.8% and 6.2%. Does that sound reasonable to you?","expected_user_behavior":"User reacts.","examples_ok":["Yes.","Seems okay."],"examples_bad":["I don't know.","My screen blinked."],"redirect_message":"That's okay. Let's stay focused on understanding the interest range."}
+
+{"stage":7,"speaker":"Dana","message":"Would you like me to calculate your estimated monthly payment based on this approval?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Calculate it."],"examples_bad":["I'm thirsty.","My face feels hot."],"redirect_message":"You're doing great. Let's focus back on your payment calculation."}
+
+{"stage":7,"speaker":"Dana","message":"Your estimated monthly payment for the simulated approval is within a safe range given your income. Does that make you feel confident?","expected_user_behavior":"User expresses confidence.","examples_ok":["Yes.","A bit more confident."],"examples_bad":["I feel nervous.","I'm overwhelmed."],"redirect_message":"It's okay. We’re taking it one small step at a time."}
+
+{"stage":7,"speaker":"Dana","message":"Would you like me to walk you through why the simulation approved your profile?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Explain it."],"examples_bad":["My camera angle is weird.","I'm distracted."],"redirect_message":"Everything is fine. Let’s focus on your approval reasoning."}
+
+{"stage":7,"speaker":"Dana","message":"Here’s the summary: stable income, reasonable expenses, and manageable existing commitments. Does this explanation help?","expected_user_behavior":"User confirms clarity.","examples_ok":["Yes.","It helps."],"examples_bad":["I feel off.","My lighting is too bright."],"redirect_message":"You're okay. Let's stay focused on reviewing your profile."}
+
+{"stage":7,"speaker":"Dana","message":"Your eligibility score is high. Would you like to see how it compares to typical approval thresholds?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes.","Show me."],"examples_bad":["My chair squeaked.","I hear noise."],"redirect_message":"Let's refocus. We'll compare your score now."}
+
+{"stage":7,"speaker":"Dana","message":"Your score is above the threshold for your loan type. Does that help you feel more secure about your chances?","expected_user_behavior":"User acknowledges.","examples_ok":["Yes.","That helps."],"examples_bad":["I feel weird.","I'm stressed."],"redirect_message":"That's okay. Let's continue at a pace that feels comfortable."}
+
+{"stage":7,"speaker":"Dana","message":"If you're unsure about anything in your approval results, I can explain it differently. Would you like a simpler version?","expected_user_behavior":"User chooses.","examples_ok":["Yes, simpler.","No, I understand."],"examples_bad":["My screen blinked.","I’m unfocused."],"redirect_message":"No worries. Let's bring our attention back to your results."}
+
+{"stage":7,"speaker":"Dana","message":"Part of the simulation checks your repayment consistency. Since you pay bills on time, that's a strong factor. Does that make sense?","expected_user_behavior":"User acknowledges.","examples_ok":["Yes.","Makes sense."],"examples_bad":["I'm bored.","I don't care."],"redirect_message":"I understand. Let's gently return to the approval explanation."}
+
+{"stage":7,"speaker":"Dana","message":"Do you want to know what the next step would be if this were a real approval?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Tell me."],"examples_bad":["My camera is glitching.","I hear buzzing."],"redirect_message":"Everything is okay. Let's stay focused on the loan process."}
+
+{"stage":7,"speaker":"Dana","message":"The next step would be a final verification check and signing the contract. Does that sound straightforward?","expected_user_behavior":"User answers.","examples_ok":["Yes.","Seems simple."],"examples_bad":["I’m unsure.","I feel odd."],"redirect_message":"You're doing fine. Let's keep going step by step."}
+
+{"stage":7,"speaker":"Dana","message":"Would you like to simulate the contract signing steps as well?","expected_user_behavior":"User chooses.","examples_ok":["Yes.","No."],"examples_bad":["My chair is noisy.","I'm distracted."],"redirect_message":"All good. Let's return to the approval simulation."}
+
+{"stage":7,"speaker":"Dana","message":"Before we complete the simulation, do you have any questions about your approval chances?","expected_user_behavior":"User asks or says no.","examples_ok":["No questions.","Yes, one question."],"examples_bad":["I'm confused.","I feel overwhelmed."],"redirect_message":"It's okay. Let’s clarify anything that feels confusing."}
+
+{"stage":7,"speaker":"Dana","message":"Everything you shared suggests you're a strong candidate for this loan. Does that boost your confidence a little?","expected_user_behavior":"User responds.","examples_ok":["Yes.","A bit."],"examples_bad":["I don’t know.","This is strange."],"redirect_message":"You're doing well. Let's continue with confidence."}
+{"stage":7,"speaker":"Dana","message":"Before finishing, can you tell me which part of the approval process felt the clearest to you?","expected_user_behavior":"User reflects.","examples_ok":["The income part.","The eligibility explanation."],"examples_bad":["I'm distracted.","My screen blinked."],"redirect_message":"That's okay. Let’s gently return to the approval discussion."}
+
+{"stage":7,"speaker":"Dana","message":"And which part felt the most confusing? I can explain it in a simpler way if needed.","expected_user_behavior":"User expresses confusion.","examples_ok":["Interest rate.","Approval score."],"examples_bad":["I don't know.","Everything."],"redirect_message":"That's alright. Let's slow down and review just one part at a time."}
+
+{"stage":7,"speaker":"Dana","message":"Your simulated approval suggests the bank trusts your financial stability. Does that feel accurate to your situation?","expected_user_behavior":"User confirms or clarifies.","examples_ok":["Yes.","Mostly."],"examples_bad":["I feel weird.","I'm unsure."],"redirect_message":"You're doing great. Let's keep the focus gentle and clear."}
+
+{"stage":7,"speaker":"Dana","message":"Sometimes people are surprised by high approval chances. Are you surprised by your result?","expected_user_behavior":"User shares reaction.","examples_ok":["A little.","Not really."],"examples_bad":["My chair squeaked.","I'm distracted."],"redirect_message":"No problem. Let’s bring our focus back to your approval results."}
+
+{"stage":7,"speaker":"Dana","message":"Would you like me to show what your approval would look like if your income were 10% higher?","expected_user_behavior":"User chooses.","examples_ok":["Yes.","No."],"examples_bad":["My lighting is strange.","I hear buzzing."],"redirect_message":"Everything is fine. Let's stay on the approval simulation."}
+
+{"stage":7,"speaker":"Dana","message":"That scenario would raise your approval chances slightly. Does seeing alternative scenarios help you understand the process better?","expected_user_behavior":"User responds.","examples_ok":["Yes.","It helps."],"examples_bad":["I feel tired.","I'm confused."],"redirect_message":"That's okay. Let's continue step by step."}
+
+{"stage":7,"speaker":"Dana","message":"If this were a real application, the bank would now send you a preliminary approval notice. Does that feel exciting?","expected_user_behavior":"User expresses feeling.","examples_ok":["Yes.","A little."],"examples_bad":["I feel nervous.","I don’t know."],"redirect_message":"It's completely okay. We’ll move at a comfortable pace."}
+
+{"stage":7,"speaker":"Dana","message":"Before moving to the final stage, do you want a quick recap of why your approval chances are strong?","expected_user_behavior":"User chooses.","examples_ok":["Yes.","No need."],"examples_bad":["My camera froze.","I got distracted."],"redirect_message":"No worries. Let's focus again on the recap option."}
+
+{"stage":7,"speaker":"Dana","message":"Summary: stable income, responsible payment history, and manageable expenses. Does this summary feel accurate?","expected_user_behavior":"User acknowledges.","examples_ok":["Yes.","It's accurate."],"examples_bad":["I'm unsure.","I feel weird."],"redirect_message":"That's okay. Let's proceed gently."}
+
+{"stage":7,"speaker":"Dana","message":"Do you have any last questions about your approval likelihood before we continue?","expected_user_behavior":"User asks or says no.","examples_ok":["No.","One more question."],"examples_bad":["I forgot.","I'm overwhelmed."],"redirect_message":"No problem. We’ll take it slowly."}
+
+{"stage":7,"speaker":"Dana","message":"If you're feeling confident, we can now simulate the final loan confirmation. Are you ready?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","Let's continue."],"examples_bad":["I need a moment.","I'm stressed."],"redirect_message":"Take your time. We'll continue whenever you're ready."}
+
+{"stage":7,"speaker":"Dana","message":"In the final step, you'll review and accept the loan terms. Does that sound okay to you?","expected_user_behavior":"User agrees or asks.","examples_ok":["Yes.","Okay."],"examples_bad":["I'm unsure.","This is confusing."],"redirect_message":"That's alright. I’ll explain each part clearly."}
+
+{"stage":7,"speaker":"Dana","message":"Just checking — do you feel more confident now than at the start of the simulation?","expected_user_behavior":"User expresses confidence level.","examples_ok":["Yes.","A bit."],"examples_bad":["Not really.","I feel nervous."],"redirect_message":"That's okay. Confidence grows step by step."}
+
+{"stage":7,"speaker":"Dana","message":"If you want, we can practice this whole approval conversation again later. Does that sound helpful?","expected_user_behavior":"User responds.","examples_ok":["Yes.","Maybe."],"examples_bad":["I don't care.","I'm distracted."],"redirect_message":"No worries. We're focusing back on your progress."}
+
+{"stage":7,"speaker":"Dana","message":"You handled this stage very well. Shall we move on to the final confirmation stage?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","I'm ready."],"examples_bad":["I feel overwhelmed.","I want to stop."],"redirect_message":"That's okay. We'll continue only when it feels right."}
+
+{"stage":7,"speaker":"Dana","message":"Before closing this stage, can you tell me one thing you feel you learned today about loan approval?","expected_user_behavior":"User reflects.","examples_ok":["How eligibility works.","What the bank looks at."],"examples_bad":["I don’t know.","Nothing."],"redirect_message":"That's fine. We’ll review together when needed."}
+
+{"stage":7,"speaker":"Dana","message":"Great. Your understanding is improving step by step. Are you ready for Stage 8: Final Confirmation?","expected_user_behavior":"User signals readiness.","examples_ok":["Yes.","Let's go."],"examples_bad":["I'm nervous.","I feel unsure."],"redirect_message":"You're doing great. We'll move gently to the next step."}
+
+{"stage":7,"speaker":"Dana","message":"If you're ready, we'll now finalize your simulated loan terms. Should we continue?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","Continue."],"examples_bad":["I need time.","I'm distracted."],"redirect_message":"All good — just tell me when you're ready."}
+
+{"stage":7,"speaker":"Dana","message":"Excellent. This completes your approval simulation. When you're ready, we’ll finalize everything in the next stage.","expected_user_behavior":"User shows readiness.","examples_ok":["I'm ready.","Next stage."],"examples_bad":["I need a break.","Not sure."],"redirect_message":"Take your time. We'll continue when it feels comfortable."}
+
+{"stage":7,"speaker":"Dana","message":"To summarize, you are highly likely to be approved under the simulated conditions. Shall we move to the confirmation stage?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","Sure."],"examples_bad":["I'm tired.","I feel weird."],"redirect_message":"No worries — we proceed at your pace."}
+
+{"stage":7,"speaker":"Dana","message":"Perfect. When you're ready, we'll go through the final loan confirmation steps together.","expected_user_behavior":"User signals readiness.","examples_ok":["Let's do it.","I'm ready."],"examples_bad":["I feel anxious.","Not now."],"redirect_message":"That's completely fine. We'll continue when you’re comfortable."}
+{"stage":8,"speaker":"Dana","message":"Great. We’re now in the final confirmation stage. First, I will review the main terms of your loan. Are you ready?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","I'm ready."],"examples_bad":["My screen blinked.","I feel strange."],"redirect_message":"Everything is fine. Let’s focus on reviewing your loan terms."}
+
+{"stage":8,"speaker":"Dana","message":"Your approved loan amount is the one you requested. Does that feel right for your needs?","expected_user_behavior":"User responds.","examples_ok":["Yes, it's right.","It matches what I need."],"examples_bad":["I don't know.","I'm distracted."],"redirect_message":"That's okay. Let's gently return to the loan amount."}
+
+{"stage":8,"speaker":"Dana","message":"Your interest rate will be in the approximate range we discussed. Do you understand how this affects your monthly payment?","expected_user_behavior":"User expresses understanding or confusion.","examples_ok":["Yes.","Somewhat."],"examples_bad":["My camera froze.","I’m unfocused."],"redirect_message":"No problem. Let's refocus on understanding interest effects."}
+
+{"stage":8,"speaker":"Dana","message":"Your repayment period will be spread across a manageable number of months. Does this timeframe feel comfortable for you?","expected_user_behavior":"User responds honestly.","examples_ok":["Yes.","I think so."],"examples_bad":["I'm stressed.","I'm tired."],"redirect_message":"You're doing great. Let's take this step by step."}
+
+{"stage":8,"speaker":"Dana","message":"Before finalizing, I want to check: do you feel able to commit to the monthly payment amount we estimated?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","It feels manageable."],"examples_bad":["I'm unsure.","My lighting is weird."],"redirect_message":"That's alright — we can review the payment amount again if needed."}
+
+{"stage":8,"speaker":"Dana","message":"Excellent. Now let me explain what will happen after you accept the terms. Would you like a simple explanation or a detailed one?","expected_user_behavior":"User chooses level of detail.","examples_ok":["Simple.","Detailed."],"examples_bad":["My sound is weird.","I'm distracted."],"redirect_message":"Everything is okay. Let's return to choosing the explanation style."}
+
+{"stage":8,"speaker":"Dana","message":"After accepting the terms, the bank processes your agreement and schedules the loan disbursement. Does that make sense to you?","expected_user_behavior":"User confirms understanding.","examples_ok":["Yes.","Makes sense."],"examples_bad":["I feel confused.","My chair squeaked."],"redirect_message":"That's okay — let's walk through it slowly."}
+
+{"stage":8,"speaker":"Dana","message":"You will then receive a confirmation message summarizing your loan details. Would you like to simulate that message?","expected_user_behavior":"User chooses yes/no.","examples_ok":["Yes.","Let’s simulate."],"examples_bad":["I'm distracted.","My camera is tilted."],"redirect_message":"You're doing fine. Let's focus on the confirmation message."}
+
+{"stage":8,"speaker":"Dana","message":"Here is the simulated confirmation: 'Your loan has been approved. Funds will be released within three business days.' How does that feel?","expected_user_behavior":"User expresses emotional reaction.","examples_ok":["Good.","Relieving."],"examples_bad":["I feel odd.","I’m overwhelmed."],"redirect_message":"It's okay — this is just a safe simulation."}
+
+{"stage":8,"speaker":"Dana","message":"Now we’ll move to your final acceptance. Are you ready to review the contract summary?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","Let's do it."],"examples_bad":["I need time.","I'm nervous."],"redirect_message":"Take your time. We'll proceed when you're ready."}
+
+{"stage":8,"speaker":"Dana","message":"Your contract summary includes the loan amount, interest rate, total repayment, and monthly payment. Do you understand all these parts?","expected_user_behavior":"User answers honestly.","examples_ok":["Yes.","Most of it."],"examples_bad":["Not really.","I'm confused."],"redirect_message":"That's okay — we can review each part slowly."}
+
+{"stage":8,"speaker":"Dana","message":"Would you like me to restate your monthly payment amount one more time?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","No need."],"examples_bad":["My mic buzzed.","I feel distracted."],"redirect_message":"No problem. Let's stay focused on your contract summary."}
+
+{"stage":8,"speaker":"Dana","message":"Once you accept the contract, your loan will move into final processing. Do you want to practice saying 'I accept the terms' before we continue?","expected_user_behavior":"User practices acceptance.","examples_ok":["Yes, let's practice.","Sure."],"examples_bad":["I feel silly.","I'm embarrassed."],"redirect_message":"It's completely okay — this is a safe space to practice."}
+
+{"stage":8,"speaker":"Dana","message":"Great. Please try saying something like: 'I accept the conditions of this loan.'","expected_user_behavior":"User repeats or tries.","examples_ok":["I accept the conditions.","I can say that."],"examples_bad":["I don’t want to.","I feel odd."],"redirect_message":"That's okay — take your time and try again when ready."}
+
+{"stage":8,"speaker":"Dana","message":"Excellent. That’s exactly how it would sound in a real bank meeting. Do you feel confident about this part now?","expected_user_behavior":"User expresses confidence.","examples_ok":["Yes.","More confident."],"examples_bad":["Not sure.","Still nervous."],"redirect_message":"It's okay — confidence grows through practice."}
+
+{"stage":8,"speaker":"Dana","message":"Before we finalize the simulation, do you want to review any part of the loan terms again?","expected_user_behavior":"User says yes/no.","examples_ok":["No.","Yes, the interest."],"examples_bad":["I forgot everything.","I'm overwhelmed."],"redirect_message":"That's fine. Let's review one part at a time."}
+
+{"stage":8,"speaker":"Dana","message":"Now I will ask the final confirmation question: Do you accept the simulated loan terms presented today?","expected_user_behavior":"User practices acceptance.","examples_ok":["Yes, I accept.","I accept the terms."],"examples_bad":["I'm unsure.","I feel stressed."],"redirect_message":"It's okay — you can take a moment before answering."}
+
+{"stage":8,"speaker":"Dana","message":"Wonderful. Your acceptance has been noted. In a real scenario, this would complete the loan approval process. Does that feel satisfying?","expected_user_behavior":"User expresses feeling.","examples_ok":["Yes.","Feels good."],"examples_bad":["I feel weird.","Not really."],"redirect_message":"That's okay — everyone reacts differently during financial decisions."}
+
+{"stage":8,"speaker":"Dana","message":"You’ve now successfully completed a full loan meeting simulation. Do you feel proud of yourself for reaching this point?","expected_user_behavior":"User expresses pride or emotion.","examples_ok":["A bit.","Yes."],"examples_bad":["Not really.","I didn’t do much."],"redirect_message":"It's okay — progress is what matters, and you made a lot."}
+
+{"stage":8,"speaker":"Dana","message":"Would you like feedback on your communication during the simulation?","expected_user_behavior":"User chooses yes/no.","examples_ok":["Yes.","Sure."],"examples_bad":["I don’t care.","No idea."],"redirect_message":"No worries — we’ll only do it if you want."}
+
+{"stage":8,"speaker":"Dana","message":"Your answers were focused and appropriate, and you redirected well when needed. Does that feel encouraging?","expected_user_behavior":"User reacts.","examples_ok":["Yes.","That helps."],"examples_bad":["I still feel unsure.","I’m nervous."],"redirect_message":"That's okay. Confidence builds slowly through repeated practice."}
+
+{"stage":8,"speaker":"Dana","message":"Would you like to try the simulation again later, or move on to a different scenario next time?","expected_user_behavior":"User chooses.","examples_ok":["Different scenario.","Repeat later."],"examples_bad":["I’m tired.","I feel off."],"redirect_message":"No problem — we continue only at your pace."}
+
+{"stage":8,"speaker":"Dana","message":"Before we close, do you have any final questions about the loan process?","expected_user_behavior":"User asks or says no.","examples_ok":["No questions.","Yes, one thing."],"examples_bad":["I can't think.","I'm overwhelmed."],"redirect_message":"That's okay — take your time to think."}
+
+{"stage":8,"speaker":"Dana","message":"Thank you for your effort today. You handled everything with patience and clarity. Are you ready for the final closing message?","expected_user_behavior":"User confirms.","examples_ok":["Yes.","Sure."],"examples_bad":["I'm unsure.","Maybe later."],"redirect_message":"No problem — we’ll continue when you're ready."}
+{"stage":8,"speaker":"Dana","message":"Here is your closing message: 'Your loan meeting is now complete. Thank you for your cooperation and clarity today.' How does that feel to hear?","expected_user_behavior":"User reacts emotionally.","examples_ok":["Good.","Nice to hear."],"examples_bad":["I feel weird.","I don’t care."],"redirect_message":"That's okay — this is just practice, and you're doing great."}
+
+{"stage":8,"speaker":"Dana","message":"Sometimes people feel relief or confidence after finishing a loan process. What do you feel right now?","expected_user_behavior":"User shares feelings.","examples_ok":["Relief.","More confident."],"examples_bad":["I feel nothing.","I’m confused."],"redirect_message":"No problem — all feelings are valid. Let's stay in the reflection moment."}
+
+{"stage":8,"speaker":"Dana","message":"Do you feel that this simulation helped you understand how a real loan meeting works?","expected_user_behavior":"User reflects.","examples_ok":["Yes.","It helped a lot."],"examples_bad":["Not sure.","I forgot."],"redirect_message":"That's okay — we can review any part again whenever you want."}
+
+{"stage":8,"speaker":"Dana","message":"Is there any part of the process you would like to practice again in a future session?","expected_user_behavior":"User chooses.","examples_ok":["The approval part.","The documents part."],"examples_bad":["I don't know.","None."],"redirect_message":"No worries — we can choose together when you're ready."}
+
+{"stage":8,"speaker":"Dana","message":"You showed great focus during the simulation, especially when redirecting yourself back on topic. Does that feel like progress?","expected_user_behavior":"User acknowledges.","examples_ok":["Yes.","A bit."],"examples_bad":["Not really.","I'm unsure."],"redirect_message":"That's fine — progress takes time and practice."}
+
+{"stage":8,"speaker":"Dana","message":"If you practiced this scenario again, which part do you think would feel easier next time?","expected_user_behavior":"User reflects on improvement.","examples_ok":["Understanding terms.","Answering questions."],"examples_bad":["I don't know.","Everything."],"redirect_message":"That's okay — we can explore that in future sessions."}
+
+{"stage":8,"speaker":"Dana","message":"Would you like to receive positive reinforcement or practical feedback on how you communicated today?","expected_user_behavior":"User chooses.","examples_ok":["Reinforcement.","Feedback."],"examples_bad":["My mind is blank.","I'm distracted."],"redirect_message":"No problem — we can decide together what works best for you."}
+
+{"stage":8,"speaker":"Dana","message":"You demonstrated clear thinking and stayed engaged throughout the meeting. Does that make you feel more capable for real-world situations?","expected_user_behavior":"User reflects.","examples_ok":["Yes.","I think so."],"examples_bad":["Not sure.","I feel weird."],"redirect_message":"That's okay — capability grows with experience."}
+
+{"stage":8,"speaker":"Dana","message":"How confident do you feel now compared to the beginning of the simulation?","expected_user_behavior":"User gives comparison.","examples_ok":["More confident.","A bit higher."],"examples_bad":["Same.","I don’t know."],"redirect_message":"That's alright — improvement sometimes happens gradually."}
+
+{"stage":8,"speaker":"Dana","message":"Would you like this simulation saved as a training example for future practice?","expected_user_behavior":"User decides.","examples_ok":["Yes.","Save it."],"examples_bad":["I don't care.","Maybe later."],"redirect_message":"That's okay — we’ll save it only if you want."}
+
+{"stage":8,"speaker":"Dana","message":"Before closing, I want to acknowledge your effort today. You stayed focused and completed all steps. Does hearing that feel encouraging?","expected_user_behavior":"User responds emotionally.","examples_ok":["Yes.","It feels good."],"examples_bad":["I guess.","Not really."],"redirect_message":"That's fine — the goal is steady confidence building."}
+
+{"stage":8,"speaker":"Dana","message":"If you ever want to practice a different scenario, like a job interview or grocery store interaction, would that interest you?","expected_user_behavior":"User chooses.","examples_ok":["Yes.","Maybe."],"examples_bad":["I don’t know.","No idea."],"redirect_message":"No worries — you can decide whenever you're ready."}
+
+{"stage":8,"speaker":"Dana","message":"Your communication skills improved throughout the conversation. Are you aware of that progress?","expected_user_behavior":"User acknowledges or hesitates.","examples_ok":["Yes.","A bit."],"examples_bad":["Not sure.","I didn't notice."],"redirect_message":"That's okay — progress can be subtle but meaningful."}
+
+{"stage":8,"speaker":"Dana","message":"What part of today’s session made you feel the most confident?","expected_user_behavior":"User reflects.","examples_ok":["Understanding the terms.","Answering questions."],"examples_bad":["I’m not sure.","None."],"redirect_message":"That's okay — we can identify strengths together."}
+
+{"stage":8,"speaker":"Dana","message":"Do you feel comfortable practicing similar financial conversations in the future?","expected_user_behavior":"User answers yes/no.","examples_ok":["Yes.","I think so."],"examples_bad":["Not really.","I feel nervous."],"redirect_message":"That's alright — comfort grows with repetition."}
+
+{"stage":8,"speaker":"Dana","message":"If this were a real bank meeting, you'd be fully prepared. Does that surprise you?","expected_user_behavior":"User reacts.","examples_ok":["A little.","Not really."],"examples_bad":["I don't know.","I'm uncertain."],"redirect_message":"No problem — readiness takes time to believe."}
+
+{"stage":8,"speaker":"Dana","message":"Would you like help setting a goal for your next practice session?","expected_user_behavior":"User chooses.","examples_ok":["Yes.","Sure."],"examples_bad":["No idea.","I'm tired."],"redirect_message":"That's fine — we’ll set goals only when you feel ready."}
+
+{"stage":8,"speaker":"Dana","message":"Last question: do you feel that you grew more confident today than you expected?","expected_user_behavior":"User answers honestly.","examples_ok":["Yes.","A bit."],"examples_bad":["Not sure.","No."],"redirect_message":"That’s okay — every step forward counts."}
+
+{"stage":8,"speaker":"Dana","message":"Thank you for practicing with me today. Your effort and focus were excellent. Do you want to close the session now?","expected_user_behavior":"User says yes/no.","examples_ok":["Yes.","Let's close."],"examples_bad":["Not yet.","I'm unsure."],"redirect_message":"Take your time — we close only when you choose."}
+
+{"stage":8,"speaker":"Dana","message":"Session closed. Whenever you're ready, we can explore new scenarios or repeat this one. You're making great progress.","expected_user_behavior":"No user reply required.","examples_ok":[""],"examples_bad":[""],"redirect_message":""}

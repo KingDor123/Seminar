@@ -44,6 +44,7 @@ class LLMService:
                 model=model_id,
                 messages=messages,
                 stream=True,
+                stop=["<|start_header_id|>", "<|eot_id|>", "user:", "User:"]
             )
 
             for chunk in stream:

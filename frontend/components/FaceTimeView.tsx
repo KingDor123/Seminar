@@ -105,7 +105,16 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
   }, [messages, isThinking]);
 
   return (
-    <div className="flex h-[600px] w-full max-w-6xl border rounded-xl shadow-2xl bg-black overflow-hidden">
+    <div className="flex flex-col h-[650px] w-full max-w-6xl border border-gray-800 rounded-xl shadow-2xl bg-black overflow-hidden">
+      {/* TOP HEADER: Scenario Title */}
+      <div className="h-12 bg-gray-900/80 backdrop-blur border-b border-gray-800 flex items-center justify-center">
+          <h2 className="text-gray-100 font-bold text-lg tracking-wide flex items-center gap-2">
+             <span className="text-blue-500">●</span> 
+             {SCENARIOS.find(s => s.id === selectedScenario)?.label || "Unknown Scenario"}
+          </h2>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
       
       {/* LEFT PANEL: Main AI View & Controls */}
       <div className="relative flex-1 bg-gray-900 flex flex-col">
@@ -244,6 +253,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
         </div>
       </div>
 
+      </div>
     </div>
   );
 };
