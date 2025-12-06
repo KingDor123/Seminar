@@ -3,8 +3,10 @@ import logging
 
 class Settings:
     # AI Configuration
-    OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://ollama:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
+    # Pointing to Host Machine MLX Server (port 8081 due to Jenkins on 8080)
+    # 'host.docker.internal' works on Mac Docker Desktop to reach localhost
+    OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://host.docker.internal:8081/v1")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "models/softskill-llama3.2-3b") 
     
     # Whisper Configuration
     # 'tiny', 'base', 'small', 'medium', 'large-v2'

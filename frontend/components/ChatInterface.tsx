@@ -25,6 +25,11 @@ export default function ChatInterface() {
   const [language, setLanguage] = useState<"en-US" | "he-IL">("he-IL");
   const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[0].id);
 
+  // Debug logging
+  useEffect(() => {
+    console.log("Current Selected Scenario:", selectedScenario);
+  }, [selectedScenario]);
+
   // Database Session Hook
   const { sessionId, startSession, saveMessage } = useChatSession();
 
@@ -123,6 +128,7 @@ export default function ChatInterface() {
   }, []);
 
   const { isConnected, sendAudioChunk } = useRealTimeConversation({
+    selectedScenario: selectedScenario,
     onTranscript: handleTranscript,
     onAudioData: handleAudioData,
     onStatusChange: handleStatusChange

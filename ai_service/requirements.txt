@@ -1,17 +1,15 @@
 fastapi
 uvicorn
 ollama
+openai
 websockets
 numpy
 edge-tts
 aiofiles
 faster-whisper
 python-multipart
-# For audio processing if needed
 scipy
 soundfile
-
-# Testing
 pytest
 pytest-asyncio
 httpx

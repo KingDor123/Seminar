@@ -19,109 +19,217 @@ try:
 except Exception as e:
     logger.critical(f"Failed to initialize AI Services: {e}")
 
-@router.websocket("/ws/conversation")
+@router.websocket("/ai/stream")
 async def conversation_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("Conversation WebSocket connected.")
 
+    system_prompt_content = "You are a helpful, empathetic, and professional conversational partner. Keep your responses concise and natural, like a real phone call."
     history = [
-        {"role": "system", "content": "You are a helpful, empathetic, and professional conversational partner. Keep your responses concise and natural, like a real phone call."}
+        {"role": "system", "content": system_prompt_content}
     ]
 
     # VAD / Buffering State
     speech_buffer = bytearray()
     silence_counter = 0
-    SILENCE_THRESHOLD_CHUNKS = 4 
-    AMPLITUDE_THRESHOLD = 0.02 
+    SILENCE_THRESHOLD_CHUNKS = 6  # Increased from 4 to filter short noise
+    AMPLITUDE_THRESHOLD = 0.05 # Increased from 0.02 to filter background noise
 
     try:
         while True:
-            # 1. Receive Audio from Client (Raw Float32 Bytes)
-            data = await websocket.receive_bytes()
-            
-            if not data:
-                continue
+            # Polymorphic Receive: Handle both Text (Chat) and Bytes (Audio)
+            message = await websocket.receive()
+            # logger.info(f"WS Received Message Type: {message.keys()}") # Commented out to reduce noise
 
-            # Convert to numpy to check amplitude
-            chunk_np = np.frombuffer(data, dtype=np.float32)
-            
-            # Calculate RMS (Root Mean Square) amplitude
-            rms = np.sqrt(np.mean(chunk_np**2))
-            
-            if rms > AMPLITUDE_THRESHOLD:
-                # Speech detected
-                speech_buffer.extend(data)
-                silence_counter = 0
-            else:
-                # Silence
-                if len(speech_buffer) > 0:
-                    silence_counter += 1
-                
-            # If we have speech data and silence has persisted for enough chunks, assume end of utterance
-            if len(speech_buffer) > 0 and silence_counter >= SILENCE_THRESHOLD_CHUNKS:
-                logger.info(f"Processing speech segment: {len(speech_buffer)} bytes")
-                
-                # 2. Speech to Text
-                user_text = stt_service.transcribe(bytes(speech_buffer))
-                
-                # Reset buffer immediately
-                speech_buffer = bytearray()
-                silence_counter = 0
-                
-                if not user_text or len(user_text.strip()) < 2:
-                    continue
+            if "text" in message:
+                logger.info(f"Received Text Payload: {message['text'][:100]}...")
+                # --- TEXT MODE (Chat Interface) ---
+                try:
+                    payload = json.loads(message["text"])
+                    
+                    # Update System Prompt if provided
+                    if "system_prompt" in payload:
+                        system_prompt_content = payload["system_prompt"]
+                        # Update the first message in history
+                        if history and history[0]["role"] == "system":
+                            history[0]["content"] = system_prompt_content
+                        else:
+                            history.insert(0, {"role": "system", "content": system_prompt_content})
 
-                logger.info(f"User said: {user_text}")
-                
-                # Send transcript back to UI
-                await websocket.send_json({"type": "transcript", "role": "user", "text": user_text})
-
-                # 3. Update History
-                history.append({"role": "user", "content": user_text})
-
-                # 4. LLM & TTS Streaming Pipeline
-                full_ai_response = ""
-                current_sentence = ""
-                
-                await websocket.send_json({"type": "status", "status": "processing"})
-
-                token_generator = llm_service.chat_stream(history)
-                
-                for token in token_generator:
-                    current_sentence += token
-                    full_ai_response += token
-
-                    if token in [".", "?", "!", "\n"]:
-                        sentence_to_speak = current_sentence.strip()
-                        if sentence_to_speak:
-                            logger.info(f"Generating TTS for: {sentence_to_speak}")
-                            await websocket.send_json({"type": "transcript", "role": "assistant", "text": sentence_to_speak, "partial": True})
+                    # Update/Append History if provided
+                    if "history" in payload:
+                        # Replace history (keeping system prompt) or append?
+                        # Usually the client sends the full context or the new message.
+                        # For this implementation, let's assume the client sends the *full* history (minus system maybe)
+                        # OR just the new user message.
+                        # Based on frontend code: `history` is the full array of messages.
+                        
+                        input_history = payload["history"]
+                        # Rebuild history: System Prompt + Input History
+                        history = [{"role": "system", "content": system_prompt_content}] + input_history
+                        
+                        response_mode = payload.get("mode", "text")
+                        logger.info(f"Chat Request Mode: {response_mode}. Received {len(input_history)} messages.")
+                        
+                        if response_mode == "audio":
+                            # --- GENERATE AUDIO RESPONSE (Video Call) ---
+                            await websocket.send_json({"type": "status", "status": "processing"})
                             
-                            # Buffer audio for the entire sentence
-                            sentence_audio = bytearray()
-                            async for audio_chunk in tts_service.stream_audio(sentence_to_speak):
-                                sentence_audio.extend(audio_chunk)
+                            full_ai_response = ""
+                            current_sentence = ""
+                            token_generator = llm_service.chat_stream(history)
                             
-                            if len(sentence_audio) > 0:
-                                await websocket.send_bytes(bytes(sentence_audio))
-                                logger.info(f"Sent complete audio for sentence ({len(sentence_audio)} bytes).")
+                            for token in token_generator:
+                                current_sentence += token
+                                full_ai_response += token
+
+                                if token in [".", "?", "!", "\n"]:
+                                    sentence_to_speak = current_sentence.strip()
+                                    if sentence_to_speak:
+                                        logger.info(f"Generating TTS for: {sentence_to_speak}")
+                                        await websocket.send_json({"type": "transcript", "role": "assistant", "text": sentence_to_speak, "partial": True})
+                                        
+                                        # Buffer audio for the entire sentence
+                                        sentence_audio = bytearray()
+                                        try:
+                                            async for audio_chunk in tts_service.stream_audio(sentence_to_speak):
+                                                sentence_audio.extend(audio_chunk)
+                                            
+                                            if len(sentence_audio) > 0:
+                                                await websocket.send_bytes(bytes(sentence_audio))
+                                                logger.info(f"Sent complete audio for sentence ({len(sentence_audio)} bytes).")
+                                            else:
+                                                logger.warning("TTS generated empty audio.")
+                                        except Exception as e:
+                                            logger.error(f"TTS Generation Error: {e}")
+                                    
+                                    current_sentence = ""
+
+                            if current_sentence.strip():
+                                logger.info(f"Generating TTS for final segment: {current_sentence.strip()}")
+                                await websocket.send_json({"type": "transcript", "role": "assistant", "text": current_sentence.strip(), "partial": True})
                                 
-                        current_sentence = ""
+                                sentence_audio = bytearray()
+                                try:
+                                    async for audio_chunk in tts_service.stream_audio(current_sentence.strip()):
+                                        sentence_audio.extend(audio_chunk)
+                                    
+                                    if len(sentence_audio) > 0:
+                                        await websocket.send_bytes(bytes(sentence_audio))
+                                        logger.info(f"Sent complete audio for final segment ({len(sentence_audio)} bytes).")
+                                    else:
+                                        logger.warning("TTS generated empty audio for final segment.")
+                                except Exception as e:
+                                    logger.error(f"TTS Generation Error (Final): {e}")
 
-                if current_sentence.strip():
-                    logger.info(f"Generating TTS for final segment: {current_sentence.strip()}")
-                    await websocket.send_json({"type": "transcript", "role": "assistant", "text": current_sentence.strip(), "partial": True})
-                    
-                    sentence_audio = bytearray()
-                    async for audio_chunk in tts_service.stream_audio(current_sentence.strip()):
-                        sentence_audio.extend(audio_chunk)
-                    
-                    if len(sentence_audio) > 0:
-                        await websocket.send_bytes(bytes(sentence_audio))
+                            history.append({"role": "assistant", "content": full_ai_response})
+                            await websocket.send_json({"type": "status", "status": "listening"})
 
-                history.append({"role": "assistant", "content": full_ai_response})
+                        else:
+                            # --- STREAM TEXT RESPONSE (Chat Interface) ---
+                            full_ai_response = ""
+                            token_generator = llm_service.chat_stream(history)
+                            
+                            for token in token_generator:
+                                full_ai_response += token
+                                await websocket.send_text(token)
+                            
+                            history.append({"role": "assistant", "content": full_ai_response})
+
+                    elif "user_text" in payload:
+                         # Simple text injection
+                         user_text = payload["user_text"]
+                         history.append({"role": "user", "content": user_text})
+                         # ... generate response ...
+
+                except json.JSONDecodeError:
+                    logger.warning("Received invalid JSON text")
+
+            elif "bytes" in message:
+                # --- AUDIO MODE (Video Call) ---
+                data = message["bytes"]
                 
-                await websocket.send_json({"type": "status", "status": "listening"})
+                # Convert to numpy to check amplitude
+                chunk_np = np.frombuffer(data, dtype=np.float32)
+                
+                # Calculate RMS (Root Mean Square) amplitude
+                rms = np.sqrt(np.mean(chunk_np**2))
+                
+                if rms > AMPLITUDE_THRESHOLD:
+                    # Speech detected
+                    speech_buffer.extend(data)
+                    silence_counter = 0
+                else:
+                    # Silence
+                    if len(speech_buffer) > 0:
+                        silence_counter += 1
+                    
+                # If we have speech data and silence has persisted for enough chunks, assume end of utterance
+                if len(speech_buffer) > 0 and silence_counter >= SILENCE_THRESHOLD_CHUNKS:
+                    logger.info(f"Processing speech segment: {len(speech_buffer)} bytes")
+                    
+                    # 2. Speech to Text
+                    user_text = stt_service.transcribe(bytes(speech_buffer))
+                    
+                    # Reset buffer immediately
+                    speech_buffer = bytearray()
+                    silence_counter = 0
+                    
+                    if not user_text or len(user_text.strip()) < 2:
+                        logger.info(f"Ignored empty/short transcription: '{user_text}'")
+                        continue
+
+                    logger.info(f"User said: {user_text}")
+                    
+                    # Send transcript back to UI
+                    await websocket.send_json({"type": "transcript", "role": "user", "text": user_text})
+
+                    # 3. Update History
+                    history.append({"role": "user", "content": user_text})
+
+                    # 4. LLM & TTS Streaming Pipeline
+                    full_ai_response = ""
+                    current_sentence = ""
+                    
+                    await websocket.send_json({"type": "status", "status": "processing"})
+
+                    token_generator = llm_service.chat_stream(history)
+                    
+                    for token in token_generator:
+                        current_sentence += token
+                        full_ai_response += token
+
+                        if token in [".", "?", "!", "\n"]:
+                            sentence_to_speak = current_sentence.strip()
+                            if sentence_to_speak:
+                                logger.info(f"Generating TTS for: {sentence_to_speak}")
+                                await websocket.send_json({"type": "transcript", "role": "assistant", "text": sentence_to_speak, "partial": True})
+                                
+                                # Buffer audio for the entire sentence
+                                sentence_audio = bytearray()
+                                async for audio_chunk in tts_service.stream_audio(sentence_to_speak):
+                                    sentence_audio.extend(audio_chunk)
+                                
+                                if len(sentence_audio) > 0:
+                                    await websocket.send_bytes(bytes(sentence_audio))
+                                    logger.info(f"Sent complete audio for sentence ({len(sentence_audio)} bytes).")
+                                    
+                            current_sentence = ""
+
+                    if current_sentence.strip():
+                        logger.info(f"Generating TTS for final segment: {current_sentence.strip()}")
+                        await websocket.send_json({"type": "transcript", "role": "assistant", "text": current_sentence.strip(), "partial": True})
+                        
+                        sentence_audio = bytearray()
+                        async for audio_chunk in tts_service.stream_audio(current_sentence.strip()):
+                            sentence_audio.extend(audio_chunk)
+                        
+                        if len(sentence_audio) > 0:
+                            await websocket.send_bytes(bytes(sentence_audio))
+
+                    history.append({"role": "assistant", "content": full_ai_response})
+                    
+                    await websocket.send_json({"type": "status", "status": "listening"})
 
     except WebSocketDisconnect:
         logger.info("Client disconnected")

@@ -8,3 +8,14 @@ __pycache__/
 .pytest_cache/
 coverage/
 
+# AI Models & Data (Too large for Git)
+ai_engine/models/
+ai_engine/adapters/
+llama.cpp/
+*.gguf
+*.safetensors
+*.bin
+
+# Logs
+*.log
+
