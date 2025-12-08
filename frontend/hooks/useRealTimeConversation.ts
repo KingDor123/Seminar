@@ -24,120 +24,115 @@ export const useRealTimeConversation = ({
   const activeConnection = useRef(false); // Track if we essentially WANT to be connected
   const [isConnected, setIsConnected] = useState(false);
 
-  const connect = useCallback(() => {
-    if (activeConnection.current) {
-        // Already active or connecting?
-        if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
-            return; // Skip if already connected/connecting
-        }
-    }
-    
+  useEffect(() => {
+    console.log("Mounted useRealTimeConversation effect");
     activeConnection.current = true;
 
-    // Connect directly to AI Service
-    const wsUrl = "ws://localhost:8000/ai/stream"; 
-    console.log("Connecting to:", wsUrl);
-    
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-    ws.binaryType = "arraybuffer";
-
-    ws.onopen = () => {
-      if (!activeConnection.current) {
-          ws.close();
-          return;
-      }
-      console.log("Connected to AI Conversation Service");
-      setIsConnected(true);
-      onStatusChange("idle");
-
-      // --- INITIALIZE SCENARIO ---
-      const scenario = SCENARIOS.find(s => s.id === selectedScenario);
-      const systemPrompt = scenario?.prompt || "You are a helpful, empathetic, and professional conversational partner. Keep your responses concise and natural, like a real phone call.";
-      
-      let triggerContent = "(The user has entered. Please greet them professionally according to your role.)";
-      if (selectedScenario === "bank") {
-           triggerContent = "(User joins the video call)";
-      }
-
-      const configPayload = {
-          mode: "audio",
-          system_prompt: systemPrompt,
-          history: [
-              { role: "user", content: triggerContent }
-          ]
-      };
-      
-      ws.send(JSON.stringify(configPayload));
-      onStatusChange("processing");
-    };
-
-    ws.onmessage = (event) => {
-      if (!activeConnection.current) return;
-      const data = event.data;
-
-      if (data instanceof ArrayBuffer) {
-        onAudioData(data);
-        onStatusChange("speaking");
-      } 
-      else if (typeof data === "string") {
-        try {
-          const msg = JSON.parse(data);
-          if (msg.type === "transcript") {
-            onTranscript({ 
-              role: msg.role, 
-              text: msg.text, 
-              partial: msg.partial 
-            });
-          } else if (msg.type === "status") {
-            onStatusChange(msg.status);
-          }
-        } catch (e) {
-          console.error("Failed to parse WebSocket message:", e);
+    const connect = () => {
+        // Check if we already have a valid connection or are connecting
+        if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+            return; 
         }
-      }
+
+        // Connect directly to AI Service
+        const wsUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || "ws://localhost:8000/ai/stream"; 
+        console.log("Connecting to:", wsUrl);
+        
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+        ws.binaryType = "arraybuffer";
+
+        ws.onopen = () => {
+            console.log("Connected to AI Conversation Service");
+            setIsConnected(true);
+            onStatusChange("idle");
+
+            // --- INITIALIZE SCENARIO ---
+            const scenario = SCENARIOS.find(s => s.id === selectedScenario);
+            const systemPrompt = scenario?.prompt || "You are a helpful, empathetic, and professional conversational partner. Keep your responses concise and natural, like a real phone call.";
+            
+            let triggerContent = "The user has just entered the call. Greet them immediately and professionally according to your role.";
+            if (selectedScenario === "bank") {
+                triggerContent = "The user has joined the video call. You are Dana, the bank representative. Introduce yourself and ask how you can help.";
+            }
+
+            const configPayload = {
+                mode: "audio",
+                system_prompt: systemPrompt,
+                history: [
+                    { role: "user", content: triggerContent }
+                ]
+            };
+            
+            ws.send(JSON.stringify(configPayload));
+            onStatusChange("processing");
+        };
+
+        ws.onmessage = (event) => {
+            if (!activeConnection.current) return;
+            const data = event.data;
+
+            if (data instanceof ArrayBuffer) {
+                onAudioData(data);
+                onStatusChange("speaking");
+            } 
+            else if (typeof data === "string") {
+                try {
+                const msg = JSON.parse(data);
+                if (msg.type === "transcript") {
+                    onTranscript({ 
+                    role: msg.role, 
+                    text: msg.text, 
+                    partial: msg.partial 
+                    });
+                } else if (msg.type === "status") {
+                    onStatusChange(msg.status);
+                }
+                } catch (e) {
+                console.error("Failed to parse WebSocket message:", e);
+                }
+            }
+        };
+
+        ws.onclose = (event) => {
+            console.log(`AI Service Disconnected (Code: ${event.code}, Reason: ${event.reason}, Clean: ${event.wasClean})`);
+            setIsConnected(false);
+            onStatusChange("idle");
+            
+            // Retry if we are still "active"
+            if (activeConnection.current) {
+                const delay = 1000 + Math.random() * 2000; // 1-3s delay
+                console.log(`Connection dropped. Retrying in ${Math.round(delay)}ms...`);
+                setTimeout(() => {
+                    if (activeConnection.current) connect(); 
+                }, delay);
+            }
+        };
+
+        ws.onerror = (err) => {
+            if (activeConnection.current) {
+                console.error("AI Service WebSocket Error:", err);
+            }
+        };
     };
 
-    ws.onclose = (event) => {
-      console.log(`AI Service Disconnected (Code: ${event.code}, Reason: ${event.reason})`);
-      setIsConnected(false);
-      onStatusChange("idle");
-      
-      // Only retry if we are still "active" (component mounted)
-      if (activeConnection.current && !event.wasClean) {
-          console.log("Connection died unexpectedly. Retrying in 3s...");
-          setTimeout(() => {
-              if (activeConnection.current) connect(); 
-          }, 3000);
-      }
-    };
-
-    ws.onerror = (err) => {
-      if (activeConnection.current) {
-          console.error("AI Service WebSocket Error:", err);
-      }
-    };
-
-    return () => {
-      // Intentionally left empty here, cleanup is handled by the useEffect return
-    };
-  }, [selectedScenario, onTranscript, onAudioData, onStatusChange]);
-
-  useEffect(() => {
     connect();
+
     return () => {
-      console.log("Cleaning up WebSocket connection...");
+      console.log("Unmounting useRealTimeConversation effect - Cleaning up WebSocket...");
       activeConnection.current = false; // Prevent retries
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [connect]);
+  }, [selectedScenario, onTranscript, onAudioData, onStatusChange]);
 
   const sendAudioChunk = useCallback((data: ArrayBuffer) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(data);
+    } else {
+       console.warn("Cannot send audio, socket not open (State: " + wsRef.current?.readyState + ")");
     }
   }, []);
 

@@ -29,6 +29,8 @@ services:
   ai_service:
     build: ./ai_service
     container_name: ai_service
+    dns:
+      - 8.8.8.8
     env_file:
       - .env
     # depends_on: - ollama # No longer needed!

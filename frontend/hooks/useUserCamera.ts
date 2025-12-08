@@ -4,12 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 export const useUserCamera = (isInCall: boolean) => {
   const userVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
   useEffect(() => {
     const stopLocalStream = () => {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => track.stop());
         localStreamRef.current = null;
+        setMediaStream(null);
       }
 
       if (userVideoRef.current) {
@@ -18,18 +20,32 @@ export const useUserCamera = (isInCall: boolean) => {
     };
 
     if (isInCall) {
-      if (userVideoRef.current) { // Ensure video ref is available before attempting to get media
-        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-          .then(stream => {
-            if (userVideoRef.current) {
-              userVideoRef.current.srcObject = stream;
+      // Request BOTH video and audio to avoid race conditions
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+          if (userVideoRef.current) {
+            userVideoRef.current.srcObject = stream;
+          }
+          localStreamRef.current = stream;
+          setMediaStream(stream);
+        })
+        .catch(err => {
+            if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+              console.warn("No camera/microphone device found.");
+            } else {
+              console.error("Camera/Mic Access Error:", err);
             }
-            localStreamRef.current = stream;
-          })
-          .catch(err => console.error("Camera Error:", err));
-      } else {
-        console.warn("User video ref not available for camera access.");
-      }
+            
+            // Fallback: Try Video Only if Audio failed (or vice versa, but mostly we want video)
+            // This handles cases where user has Cam but no Mic
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(stream => {
+                    if (userVideoRef.current) userVideoRef.current.srcObject = stream;
+                    localStreamRef.current = stream;
+                    setMediaStream(stream);
+                })
+                .catch(() => {}); // Ignore double failure
+        });
     } else {
       stopLocalStream();
     }
@@ -37,5 +53,5 @@ export const useUserCamera = (isInCall: boolean) => {
     return stopLocalStream; // Cleanup function
   }, [isInCall]);
 
-  return { userVideoRef };
+  return { userVideoRef, mediaStream };
 };
