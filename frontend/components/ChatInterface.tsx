@@ -194,10 +194,10 @@ export default function ChatInterface() {
     }
   };
   
-  const sendMessage = (text: string) => {
-      // Fallback for text input if we keep the input box
-      // We'd need to implement text sending in the new hook if we want hybrid
-      console.warn("Text sending not yet implemented in new pipeline");
+  const sendMessage = (textOverride?: string) => {
+      // Use textOverride if provided, otherwise use input state
+      const textToSend = textOverride || input;
+      console.warn("Text sending not yet implemented in new pipeline. Would send:", textToSend);
   };
 
   const toggleLanguage = () => {

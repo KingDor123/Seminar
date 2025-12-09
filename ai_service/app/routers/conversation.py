@@ -33,7 +33,7 @@ async def conversation_endpoint(websocket: WebSocket):
     speech_buffer = bytearray()
     silence_counter = 0
     SILENCE_THRESHOLD_CHUNKS = 6  # Increased from 4 to filter short noise
-    AMPLITUDE_THRESHOLD = 0.05 # Increased from 0.02 to filter background noise
+    AMPLITUDE_THRESHOLD = 0.02 # Adjusted to 0.02 (middle ground)
 
     try:
         while True:
@@ -168,8 +168,8 @@ async def conversation_endpoint(websocket: WebSocket):
                 if len(speech_buffer) > 0 and silence_counter >= SILENCE_THRESHOLD_CHUNKS:
                     logger.info(f"Processing speech segment: {len(speech_buffer)} bytes")
                     
-                    # 2. Speech to Text
-                    user_text = stt_service.transcribe(bytes(speech_buffer))
+                    # 2. Speech to Text (Run in thread to avoid blocking loop)
+                    user_text = await asyncio.to_thread(stt_service.transcribe, bytes(speech_buffer))
                     
                     # Reset buffer immediately
                     speech_buffer = bytearray()
@@ -233,5 +233,10 @@ async def conversation_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         logger.info("Client disconnected")
+    except RuntimeError as re:
+        if "disconnect" in str(re) or "close" in str(re):
+            logger.info(f"Client disconnected (RuntimeError): {re}")
+        else:
+            logger.error(f"RuntimeError: {re}", exc_info=True)
     except Exception as e:
         logger.error(f"Conversation Error: {e}", exc_info=True)

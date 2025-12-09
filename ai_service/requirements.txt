@@ -13,3 +13,4 @@ soundfile
 pytest
 pytest-asyncio
 httpx
+gTTS

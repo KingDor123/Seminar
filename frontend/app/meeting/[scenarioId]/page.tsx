@@ -29,9 +29,8 @@ export default function MeetingPage() {
   // Database Session Hook
   const { startSession } = useChatSession();
 
-  // User Camera
-  const userVideoRef = useRef<HTMLVideoElement>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
+  // User Camera (now handles both Video & Audio request to avoid race conditions)
+  const { userVideoRef, mediaStream } = useUserCamera(true);
 
   // Audio Context & Queue
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -49,6 +48,8 @@ export default function MeetingPage() {
   }, [scenarioId, startSession]);
 
   // --- Audio Playback Logic ---
+  const processQueueRef = useRef<() => Promise<void>>(null);
+
   const playNextChunk = useCallback(async () => {
     if (audioQueue.current.length === 0) {
       isPlayingRef.current = false;
@@ -64,6 +65,17 @@ export default function MeetingPage() {
     }
 
     const ctx = audioContextRef.current;
+
+    // Ensure context is running (Fix for Autoplay Policy)
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+        console.log("Resumed AudioContext for playback");
+      } catch (e) {
+        console.error("Failed to resume AudioContext during playback:", e);
+      }
+    }
+
     const chunk = audioQueue.current.shift();
     
     if (!chunk) return;
@@ -75,15 +87,20 @@ export default function MeetingPage() {
       source.connect(ctx.destination);
       
       source.onended = () => {
-        playNextChunk();
+        if (processQueueRef.current) processQueueRef.current();
       };
       
       source.start(0);
     } catch (err) {
       console.error("Error decoding audio chunk:", err);
-      playNextChunk();
+      if (processQueueRef.current) processQueueRef.current();
     }
   }, []);
+
+  useEffect(() => {
+      // @ts-ignore
+      processQueueRef.current = playNextChunk;
+  }, [playNextChunk]);
 
   const handleAudioData = useCallback((data: ArrayBuffer) => {
     const bufferCopy = data.slice(0); 
@@ -125,9 +142,11 @@ export default function MeetingPage() {
   });
 
   // --- Audio Recorder ---
+  // Now uses the shared mediaStream from useUserCamera to avoid race conditions
   const { isRecording, startRecording, stopRecording } = useAudioRecorder({
     onAudioData: sendAudioChunk,
-    onError: (err) => console.error("Recorder error:", err)
+    onError: (err) => console.error("Recorder error:", err),
+    externalStream: mediaStream
   });
 
   // --- Cleanup Audio Context ---
@@ -139,31 +158,19 @@ export default function MeetingPage() {
     };
   }, []);
 
-  // --- Camera Logic ---
-  useEffect(() => {
-    const stopLocalStream = () => {
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
-        localStreamRef.current = null;
-      }
-      if (userVideoRef.current) {
-        userVideoRef.current.srcObject = null;
-      }
-    };
-
-    if (userVideoRef.current) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then(stream => {
-          if (userVideoRef.current) userVideoRef.current.srcObject = stream;
-          localStreamRef.current = stream;
-        })
-        .catch(err => console.error("Camera Error:", err));
+  const toggleListening = async () => {
+    // Resume AudioContext on user interaction to fix "no sound" issue
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
-    
-    return stopLocalStream;
-  }, []);
+    if (audioContextRef.current.state === 'suspended') {
+      try {
+        await audioContextRef.current.resume();
+      } catch (err) {
+        console.error("Failed to resume AudioContext:", err);
+      }
+    }
 
-  const toggleListening = () => {
     if (isRecording) {
       stopRecording();
     } else {
@@ -171,8 +178,10 @@ export default function MeetingPage() {
     }
   };
 
-  const sendMessage = (text: string) => {
-      console.warn("Text sending not yet implemented in new pipeline");
+  const sendMessage = (textOverride?: string) => {
+      // Use textOverride if provided, otherwise use input state
+      const textToSend = textOverride || input;
+      console.warn("Text sending not yet implemented in new pipeline. Would send:", textToSend);
   };
 
   const handleEndCall = () => {

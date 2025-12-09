@@ -12,7 +12,7 @@ interface FaceTimeViewProps {
   visemes?: any[];
   isGeneratingAudio: boolean;
   isAiSpeaking: boolean;
-  userVideoRef: React.RefObject<HTMLVideoElement>;
+  userVideoRef: React.RefObject<HTMLVideoElement | null>;
   isSpeechRecognitionListening: boolean;
   startListening: () => void;
   onEndCall: () => void;
