@@ -1,5 +1,6 @@
-// backend/src/websocket/ws.handler.js
+// backend/src/websocket/ws.handler.ts
 import { WebSocketServer, WebSocket } from 'ws';
+import { IncomingMessage, Server } from 'http';
 import {
   AI_SERVICE_WS_BASE_URL,
   MAX_QUEUE_LENGTH,
@@ -8,8 +9,13 @@ import {
 
 const wssChat = new WebSocketServer({ noServer: true });
 
-const setupHeartbeatInterval = (clientWs, aiWs, messageQueue) => {
-  const heartbeat = { clientAlive: true, aiAlive: true };
+interface HeartbeatState {
+    clientAlive: boolean;
+    aiAlive: boolean;
+}
+
+const setupHeartbeatInterval = (clientWs: WebSocket, aiWs: WebSocket, messageQueue: string[]) => {
+  const heartbeat: HeartbeatState = { clientAlive: true, aiAlive: true };
 
   const interval = setInterval(() => {
     if (clientWs.readyState === WebSocket.OPEN) {
@@ -52,7 +58,7 @@ const setupHeartbeatInterval = (clientWs, aiWs, messageQueue) => {
   return interval;
 };
 
-const cleanupWsConnections = (heartbeatInterval, clientWs, aiWs, messageQueue = null) => {
+const cleanupWsConnections = (heartbeatInterval: NodeJS.Timeout, clientWs: WebSocket, aiWs: WebSocket, messageQueue: string[] | null = null) => {
   clearInterval(heartbeatInterval);
   if (messageQueue) {
     messageQueue.length = 0;
@@ -68,12 +74,12 @@ const cleanupWsConnections = (heartbeatInterval, clientWs, aiWs, messageQueue = 
 };
 
 // --- Chat Proxy Logic ---
-wssChat.on('connection', (clientWs) => {
+wssChat.on('connection', (clientWs: WebSocket) => {
   console.log('Client connected to Chat WebSocket');
 
   // Connect to the internal AI service
   const aiWs = new WebSocket(`${AI_SERVICE_WS_BASE_URL}/stream`);
-  const messageQueue = [];
+  const messageQueue: string[] = [];
 
   const heartbeatInterval = setupHeartbeatInterval(clientWs, aiWs, messageQueue);
 
@@ -82,7 +88,7 @@ wssChat.on('connection', (clientWs) => {
     // Flush queue
     while (messageQueue.length > 0) {
       const msg = messageQueue.shift();
-      aiWs.send(msg);
+      if (msg) aiWs.send(msg);
     }
   });
 
@@ -115,8 +121,14 @@ wssChat.on('connection', (clientWs) => {
   aiWs.on('error', (err) => console.error('AI Chat WS Error:', err));
 });
 
-export const attachWebSocketHandlers = (server) => {
-  server.on('upgrade', (request, socket, head) => {
+export const attachWebSocketHandlers = (server: Server) => {
+  server.on('upgrade', (request: IncomingMessage, socket: any, head: Buffer) => {
+    // Check if URL exists before accessing pathname
+    if (!request.url) {
+        socket.destroy();
+        return;
+    }
+
     const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
 
     if (pathname === '/api/chat') {

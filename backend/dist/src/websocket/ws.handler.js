@@ -1,4 +1,4 @@
-// backend/src/websocket/ws.handler.js
+// backend/src/websocket/ws.handler.ts
 import { WebSocketServer, WebSocket } from 'ws';
 import { AI_SERVICE_WS_BASE_URL, MAX_QUEUE_LENGTH, HEARTBEAT_INTERVAL_MS } from '../config/appConfig.js';
 const wssChat = new WebSocketServer({ noServer: true });
@@ -64,7 +64,8 @@ wssChat.on('connection', (clientWs) => {
         // Flush queue
         while (messageQueue.length > 0) {
             const msg = messageQueue.shift();
-            aiWs.send(msg);
+            if (msg)
+                aiWs.send(msg);
         }
     });
     // Forward message from Client -> AI
@@ -95,6 +96,11 @@ wssChat.on('connection', (clientWs) => {
 });
 export const attachWebSocketHandlers = (server) => {
     server.on('upgrade', (request, socket, head) => {
+        // Check if URL exists before accessing pathname
+        if (!request.url) {
+            socket.destroy();
+            return;
+        }
         const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
         if (pathname === '/api/chat') {
             wssChat.handleUpgrade(request, socket, head, (ws) => {

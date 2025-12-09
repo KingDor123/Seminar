@@ -1,4 +1,3 @@
-// backend/src/controllers/ai.controller.js
 import { AI_SERVICE_BASE_URL, REQUEST_TIMEOUT_MS } from '../config/appConfig.js';
 const validateMediaPayload = (body) => {
     if (!body || typeof body !== "object") {

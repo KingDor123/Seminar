@@ -1,4 +1,5 @@
 export class ChatRepo {
+    db;
     constructor(db) {
         this.db = db;
     }

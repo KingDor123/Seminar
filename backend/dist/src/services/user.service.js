@@ -1,4 +1,5 @@
 export class UserService {
+    userRepo;
     constructor(userRepo) {
         this.userRepo = userRepo;
     }

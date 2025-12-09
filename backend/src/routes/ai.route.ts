@@ -1,4 +1,4 @@
-// backend/src/routes/ai.route.js
+// backend/src/routes/ai.route.ts
 import express from 'express';
 import aiController from '../controllers/ai.controller.js';
 

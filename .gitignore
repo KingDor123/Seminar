@@ -19,3 +19,4 @@ llama.cpp/
 # Logs
 *.log
 
+backend/dist

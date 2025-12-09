@@ -1,4 +1,5 @@
 export class UserRepo {
+    db;
     constructor(db) {
         this.db = db;
     }

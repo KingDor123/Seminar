@@ -134,6 +134,36 @@ export default function MeetingPage() {
     setStatus(newStatus);
   }, []);
 
+  // --- Sound Effects ---
+  const playListeningCue = useCallback(() => {
+     if (!audioContextRef.current) {
+         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+     }
+     const ctx = audioContextRef.current;
+     if (ctx.state === 'suspended') ctx.resume();
+
+     const oscillator = ctx.createOscillator();
+     const gainNode = ctx.createGain();
+
+     oscillator.connect(gainNode);
+     gainNode.connect(ctx.destination);
+
+     // Gentle "ping" sound (Sine wave, high pitch, quick decay)
+     oscillator.type = "sine";
+     oscillator.frequency.setValueAtTime(880, ctx.currentTime); // A5
+     gainNode.gain.setValueAtTime(0.05, ctx.currentTime); // Low volume
+     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+
+     oscillator.start();
+     oscillator.stop(ctx.currentTime + 0.3);
+  }, []);
+
+  useEffect(() => {
+      if (status === "listening") {
+          playListeningCue();
+      }
+  }, [status, playListeningCue]);
+
   const { isConnected, sendAudioChunk } = useRealTimeConversation({
     selectedScenario: scenarioId,
     onTranscript: handleTranscript,

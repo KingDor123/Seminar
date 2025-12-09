@@ -13,6 +13,6 @@
     "resolveJsonModule": true,
     "allowJs": true
   },
-  "include": ["src/**/*", "index.js", "index.ts"],
+  "include": ["src/**/*", "index.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

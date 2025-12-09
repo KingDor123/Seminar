@@ -14,7 +14,8 @@ export const saveMessage = async (req, res) => {
     try {
         const { sessionId } = req.params;
         const { role, content } = req.body;
-        const message = await chatService.saveMessage(sessionId, role, content);
+        // Ensure sessionId is parsed to a number if your DB expects it, or keep as string if UUID
+        const message = await chatService.saveMessage(parseInt(sessionId), role, content);
         res.status(201).json(message);
     }
     catch (error) {
@@ -25,7 +26,7 @@ export const saveMessage = async (req, res) => {
 export const getUserSessions = async (req, res) => {
     try {
         const { userId } = req.params;
-        const sessions = await chatService.getUserSessions(userId);
+        const sessions = await chatService.getUserSessions(parseInt(userId));
         res.json(sessions);
     }
     catch (error) {
@@ -36,7 +37,7 @@ export const getUserSessions = async (req, res) => {
 export const getSessionHistory = async (req, res) => {
     try {
         const { sessionId } = req.params;
-        const messages = await chatService.getSessionHistory(sessionId);
+        const messages = await chatService.getSessionHistory(parseInt(sessionId));
         res.json(messages);
     }
     catch (error) {
