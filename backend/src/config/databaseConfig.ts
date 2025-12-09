@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-class Database {
+export class Database {
   private static instance: Database;
   private pool!: Pool;
 

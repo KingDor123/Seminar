@@ -1,7 +1,12 @@
-// backend/src/controllers/ai.controller.js
+import { Request, Response } from 'express';
 import { AI_SERVICE_BASE_URL, REQUEST_TIMEOUT_MS } from '../config/appConfig.js';
 
-const validateMediaPayload = (body) => {
+interface AudioPayload {
+    text: string;
+    voice?: string;
+}
+
+const validateMediaPayload = (body: any): string | null => {
   if (!body || typeof body !== "object") {
     return "Request body must be a JSON object.";
   }
@@ -17,7 +22,7 @@ const validateMediaPayload = (body) => {
   return null;
 };
 
-const proxyWithTimeout = async (url, payload) => {
+const proxyWithTimeout = async (url: string, payload: AudioPayload) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -47,7 +52,7 @@ const proxyWithTimeout = async (url, payload) => {
 };
 
 class AiController {
-  async tts(req, res) {
+  async tts(req: Request, res: Response) {
     const validationError = validateMediaPayload(req.body);
     if (validationError) {
       return res.status(400).json({ error: validationError });
@@ -60,7 +65,7 @@ class AiController {
       );
 
       res.json(data);
-    } catch (error) {
+    } catch (error: any) {
       const status = error.name === "AbortError" ? 504 : 502;
       console.error("TTS Proxy Error:", error);
       res.status(status).json({ error: "TTS Generation Failed", details: error.message });

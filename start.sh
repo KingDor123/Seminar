@@ -45,7 +45,7 @@ while ! lsof -i :8081 > /dev/null; do
 done
 echo "✅ Brain is Online (PID: $MLX_PID)"
 
-# 2. Start Docker Stack
+# 2. Start Docker Stack (Backend now runs in TypeScript via Dockerfile)
 echo "🐳 Starting Backend & Frontend..."
 docker-compose up --build
 

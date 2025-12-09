@@ -1,49 +1,62 @@
 import logging
 import ollama
-from app.core.config import settings
 from typing import Generator, List, Dict
-import httpx
+from openai import OpenAI
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class LLMService:
+    """
+    Service for interacting with Large Language Models (LLMs).
+    
+    Supports:
+    - Ollama (via OpenAI-compatible API)
+    - MLX-LM Server (via OpenAI-compatible API)
+    """
+
     def __init__(self):
-        # Using standard Ollama Client (compatible with OpenAI-like servers)
-        self.client = ollama.Client(host=settings.OLLAMA_HOST)
-        self.model = settings.OLLAMA_MODEL
+        self.host = settings.OLLAMA_HOST
+        self.model_name = settings.OLLAMA_MODEL
+        # We use the OpenAI client because it is the standard for 
+        # MLX-LM and modern Ollama endpoints.
+        self.client = OpenAI(base_url=self.host, api_key="lm-studio")
 
     def chat_stream(self, messages: List[Dict[str, str]]) -> Generator[str, None, None]:
         """
         Streams the response from the LLM token by token.
+        
+        Args:
+            messages: A list of message dictionaries (e.g., {"role": "user", "content": "..."})
+            
+        Yields:
+            str: chunks of generated text.
         """
         try:
-            logger.info(f"Sending request to LLM ({self.model})...")
-            # Note: mlx-lm server uses OpenAI format, but Ollama client is compatible 
-            # IF the server endpoints match. 
-            # If mlx-lm server is purely OpenAI, we might need the `openai` client instead.
-            # But let's try standard Ollama client first as it's simpler.
-            # Actually, standard Ollama client expects /api/chat. MLX server exposes /v1/chat/completions.
-            # We should use the OpenAI client or raw requests.
+            logger.info(f"Initiating chat stream with model: {self.model_name} at {self.host}")
             
-            # Using OpenAI client is safer for MLX server compatibility.
-            from openai import OpenAI
-            client = OpenAI(base_url=settings.OLLAMA_HOST, api_key="lm-studio")
-            
-            # Dynamic Model Resolution
-            # We ask the server what model it is running to avoid "Repository Not Found" errors
+            # Dynamic Model Resolution:
+            # Some servers (like MLX) require a valid model ID even if they only host one.
+            # We fetch the list of available models to ensure we use a valid ID.
             try:
-                models_response = client.models.list()
-                # Pick the first available model
-                model_id = models_response.data[0].id
-                logger.info(f"Detected Server Model ID: {model_id}")
+                models_response = self.client.models.list()
+                if models_response.data:
+                    # Use the first available model from the server
+                    model_id = models_response.data[0].id
+                    logger.debug(f"Resolved Server Model ID: {model_id}")
+                else:
+                    logger.warning("Server returned empty model list. Using default.")
+                    model_id = "default"
             except Exception as e:
-                logger.warning(f"Failed to fetch models list: {e}. Fallback to 'default'.")
+                logger.warning(f"Could not fetch models list ({e}). Fallback to 'default'.")
                 model_id = "default"
 
-            stream = client.chat.completions.create(
+            # Create the streaming completion request
+            stream = self.client.chat.completions.create(
                 model=model_id,
                 messages=messages,
                 stream=True,
+                # Stop tokens to prevent the model from hallucinating roles or running indefinitely
                 stop=["<|start_header_id|>", "<|eot_id|>", "user:", "User:"]
             )
 
@@ -53,5 +66,5 @@ class LLMService:
                     yield content
 
         except Exception as e:
-            logger.error(f"LLM Error: {e}")
-            yield f"I'm having trouble thinking right now. Error: {e}"
+            logger.error(f"LLM Streaming Error: {e}", exc_info=True)
+            yield f" I'm having trouble connecting to my brain right now. Error: {e}"

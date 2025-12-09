@@ -1,6 +1,6 @@
 import { db } from '../config/databaseConfig.js';
 
-export const runMigrations = async () => {
+export const runMigrations = async (): Promise<void> => {
     console.log('Running database migrations...');
     try {
         // Create sessions table

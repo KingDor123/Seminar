@@ -1,28 +1,40 @@
 #!/bin/bash
 set -e
 
-# Wav2Lip Weights
+# ==============================================================================
+# AI Service Entrypoint
+# Checks for required model files and starts the application.
+# ==============================================================================
+
+# Directories for Wav2Lip models (if used)
 WEIGHTS_DIR="/app/Wav2Lip/checkpoints"
 S3FD_DIR="/app/Wav2Lip/face_detection/detection/sfd"
 
-echo "🚀 Checking AI Models..."
+echo "🚀 Starting SoftSkill AI Service..."
+echo "🔍 Checking for AI Model dependencies..."
 
+# --- Wav2Lip Model Checks ---
+# These checks ensure that the visual dubbing models are present.
 if [ ! -f "$WEIGHTS_DIR/wav2lip_gan.pth" ]; then
-    echo "⚠️ Wav2Lip GAN Model not found in $WEIGHTS_DIR. Please ensure it is included in the image or mounted."
-    # Optional: Fallback download (commented out to rely on local build)
-    # wget -O "$WEIGHTS_DIR/wav2lip_gan.pth" "https://huggingface.co/Nekochu/Wav2Lip/resolve/main/wav2lip_gan.pth"
+    echo "⚠️  Warning: Wav2Lip GAN Model not found in $WEIGHTS_DIR."
+    echo "    Visual dubbing features may fail."
 else
     echo "✅ Wav2Lip GAN Model found."
 fi
 
 if [ ! -f "$S3FD_DIR/s3fd.pth" ]; then
-     echo "⚠️ S3FD Model not found in $S3FD_DIR. Please ensure it is included in the image or mounted."
-     # Optional: Fallback download
-     # mkdir -p "$S3FD_DIR"
-     # wget -O "$S3FD_DIR/s3fd.pth" "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth"
+     echo "⚠️  Warning: S3FD (Face Detection) Model not found in $S3FD_DIR."
 else
     echo "✅ S3FD Model found."
 fi
 
-# Start the application
+# --- Patching ---
+# Run the audio patch script to fix version incompatibility in librosa/Wav2Lip
+if [ -f "patch_audio.py" ]; then
+    echo "🔧 Applying audio library patches..."
+    python patch_audio.py
+fi
+
+# --- Start Server ---
+echo "🔥 Launching Uvicorn..."
 exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload
