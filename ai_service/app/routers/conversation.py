@@ -3,6 +3,7 @@ import json
 import asyncio
 import base64
 import numpy as np
+import httpx
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Optional
@@ -22,6 +23,9 @@ try:
 except Exception as e:
     logger.critical(f"🔥 Critical AI Failure: {e}")
 
+# --- Constants ---
+BACKEND_URL = "http://backend:5000/api"
+
 # --- Pydantic Models ---
 class TTSRequest(BaseModel):
     text: str
@@ -39,17 +43,15 @@ async def generate_tts(request: TTSRequest):
         if not request.text.strip():
             raise HTTPException(status_code=400, detail="Text cannot be empty")
 
-        # Accumulate all audio chunks
         audio_content = bytearray()
         async for chunk in tts_service.stream_audio(request.text, request.voice):
             audio_content.extend(chunk)
 
-        # Encode to base64
         audio_base64 = base64.b64encode(audio_content).decode("utf-8")
 
         return {
             "audio": audio_base64,
-            "visemes": [] # EdgeTTS doesn't natively return visemes in the simple stream, placeholder for now
+            "visemes": []
         }
 
     except Exception as e:
@@ -73,21 +75,21 @@ async def conversation_endpoint(websocket: WebSocket):
         "If a social mistake occurs, gently offer feedback."
     )
     
+    # State
     history: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
+    session_id: Optional[int] = None
 
     # --- VAD Settings ---
     speech_buffer = bytearray()
     silence_counter = 0
-    SILENCE_THRESHOLD = 5   # Increased to prevent cutting off words
-    AMP_THRESHOLD = 0.01   # Sensitivity (increased to reduce false positives)
+    SILENCE_THRESHOLD = 20
+    AMP_THRESHOLD = 0.002
 
     try:
         while True:
             try:
-                # 1. Receive Message (wait for input)
                 msg = await websocket.receive()
                 
-                # Check for clean disconnect
                 if msg["type"] == "websocket.disconnect":
                     logger.info("🔌 Client Disconnected (Clean)")
                     break
@@ -105,12 +107,37 @@ async def conversation_endpoint(websocket: WebSocket):
                 logger.error(f"🚨 Error receiving WebSocket message: {e}")
                 break
 
-            # 2. Process Message
-            # ... existing logic ...
+            # Process Message
             if "text" in msg:
-                await _handle_text(websocket, msg["text"], history, system_prompt)
+                # Handle configuration / initialization
+                data = json.loads(msg["text"])
+                
+                # Update Prompt
+                if "system_prompt" in data:
+                    system_prompt = data["system_prompt"]
+                    history[0]["content"] = system_prompt
+
+                # Set Session ID
+                if "session_id" in data:
+                    session_id = data["session_id"]
+                    logger.info(f"🔗 Associated with Session ID: {session_id}")
+                    
+                    # Fetch History from Backend
+                    await _load_history(session_id, history)
+
+                # Initialize History (if provided in payload, append it)
+                if "history" in data:
+                    for item in data["history"]:
+                        # Avoid duplicates if we just loaded from DB
+                        # Simple check: if not last item
+                        if not history or history[-1]["content"] != item["content"]:
+                             history.append(item)
+                    
+                    # If this is an audio-mode init, trigger response
+                    if data.get("mode") == "audio":
+                        await _gen_response(websocket, history, session_id)
+
             elif "bytes" in msg:
-                # ... existing logic ...
                 data = msg["bytes"]
                 is_speech, _ = _vad(data, AMP_THRESHOLD)
                 
@@ -122,7 +149,7 @@ async def conversation_endpoint(websocket: WebSocket):
                 
                 if len(speech_buffer) > 0 and silence_counter >= SILENCE_THRESHOLD:
                     if len(speech_buffer) > 10000:
-                        await _process_speech(websocket, speech_buffer, history)
+                        await _process_speech(websocket, speech_buffer, history, session_id)
                     else:
                         logger.debug(f"Ignored short noise ({len(speech_buffer)} bytes)")
                     
@@ -137,26 +164,36 @@ async def conversation_endpoint(websocket: WebSocket):
 
 # --- Helpers ---
 
-async def _handle_text(ws: WebSocket, text: str, history: List[dict], sys_prompt: str):
+async def _load_history(session_id: int, history: List[dict]):
+    """Fetch previous chat messages from Backend API"""
     try:
-        data = json.loads(text)
-        
-        # Update Prompt
-        if "system_prompt" in data:
-            sys_prompt = data["system_prompt"]
-            history[0]["content"] = sys_prompt
-
-        # Chat Request
-        if "history" in data:
-            full_hist = [{"role": "system", "content": sys_prompt}] + data["history"]
-            
-            if data.get("mode") == "audio":
-                await _gen_response(ws, full_hist, history)
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{BACKEND_URL}/chat/sessions/{session_id}/messages")
+            if resp.status_code == 200:
+                messages = resp.json()
+                logger.info(f"📜 Loaded {len(messages)} past messages from DB.")
+                for m in messages:
+                    # Map 'ai' role to 'assistant' for LLM
+                    role = "assistant" if m["role"] == "ai" else m["role"]
+                    history.append({"role": role, "content": m["content"]})
             else:
-                await _gen_text(ws, full_hist, history)
+                logger.warning(f"⚠️ Failed to load history: {resp.status_code}")
+    except Exception as e:
+        logger.error(f"❌ DB Load Error: {e}")
 
-    except Exception:
-        pass
+async def _save_message(session_id: int, role: str, content: str):
+    """Save message to Backend API"""
+    if not session_id: return
+    try:
+        # Map 'assistant' back to 'ai' for DB
+        db_role = "ai" if role == "assistant" else role
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{BACKEND_URL}/chat/sessions/{session_id}/messages",
+                json={"role": db_role, "content": content}
+            )
+    except Exception as e:
+        logger.error(f"❌ DB Save Error: {e}")
 
 
 def _vad(audio: bytes, threshold: float) -> (bool, float):
@@ -166,7 +203,7 @@ def _vad(audio: bytes, threshold: float) -> (bool, float):
     return rms > threshold, rms
 
 
-async def _process_speech(ws: WebSocket, buffer: bytearray, history: List[dict]):
+async def _process_speech(ws: WebSocket, buffer: bytearray, history: List[dict], session_id: Optional[int]):
     logger.info(f"🎙️  Processing {len(buffer)} bytes...")
     
     text = await asyncio.to_thread(stt_service.transcribe, bytes(buffer))
@@ -174,13 +211,19 @@ async def _process_speech(ws: WebSocket, buffer: bytearray, history: List[dict])
     
     if not text or len(text.strip()) < 5: return
 
+    # Send transcript to UI
     await ws.send_json({"type": "transcript", "role": "user", "text": text})
+    
+    # Update Memory
     history.append({"role": "user", "content": text})
+    
+    # Save to DB
+    asyncio.create_task(_save_message(session_id, "user", text))
 
-    await _gen_response(ws, history, history)
+    await _gen_response(ws, history, session_id)
 
 
-async def _gen_response(ws: WebSocket, msgs: List[dict], history: List[dict]):
+async def _gen_response(ws: WebSocket, msgs: List[dict], session_id: Optional[int]):
     await ws.send_json({"type": "status", "status": "processing"})
     
     full_resp = ""
@@ -191,8 +234,6 @@ async def _gen_response(ws: WebSocket, msgs: List[dict], history: List[dict]):
             curr_sent += token
             full_resp += token
 
-            # Split sentences/phrases for fluid TTS (more aggressive splitting)
-            # Trigger on: . ? ! \n OR , ; (if length > 15 chars)
             is_punctuated = token in [".", "?", "!", "\n"]
             is_phrase_break = token in [",", ";"] and len(curr_sent.strip()) > 15
             
@@ -202,13 +243,17 @@ async def _gen_response(ws: WebSocket, msgs: List[dict], history: List[dict]):
                 await _stream_tts(ws, sent)
                 curr_sent = ""
 
-        # Flush remaining
         if curr_sent.strip():
             sent = curr_sent.strip()
             await ws.send_json({"type": "transcript", "role": "assistant", "text": sent, "partial": True})
             await _stream_tts(ws, sent)
 
-        history.append({"role": "assistant", "content": full_resp})
+        # Update Memory
+        msgs.append({"role": "assistant", "content": full_resp})
+        
+        # Save to DB
+        asyncio.create_task(_save_message(session_id, "assistant", full_resp))
+
         await ws.send_json({"type": "status", "status": "listening"})
         
     except Exception as e:
@@ -218,11 +263,3 @@ async def _gen_response(ws: WebSocket, msgs: List[dict], history: List[dict]):
 async def _stream_tts(ws: WebSocket, text: str):
     async for chunk in tts_service.stream_audio(text):
         await ws.send_bytes(chunk)
-
-
-async def _gen_text(ws: WebSocket, msgs: List[dict], history: List[dict]):
-    full_resp = ""
-    for token in llm_service.chat_stream(msgs):
-        full_resp += token
-        await ws.send_text(token)
-    history.append({"role": "assistant", "content": full_resp})

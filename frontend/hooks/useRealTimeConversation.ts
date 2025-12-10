@@ -9,6 +9,7 @@ interface ConversationMessage {
 
 interface UseRealTimeConversationProps {
   selectedScenario: string;
+  sessionId: number | null;
   onTranscript: (message: ConversationMessage) => void;
   onAudioData: (audioChunk: ArrayBuffer) => void;
   onStatusChange: (status: "idle" | "listening" | "processing" | "speaking") => void;
@@ -16,6 +17,7 @@ interface UseRealTimeConversationProps {
 
 export const useRealTimeConversation = ({
   selectedScenario,
+  sessionId,
   onTranscript,
   onAudioData,
   onStatusChange
@@ -25,6 +27,9 @@ export const useRealTimeConversation = ({
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    // Wait for sessionId before connecting
+    if (!sessionId) return;
+
     // Set activeConnection to true when component mounts, false when it unmounts
     activeConnection.current = true;
     console.log("Conversational Hook: Initializing...");
@@ -60,6 +65,7 @@ export const useRealTimeConversation = ({
             }
 
             const configPayload = {
+                session_id: sessionId,
                 mode: "audio",
                 system_prompt: systemPrompt,
                 history: [
@@ -141,7 +147,7 @@ export const useRealTimeConversation = ({
       setIsConnected(false);
       onStatusChange("idle");
     };
-  }, [selectedScenario, onTranscript, onAudioData, onStatusChange]);
+  }, [selectedScenario, sessionId, onTranscript, onAudioData, onStatusChange]);
 
   const sendAudioChunk = useCallback((data: ArrayBuffer) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

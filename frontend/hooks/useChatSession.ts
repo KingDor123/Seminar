@@ -24,13 +24,15 @@ export const useChatSession = () => {
     setError(null);
     try {
       // api is axios instance with baseURL set to /api
-      const res = await api.post<{ id: number }>('/chat/start', {
+      const res = await api.post<{ id: number }>('/chat/sessions', {
         userId: user.id,
         scenarioId
       });
       setSessionId(res.data.id);
+      return res.data.id;
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Failed to start session');
+      return null;
     } finally {
       setLoading(false);
     }
@@ -38,8 +40,7 @@ export const useChatSession = () => {
 
   const saveMessage = useCallback(async (currentSessionId: number, role: 'user' | 'ai', content: string) => {
     try {
-      await api.post('/chat/message', {
-        sessionId: currentSessionId,
+      await api.post(`/chat/sessions/${currentSessionId}/messages`, {
         role,
         content
       });
@@ -61,6 +62,16 @@ export const useChatSession = () => {
     }
   }, [user]);
 
+  const loadMessages = useCallback(async (currentSessionId: number) => {
+    try {
+        const res = await api.get(`/chat/sessions/${currentSessionId}/messages`);
+        return res.data;
+    } catch (err) {
+        console.error("Failed to load messages", err);
+        return [];
+    }
+  }, []);
+
   return {
     sessionId,
     sessions,
@@ -68,6 +79,7 @@ export const useChatSession = () => {
     error,
     startSession,
     saveMessage,
-    loadSessions
+    loadSessions,
+    loadMessages
   };
 };

@@ -41,6 +41,7 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
       // Create AudioContext
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioContextClass({ sampleRate: 16000 });
+      console.log("AudioContext created with sample rate:", ctx.sampleRate);
       audioContextRef.current = ctx;
 
       // Load the AudioWorklet Module

@@ -43,8 +43,9 @@ export default function ChatInterface() {
   const isPlayingRef = useRef(false);
   // We expose this for the UI to know if AI is speaking
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
-  // Visemes placeholder (since raw audio pipeline doesn't return visemes yet)
   const [visemes, setVisemes] = useState<any[]>([]); 
+
+  const processQueueRef = useRef<() => Promise<void>>(null);
 
   const playNextChunk = useCallback(async () => {
     if (audioQueue.current.length === 0) {
@@ -61,28 +62,41 @@ export default function ChatInterface() {
     }
 
     const ctx = audioContextRef.current;
+    
+    // Ensure context is running (Fix for Autoplay Policy)
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch (e) {
+        console.error("Failed to resume AudioContext during playback:", e);
+      }
+    }
+
     const chunk = audioQueue.current.shift();
     
     if (!chunk) return;
 
     try {
-      // Decode the audio data (MP3/WAV from EdgeTTS)
-      // Note: decodeAudioData separates the decoding from the main thread usually
       const audioBuffer = await ctx.decodeAudioData(chunk);
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(ctx.destination);
       
       source.onended = () => {
-        playNextChunk();
+        if (processQueueRef.current) processQueueRef.current();
       };
       
       source.start(0);
     } catch (err) {
       console.error("Error decoding audio chunk:", err);
-      playNextChunk(); // Skip bad chunk
+      if (processQueueRef.current) processQueueRef.current();
     }
   }, []);
+
+  useEffect(() => {
+    // @ts-ignore
+    processQueueRef.current = playNextChunk;
+  }, [playNextChunk]);
 
   const handleAudioData = useCallback((data: ArrayBuffer) => {
     // Clone buffer because decodeAudioData detaches it
