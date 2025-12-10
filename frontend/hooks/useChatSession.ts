@@ -1,61 +1,73 @@
 // frontend/hooks/useChatSession.ts
 import { useState, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
+
+interface ChatSession {
+  id: number;
+  user_id: number;
+  scenario_id: string;
+  start_time: string;
+  end_time?: string;
+}
 
 export const useChatSession = () => {
+  const { user } = useAuth();
   const [sessionId, setSessionId] = useState<number | null>(null);
-  // Using hardcoded user ID 2 for demo purposes as per project context
-  const userId = 2;
-
-  // Robust API Base URL resolution
-  let apiBase = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001";
-  apiBase = apiBase.replace(/\/$/, "");
-  
-  if (/^\d+$/.test(apiBase)) {
-    apiBase = `http://localhost:${apiBase}`;
-  } else if (!apiBase.startsWith("http")) {
-    apiBase = `http://${apiBase}`;
-  }
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const startSession = useCallback(async (scenarioId: string) => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`${apiBase}/api/chat/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, scenarioId }),
+      // api is axios instance with baseURL set to /api
+      const res = await api.post<{ id: number }>('/chat/start', {
+        userId: user.id,
+        scenarioId
       });
-      if (!res.ok) throw new Error('Failed to start session');
-      const data = await res.json();
-      setSessionId(data.id);
-      return data.id;
-    } catch (err) {
-      console.error('Error starting session:', err);
-      return null;
+      setSessionId(res.data.id);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to start session');
+    } finally {
+      setLoading(false);
     }
-  }, [apiBase]);
+  }, [user]);
 
   const saveMessage = useCallback(async (currentSessionId: number, role: 'user' | 'ai', content: string) => {
-    if (!currentSessionId) return;
     try {
-      await fetch(`${apiBase}/api/chat/sessions/${currentSessionId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role, content }),
+      await api.post('/chat/message', {
+        sessionId: currentSessionId,
+        role,
+        content
       });
     } catch (err) {
-      console.error('Error saving message:', err);
+      console.error('Failed to save message', err);
     }
-  }, [apiBase]);
+  }, []);
 
-  const getSessions = useCallback(async () => {
+  const loadSessions = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/chat/users/${userId}/sessions`);
-      if (!res.ok) throw new Error('Failed to fetch sessions');
-      return await res.json();
+      const res = await api.get<ChatSession[]>(`/chat/users/${user.id}/sessions`);
+      setSessions(res.data);
     } catch (err) {
-      console.error('Error fetching sessions:', err);
-      return [];
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-  }, [apiBase]);
+  }, [user]);
 
-  return { sessionId, startSession, saveMessage, getSessions };
+  return {
+    sessionId,
+    sessions,
+    loading,
+    error,
+    startSession,
+    saveMessage,
+    loadSessions
+  };
 };

@@ -45,7 +45,7 @@ export class Database {
         console.log('Connected to PostgreSQL successfully');
         client.release();
       } catch (err) {
-        console.error(`PostgreSQL connection error: ${err.message}. Retries left: ${retries}`);
+        console.error(`PostgreSQL connection error: ${(err as any).message}. Retries left: ${retries}`);
         if (retries > 0) {
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
           await connectWithRetry(retries - 1);

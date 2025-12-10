@@ -114,19 +114,33 @@ export default function MeetingPage() {
   // --- Real-Time Conversation Hook ---
   const handleTranscript = useCallback((msg: { role: "user" | "assistant", text: string, partial?: boolean }) => {
     setMessages((prev) => {
+      const lastMsg = prev[prev.length - 1];
+      const isAi = msg.role === "assistant";
+      const role = isAi ? "ai" : "user";
+
+      // If it's a partial update (token streaming)
       if (msg.partial) {
-        const lastMsg = prev[prev.length - 1];
-        if (lastMsg && lastMsg.role === "ai") { 
+        // If the last message belongs to the AI, append the token
+        if (lastMsg && lastMsg.role === "ai" && isAi) {
              return [
                 ...prev.slice(0, -1),
-                { ...lastMsg, content: lastMsg.content + " " + msg.text } 
+                { ...lastMsg, content: lastMsg.content + msg.text } 
              ];
-        } else {
+        } 
+        // If it's the start of a new AI response (or previous was user)
+        else if (isAi) {
              return [...prev, { role: "ai", content: msg.text }];
         }
       } 
-      const role = msg.role === "assistant" ? "ai" : "user";
-      return [...prev, { role: role as "user" | "ai", content: msg.text }];
+      
+      // If it's a complete message (e.g. from user STT final result)
+      // or a "final" correction from AI (though we mostly use tokens now)
+      // For user messages, strictly add them.
+      if (!isAi) {
+          return [...prev, { role: "user", content: msg.text }];
+      }
+
+      return prev;
     });
   }, []);
 
@@ -247,7 +261,6 @@ export default function MeetingPage() {
             setInput={setInput}
             sendMessage={sendMessage}
             selectedScenario={scenarioId}
-            isConnected={isConnected} // Passed Prop
             audioRef={() => {}} 
             />
         </main>

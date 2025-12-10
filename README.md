@@ -1,16 +1,16 @@
 # SoftSkill v2: AI-Driven Social Skills Training Platform
 
-**SoftSkill v2** is an advanced, real-time simulation platform designed to help individuals with High-Functioning Autism Spectrum Disorder (HFASD) practice social interactions. It leverages a custom Fine-Tuned Large Language Model (LLM), real-time voice synthesis, and a responsive 3D avatar to create a safe, adaptive learning environment.
+**SoftSkill v2** is an advanced, real-time simulation platform designed to help individuals with High-Functioning Autism Spectrum Disorder (HFASD) practice social interactions. It leverages a modern Full-Stack architecture, containerized AI services, and a responsive 3D avatar to create a safe, adaptive learning environment.
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-*   **Hardware:** Apple Silicon Mac (M1/M2/M3) recommended for MLX acceleration.
-*   **Software:** Docker Desktop, Python 3.11+, Git.
+*   **Software:** Docker Desktop, Git.
 
-### Installation
+### Installation & Running
+
 1.  **Clone the Repository:**
     ```bash
     git clone https://github.com/KingDor/Seminar.git
@@ -18,99 +18,98 @@
     ```
 
 2.  **Start the Application:**
-    Use the provided start script. It handles everything: downloading the model, starting the AI brain, and launching the Docker stack.
+    Use the provided start script. It builds all containers, sets up the database, and initializes the AI models (Ollama & Whisper).
     ```bash
     ./start.sh
     ```
+    *Note: The first run may take a few minutes as it downloads the Llama 3.2 model inside the Ollama container.*
 
 3.  **Access:**
     *   **Frontend:** [http://localhost:3000](http://localhost:3000)
-    *   **API Docs:** [http://localhost:5001/api-docs](http://localhost:5001/api-docs) (Backend)
+    *   **Backend API:** [http://localhost:5001](http://localhost:5001)
 
 ---
 
-## 🧠 AI Brain (The Core)
+## 🧠 AI Architecture
 
-The heart of SoftSkill v2 is a custom-trained AI model designed to act as a "Soft Skills Coach."
+SoftSkill v2 uses a containerized microservices approach for its AI capabilities.
 
-*   **Model:** `SoftSkillSensei` (Fine-tuned Llama 3.2 3B).
-*   **Training:** Trained using **LoRA (Low-Rank Adaptation)** on Apple Silicon via `mlx-lm`.
-*   **Dataset:** Custom-generated synthetic dataset focusing on:
-    *   **Theory of Mind (ToM):** Explaining hidden intentions.
-    *   **Video Modeling + Feedback:** Acting, then pausing to critique.
-    *   **Cognitive Flexibility:** Introducing gentle plot twists.
-    *   **Neurodiversity Affirming:** Using functional, non-judgmental language.
-*   **Hosting:** Runs natively on the Host Machine (macOS) via `mlx_lm.server` to leverage the Neural Engine (GPU), exposed on port `8081`.
+*   **LLM (Brain):** **Llama 3.2 (3B)** running via **Ollama**.
+    *   Hosted in a dedicated Docker container.
+    *   Provides low-latency, conversational intelligence.
+*   **STT (Ears):** **Faster-Whisper** (running locally in `ai_service`).
+    *   Converts user speech to text with high accuracy.
+*   **TTS (Voice):** **gTTS (Google Text-to-Speech)**.
+    *   Synthesizes natural-sounding speech for the avatar.
+    *   *Note: Switched from Edge-TTS to gTTS for robust container connectivity.*
 
 ---
 
-## 🏗 Architecture
+## 🏗 System Architecture
 
-The system uses a **Hybrid Architecture** to maximize performance on Mac hardware while keeping services isolated.
+The project follows a modular **Microservices** pattern orchestrated via Docker Compose.
 
 ### 1. Frontend (`/frontend`)
-*   **Tech:** Next.js 14 (React), TypeScript, Tailwind CSS.
+*   **Tech:** Next.js 16 (React), TypeScript, Tailwind CSS.
 *   **Features:**
-    *   **Real-Time Audio:** Uses `AudioContext` to stream raw PCM (Float32) audio.
-    *   **3D Avatar:** Visualizes the AI persona (Three.js / React Three Fiber).
-    *   **WebSocket:** Manages full-duplex state (Listening -> Thinking -> Speaking).
+    *   **Authentication:** Secure Login/Register with JWT & HTTP-Only Cookies.
+    *   **Dashboard:** Personalized user home with session history.
+    *   **Real-Time Audio:** WebSocket-based full-duplex audio streaming.
+    *   **3D Avatar:** Interactive avatar (React Three Fiber) that lipsyncs to AI speech.
 
 ### 2. Backend API (`/backend`)
-*   **Tech:** Node.js, Express.
-*   **Role:** User management, Session tracking, Database persistence (PostgreSQL).
-*   **Port:** 5001.
+*   **Tech:** Node.js, Express, TypeScript.
+*   **Database:** PostgreSQL 16.
+*   **Role:**
+    *   User Management (Auth, Profiles).
+    *   Session Tracking (History, Analytics).
+    *   Secure API endpoints.
 
 ### 3. AI Service (`/ai_service`)
 *   **Tech:** Python (FastAPI).
-*   **Role:** The Orchestrator.
+*   **Role:** The Central Intelligence Hub.
 *   **Pipeline:**
-    1.  **STT:** `Faster-Whisper` (local) converts user speech to text.
-    2.  **VAD:** Voice Activity Detection buffers audio to ensure complete sentences.
-    3.  **LLM:** Forwards prompt to the Host MLX Server (`http://10.0.0.14:8081`).
-    4.  **TTS:** `Edge-TTS` converts AI text response to audio bytes.
-    5.  **Stream:** Sends audio + transcripts back to Frontend via WebSocket.
+    1.  **WebSocket** receives raw audio chunks.
+    2.  **VAD (Voice Activity Detection)** filters silence.
+    3.  **STT** transcribes speech.
+    4.  **LLM** (Ollama) generates a context-aware response.
+    5.  **TTS** converts text to audio.
+    6.  **Response** sent back to Frontend (Text + Audio) in real-time.
 
 ### 4. Infrastructure
-*   **Docker Compose:** Orchestrates the containers (Frontend, Backend, AI Service, DB).
-*   **Start Script (`start.sh`):**
-    *   Checks for the custom model (`models/softskill-llama3.2-3b`).
-    *   Auto-downloads it from Hugging Face (`KingDor/softskill-llama3.2-3b`) if missing.
-    *   Launches the MLX Server in the background.
-    *   Starts Docker containers.
-    *   Handles cleanup (SIGINT).
+*   **Docker Compose:** Manages all services (`frontend`, `backend`, `ai_service`, `db`, `ollama`) and their networking.
+*   **Hot-Reloading:** All services (Frontend, Backend, AI) are configured with volume mounts for active local development.
 
 ---
 
-## 🛠 Development & Training
+## 🛠 Development
 
-### How to Re-Train the Brain
-If you want to improve the model:
+### Active Development
+The project is configured for **Hot-Reloading**.
+*   **Frontend:** Edit files in `/frontend` -> Next.js updates instantly.
+*   **Backend:** Edit files in `/backend` -> Server restarts automatically.
+*   **AI Service:** Edit files in `/ai_service` -> FastAPI reloads.
 
-1.  **Update Data:** Edit `ai_engine/training/data/train_enhanced.jsonl`.
-2.  **Run Training:**
-    ```bash
-    python3 ai_engine/training/scripts/train_mlx.py
-    ```
-    This will run 600 iterations and save the new model to `ai_engine/models/`.
-
-### How to Upload to Cloud
-To sync your model changes to Hugging Face:
-```bash
-python3 ai_engine/upload_model.py
-```
+### Database
+*   **ORM:** None (Raw SQL via `pg` driver for performance/control).
+*   **Migrations:** `backend/db/init.sql` initializes the schema on first run.
 
 ---
 
 ## 🧪 Testing
-*   **Unit Tests (AI Service):**
-    ```bash
-    cd ai_service
-    pytest
-    ```
-*   **Frontend Tests:**
+*   **Frontend:** Jest + React Testing Library.
     ```bash
     cd frontend
     npm test
+    ```
+*   **Backend:** Jest.
+    ```bash
+    cd backend
+    npm test
+    ```
+*   **AI Service:** Pytest.
+    ```bash
+    docker-compose exec ai_service pytest
     ```
 
 ---

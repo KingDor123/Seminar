@@ -2,8 +2,10 @@ import express from 'express';
 import cors from "cors";
 import dotenv from "dotenv";
 import http from 'http';
+import cookieParser from 'cookie-parser';
 import { WebSocketServer, WebSocket } from 'ws';
 import router from './src/routes/user.route.js';
+import authRouter from './src/routes/auth.route.js';
 import aiRouter from './src/routes/ai.route.js';
 import chatRouter from './src/routes/chat.route.js'; // Import chat router
 import { REQUEST_TIMEOUT_MS, MAX_QUEUE_LENGTH, HEARTBEAT_INTERVAL_MS, AI_SERVICE_WS_BASE_URL } from './src/config/appConfig.js';
@@ -13,14 +15,19 @@ dotenv.config();
 const app = express();
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000', // Allow frontend
+  credentials: true // Allow cookies
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 // Example route
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
+app.use('/api', authRouter);
 app.use('/api', router); 
 app.use('/api', aiRouter);
 app.use('/api/chat', chatRouter); // Register chat routes (e.g. /api/chat/sessions)

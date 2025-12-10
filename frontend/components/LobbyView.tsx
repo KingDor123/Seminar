@@ -17,12 +17,11 @@ const LobbyView: React.FC<LobbyViewProps> = ({
   toggleLanguage,
   onStartCall,
 }) => {
-  const { getSessions } = useChatSession();
-  const [sessions, setSessions] = useState<any[]>([]);
+  const { loadSessions, sessions } = useChatSession();
 
   useEffect(() => {
-    getSessions().then(setSessions);
-  }, [getSessions]);
+    loadSessions();
+  }, [loadSessions]);
 
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[600px] w-full max-w-4xl mx-auto p-4 space-y-8">

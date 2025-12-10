@@ -3,35 +3,38 @@ import asyncio
 import io
 from gtts import gTTS
 from typing import AsyncGenerator
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class TTSService:
     """
     Text-to-Speech (TTS) Service using Google TTS (gTTS).
+    Switched to gTTS exclusively due to container connectivity issues with Edge TTS.
     """
 
     def __init__(self):
-        self.lang = 'en'
+        # gTTS language default
+        self.lang = "en"
 
-    async def stream_audio(self, text: str) -> AsyncGenerator[bytes, None]:
+    async def stream_audio(self, text: str, voice: str = None) -> AsyncGenerator[bytes, None]:
         """
-        Generates audio for the given text.
+        Generates audio for the given text using gTTS.
+        Note: 'voice' parameter is ignored as gTTS uses 'lang'.
         """
         try:
+            logger.info(f"🎤 Generating TTS for: '{text[:30]}...' using gTTS")
+            
+            # gTTS is synchronous, so run in executor to avoid blocking the event loop
             loop = asyncio.get_running_loop()
-            # Run gTTS in a thread pool to avoid blocking the event loop
             audio_data = await loop.run_in_executor(None, self._generate_gtts, text)
             
-            if audio_data:
-                yield audio_data
+            yield audio_data
 
         except Exception as e:
-            logger.error(f"❌ TTS Error: {e}")
+            logger.error(f"❌ gTTS Error: {e}")
 
     def _generate_gtts(self, text: str) -> bytes:
+        tts = gTTS(text, lang=self.lang)
         fp = io.BytesIO()
-        tts = gTTS(text=text, lang=self.lang)
         tts.write_to_fp(fp)
         return fp.getvalue()

@@ -1,9 +1,11 @@
 import logging
 import json
 import asyncio
+import base64
 import numpy as np
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import List, Dict
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from pydantic import BaseModel
+from typing import List, Dict, Optional
 
 from app.services.stt import STTService
 from app.services.llm import LLMService
@@ -19,6 +21,42 @@ try:
     tts_service = TTSService()
 except Exception as e:
     logger.critical(f"🔥 Critical AI Failure: {e}")
+
+# --- Pydantic Models ---
+class TTSRequest(BaseModel):
+    text: str
+    voice: Optional[str] = None
+
+# --- HTTP Endpoints ---
+
+@router.post("/tts")
+async def generate_tts(request: TTSRequest):
+    """
+    HTTP Endpoint for generating TTS audio.
+    Returns JSON with base64 encoded audio.
+    """
+    try:
+        if not request.text.strip():
+            raise HTTPException(status_code=400, detail="Text cannot be empty")
+
+        # Accumulate all audio chunks
+        audio_content = bytearray()
+        async for chunk in tts_service.stream_audio(request.text, request.voice):
+            audio_content.extend(chunk)
+
+        # Encode to base64
+        audio_base64 = base64.b64encode(audio_content).decode("utf-8")
+
+        return {
+            "audio": audio_base64,
+            "visemes": [] # EdgeTTS doesn't natively return visemes in the simple stream, placeholder for now
+        }
+
+    except Exception as e:
+        logger.error(f"TTS Generation Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- WebSocket Endpoint ---
 
 @router.websocket("/ai/stream")
 async def conversation_endpoint(websocket: WebSocket):
@@ -46,20 +84,33 @@ async def conversation_endpoint(websocket: WebSocket):
     try:
         while True:
             try:
+                # 1. Receive Message (wait for input)
                 msg = await websocket.receive()
+                
+                # Check for clean disconnect
+                if msg["type"] == "websocket.disconnect":
+                    logger.info("🔌 Client Disconnected (Clean)")
+                    break
+
             except WebSocketDisconnect:
-                logger.info("🔌 Client Disconnected")
-                break # Exit the loop gracefully on disconnect
+                logger.info("🔌 Client Disconnected (Socket Closed)")
+                break
+            except RuntimeError as re:
+                if "disconnect" in str(re).lower():
+                    logger.info("🔌 Client Disconnected (Runtime)")
+                    break
+                logger.error(f"🚨 Runtime Error: {re}")
+                break
             except Exception as e:
                 logger.error(f"🚨 Error receiving WebSocket message: {e}")
-                break # Also break on other receive errors
+                break
 
-            # 1. Text Control Messages
+            # 2. Process Message
+            # ... existing logic ...
             if "text" in msg:
                 await _handle_text(websocket, msg["text"], history, system_prompt)
-
-            # 2. Audio Stream
             elif "bytes" in msg:
+                # ... existing logic ...
                 data = msg["bytes"]
                 is_speech, _ = _vad(data, AMP_THRESHOLD)
                 
@@ -69,7 +120,6 @@ async def conversation_endpoint(websocket: WebSocket):
                 elif len(speech_buffer) > 0:
                     silence_counter += 1
                 
-                # Trigger Processing
                 if len(speech_buffer) > 0 and silence_counter >= SILENCE_THRESHOLD:
                     if len(speech_buffer) > 10000:
                         await _process_speech(websocket, speech_buffer, history)
@@ -80,7 +130,9 @@ async def conversation_endpoint(websocket: WebSocket):
                     silence_counter = 0
 
     except Exception as e:
-        logger.error(f"🚨 Socket Error (outside receive loop): {e}")
+        logger.error(f"🚨 Connection Error: {e}")
+    finally:
+        logger.info("👋 Connection handler cleanup")
 
 
 # --- Helpers ---

@@ -88,6 +88,13 @@ export const useRealTimeConversation = ({
                     text: msg.text, 
                     partial: msg.partial 
                     });
+                } else if (msg.type === "token") {
+                    // New: Handle streaming tokens for immediate feedback
+                    onTranscript({ 
+                        role: msg.role, 
+                        text: msg.text, 
+                        partial: true // Treat tokens as partial updates
+                    });
                 } else if (msg.type === "status") {
                     onStatusChange(msg.status);
                 }
