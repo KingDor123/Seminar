@@ -28,6 +28,12 @@ export default function Navbar() {
               >
                 Dashboard
               </Link>
+              <Link 
+                href="/sessions" 
+                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium dark:text-gray-300 dark:hover:text-white"
+              >
+                Sessions
+              </Link>
               {/* Add more links here */}
             </div>
           </div>
@@ -115,6 +121,13 @@ export default function Navbar() {
             >
               Dashboard
             </Link>
+            <Link 
+              href="/sessions" 
+              className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium dark:text-gray-300 dark:hover:text-white"
+            >
+              Sessions
+            </Link>
+
           </div>
           <div className="pt-4 pb-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center px-4">

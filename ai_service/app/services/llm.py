@@ -39,3 +39,38 @@ class LLMService:
         except Exception as e:
             logger.error(f"❌ LLM Error: {e}")
             yield " ... (My brain connection timed out)."
+
+    def analyze_behavior(self, user_text: str, context: str) -> Dict[str, float]:
+        """
+        Analyzes the user's response for soft skills metrics.
+        Returns a dictionary with 'sentiment', 'topic_adherence', etc.
+        """
+        prompt = (
+            f"Analyze the user's response in this conversation context.\n"
+            f"Context (AI said): \"{context}\"\n"
+            f"User replied: \"{user_text}\"\n\n"
+            f"Provide a JSON object with:\n"
+            f"1. 'sentiment': float between -1.0 (negative) and 1.0 (positive).\n"
+            f"2. 'topic_adherence': float between 0.0 (off-topic) and 1.0 (on-topic).\n"
+            f"3. 'clarity': float between 0.0 (confusing) and 1.0 (clear).\n"
+            f"Only return the JSON object, nothing else."
+        )
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}],
+                stream=False
+            )
+            content = response.choices[0].message.content.strip()
+            # Basic cleanup if the model chats a bit (though strict instruction helps)
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
+            
+            import json
+            return json.loads(content)
+        except Exception as e:
+            logger.error(f"❌ Analysis Error: {e}")
+            return {"sentiment": 0.0, "topic_adherence": 0.0, "clarity": 0.0}

@@ -46,6 +46,29 @@ export const runMigrations = async (): Promise<void> => {
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `);
+
+        // Create session_metrics table
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS session_metrics (
+                id SERIAL PRIMARY KEY,
+                session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+                metric_name VARCHAR(50) NOT NULL,
+                metric_value DOUBLE PRECISION NOT NULL,
+                context TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
+        // Create social_reports table
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS social_reports (
+                id SERIAL PRIMARY KEY,
+                session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+                overall_score DOUBLE PRECISION,
+                feedback TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
         
         console.log('Migrations completed successfully.');
     } catch (error) {

@@ -4,6 +4,7 @@ import asyncio
 import base64
 import numpy as np
 import httpx
+import time # Import time module
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Optional
@@ -25,6 +26,9 @@ except Exception as e:
 
 # --- Constants ---
 BACKEND_URL = "http://backend:5000/api"
+
+# --- Global State for Latency Tracking ---
+last_ai_end_time: Optional[float] = None
 
 # --- Pydantic Models ---
 class TTSRequest(BaseModel):
@@ -164,6 +168,41 @@ async def conversation_endpoint(websocket: WebSocket):
 
 # --- Helpers ---
 
+async def _analyze_and_save_metrics(session_id: int, user_text: str, latency: float, last_ai_message: str):
+    """
+    Analyzes user speech and saves metrics to the backend.
+    """
+    if not session_id:
+        logger.warning("Attempted to analyze metrics without a session ID.")
+        return
+
+    try:
+        # Save Latency metric
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
+                json={"name": "response_latency", "value": latency, "context": f"User responded after AI message: '{last_ai_message}'"}
+            )
+        logger.info(f"📊 Latency ({latency:.2f}s) saved for session {session_id}")
+
+        # Analyze sentiment, topic adherence, clarity using LLM
+        analysis_results = await asyncio.to_thread(
+            llm_service.analyze_behavior, user_text, last_ai_message
+        )
+        logger.debug(f"🧠 Analysis Results: {analysis_results}")
+
+        for metric_name, metric_value in analysis_results.items():
+            if isinstance(metric_value, (int, float)):
+                async with httpx.AsyncClient() as client:
+                    await client.post(
+                        f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
+                        json={"name": metric_name, "value": metric_value, "context": f"Analyzed user text: '{user_text}'"}
+                    )
+                logger.info(f"📊 Metric '{metric_name}' ({metric_value:.2f}) saved for session {session_id}")
+
+    except Exception as e:
+        logger.error(f"❌ Error during metric analysis or saving: {e}")
+
 async def _load_history(session_id: int, history: List[dict]):
     """Fetch previous chat messages from Backend API"""
     try:
@@ -204,8 +243,18 @@ def _vad(audio: bytes, threshold: float) -> (bool, float):
 
 
 async def _process_speech(ws: WebSocket, buffer: bytearray, history: List[dict], session_id: Optional[int]):
+    global last_ai_end_time # Declare global to modify it
     logger.info(f"🎙️  Processing {len(buffer)} bytes...")
     
+    user_speech_start_time = time.time() # Capture start time of user's speech processing
+
+    latency = 0.0
+    if last_ai_end_time is not None:
+        latency = user_speech_start_time - last_ai_end_time
+        logger.debug(f"Calculated Latency: {latency:.2f}s")
+    else:
+        logger.debug("last_ai_end_time not set, cannot calculate latency.")
+
     text = await asyncio.to_thread(stt_service.transcribe, bytes(buffer))
     logger.debug(f"STT Raw Text: '{text}' (length: {len(text.strip())})")
     
@@ -220,10 +269,19 @@ async def _process_speech(ws: WebSocket, buffer: bytearray, history: List[dict],
     # Save to DB
     asyncio.create_task(_save_message(session_id, "user", text))
 
+    # Trigger async analysis and save
+    if session_id and history and len(history) >= 2: # Ensure there's a previous AI message
+        last_ai_message = history[-2]["content"] if history[-2]["role"] == "assistant" else ""
+        if last_ai_message:
+            asyncio.create_task(
+                _analyze_and_save_metrics(session_id, text, latency, last_ai_message)
+            )
+
     await _gen_response(ws, history, session_id)
 
 
 async def _gen_response(ws: WebSocket, msgs: List[dict], session_id: Optional[int]):
+    global last_ai_end_time # Declare global to modify it
     await ws.send_json({"type": "status", "status": "processing"})
     
     full_resp = ""
@@ -254,6 +312,7 @@ async def _gen_response(ws: WebSocket, msgs: List[dict], session_id: Optional[in
         # Save to DB
         asyncio.create_task(_save_message(session_id, "assistant", full_resp))
 
+        last_ai_end_time = time.time() # Mark the time AI finishes responding
         await ws.send_json({"type": "status", "status": "listening"})
         
     except Exception as e:
