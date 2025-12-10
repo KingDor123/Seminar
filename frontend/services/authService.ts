@@ -36,5 +36,10 @@ export const authService = {
      } catch (error) {
        throw error;
      }
+  },
+
+  updateUser: async (userId: number, data: Partial<AuthResponse['user']> & { password?: string }): Promise<AuthResponse['user']> => {
+    const response = await api.put<AuthResponse['user']>(`/users/${userId}`, data);
+    return response.data;
   }
 };
