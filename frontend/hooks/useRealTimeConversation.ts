@@ -21,20 +21,20 @@ export const useRealTimeConversation = ({
   onStatusChange
 }: UseRealTimeConversationProps) => {
   const wsRef = useRef<WebSocket | null>(null);
-  const activeConnection = useRef(false); // Track if we essentially WANT to be connected
+  const activeConnection = useRef(false); // Flag to indicate if connection should be active
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    console.log("Mounted useRealTimeConversation effect");
+    // Set activeConnection to true when component mounts, false when it unmounts
     activeConnection.current = true;
+    console.log("Conversational Hook: Initializing...");
 
     const connect = () => {
-        // Check if we already have a valid connection or are connecting
-        if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
-            return; 
+        // Only connect if the component is still active AND not already connecting/open
+        if (!activeConnection.current || (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING))) {
+            return;
         }
 
-        // Connect directly to AI Service
         const wsUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || "ws://localhost:8000/ai/stream"; 
         console.log("Connecting to:", wsUrl);
         
@@ -43,11 +43,14 @@ export const useRealTimeConversation = ({
         ws.binaryType = "arraybuffer";
 
         ws.onopen = () => {
-            console.log("Connected to AI Conversation Service");
+            if (!activeConnection.current) { // Check if we should still be connected
+                ws.close();
+                return;
+            }
+            console.log("✅ AI Service Connected");
             setIsConnected(true);
             onStatusChange("idle");
 
-            // --- INITIALIZE SCENARIO ---
             const scenario = SCENARIOS.find(s => s.id === selectedScenario);
             const systemPrompt = scenario?.prompt || "You are a helpful, empathetic, and professional conversational partner. Keep your responses concise and natural, like a real phone call.";
             
@@ -95,36 +98,41 @@ export const useRealTimeConversation = ({
         };
 
         ws.onclose = (event) => {
-            console.log(`AI Service Disconnected (Code: ${event.code}, Reason: ${event.reason}, Clean: ${event.wasClean})`);
+            if (!activeConnection.current) {
+                console.log("Conversational Hook: WebSocket closed cleanly due to unmount.");
+                return;
+            }
+            console.log(`❌ AI Service Disconnected (Code: ${event.code}, Reason: ${event.reason})`);
             setIsConnected(false);
             onStatusChange("idle");
             
-            // Retry if we are still "active"
-            if (activeConnection.current) {
-                const delay = 1000 + Math.random() * 2000; // 1-3s delay
-                console.log(`Connection dropped. Retrying in ${Math.round(delay)}ms...`);
-                setTimeout(() => {
-                    if (activeConnection.current) connect(); 
-                }, delay);
-            }
+            // Retry connection if component is still active
+            const delay = 1000 + Math.random() * 2000; // 1-3s delay
+            console.log(`Connection dropped. Retrying in ${Math.round(delay)}ms...`);
+            setTimeout(() => {
+                if (activeConnection.current) connect(); 
+            }, delay);
         };
 
         ws.onerror = (err) => {
-            if (activeConnection.current) {
-                console.error("AI Service WebSocket Error:", err);
+            if (activeConnection.current) { // Only log if we still care about this connection
+                console.error("⚠️ AI Service WebSocket Error:", err);
             }
         };
     };
 
     connect();
 
+    // Cleanup function
     return () => {
-      console.log("Unmounting useRealTimeConversation effect - Cleaning up WebSocket...");
-      activeConnection.current = false; // Prevent retries
+      console.log("Conversational Hook: Cleaning up WebSocket...");
+      activeConnection.current = false; // Prevent further auto-reconnects
       if (wsRef.current) {
-        wsRef.current.close();
+        wsRef.current.close(1000, "Component unmounted"); // Close cleanly
         wsRef.current = null;
       }
+      setIsConnected(false);
+      onStatusChange("idle");
     };
   }, [selectedScenario, onTranscript, onAudioData, onStatusChange]);
 

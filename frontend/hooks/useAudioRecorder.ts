@@ -8,26 +8,24 @@ interface UseAudioRecorderProps {
 
 export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAudioRecorderProps) => {
   const [isRecording, setIsRecording] = useState(false);
-  const streamRef = useRef<MediaStream | null>(null); // Only used if we created the stream ourselves
+  const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
   const startRecording = useCallback(async () => {
     try {
       let stream = externalStream;
 
-      // Validate external stream has audio
       if (stream && stream.getAudioTracks().length === 0) {
           console.warn("External stream has no audio tracks. Falling back to requesting microphone.");
           stream = null;
       }
 
-      // Fallback: If no valid external stream, try to get one
       if (!stream) {
           try {
              stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-             streamRef.current = stream; // Track it so we can stop it later
+             streamRef.current = stream;
           } catch (e: any) {
               if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
                   console.warn("No microphone found.");
@@ -45,37 +43,46 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
       const ctx = new AudioContextClass({ sampleRate: 16000 });
       audioContextRef.current = ctx;
 
+      // Load the AudioWorklet Module
+      try {
+        await ctx.audioWorklet.addModule('/worklets/audio-processor.js');
+      } catch (err) {
+        console.error("Failed to load audio worklet:", err);
+        throw new Error("AudioWorklet failed to load. Ensure /worklets/audio-processor.js exists in public/.");
+      }
+
       const source = ctx.createMediaStreamSource(stream);
       sourceRef.current = source;
 
-      // Buffer size 4096 is ~250ms at 16kHz
-      const processor = ctx.createScriptProcessor(4096, 1, 1); 
-      processorRef.current = processor;
+      // Create the Worklet Node
+      const workletNode = new AudioWorkletNode(ctx, 'pcm-processor');
+      workletNodeRef.current = workletNode;
 
-      processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        const buffer = new Float32Array(inputData);
-        onAudioData(buffer.buffer);
+      // Handle data from the worklet
+      workletNode.port.onmessage = (event) => {
+        const float32Data = event.data; // This is a Float32Array
+        // We pass the underlying buffer (ArrayBuffer) to the callback
+        onAudioData(float32Data.buffer);
       };
 
-      source.connect(processor);
-      processor.connect(ctx.destination);
+      source.connect(workletNode);
+      workletNode.connect(ctx.destination); // Connect to destination to keep the graph alive (often needed)
 
       setIsRecording(true);
 
     } catch (err: any) {
-      if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-         // handled above or passed through
-      } else {
-         console.error("Error accessing microphone:", err);
-      }
+      console.error("Error accessing microphone:", err);
       onError(err);
     }
   }, [onAudioData, onError, externalStream]);
 
   const stopRecording = useCallback(() => {
-    if (processorRef.current && sourceRef.current) {
-      processorRef.current.disconnect();
+    if (workletNodeRef.current) {
+        workletNodeRef.current.port.onmessage = null;
+        workletNodeRef.current.disconnect();
+    }
+    
+    if (sourceRef.current) {
       sourceRef.current.disconnect();
     }
 
@@ -84,8 +91,6 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
       audioContextRef.current = null;
     }
     
-    // Only stop tracks if WE created the stream (fallback mode)
-    // If it was external, the parent manages it.
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -94,7 +99,6 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
     setIsRecording(false);
   }, []);
 
-  // Cleanup
   useEffect(() => {
     return () => {
       stopRecording();
