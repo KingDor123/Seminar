@@ -179,6 +179,14 @@ export default function MeetingPage() {
     externalStream: mediaStream
   });
 
+  // --- Auto-Stop Recording on Disconnect ---
+  useEffect(() => {
+    if (!isConnected && isRecording) {
+      console.warn("Connection lost. Stopping recording.");
+      stopRecording();
+    }
+  }, [isConnected, isRecording, stopRecording]);
+
   // --- Cleanup Audio Context ---
   useEffect(() => {
     return () => {
@@ -189,6 +197,8 @@ export default function MeetingPage() {
   }, []);
 
   const toggleListening = async () => {
+    if (!isConnected) return; // Double check
+
     // Resume AudioContext on user interaction to fix "no sound" issue
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -237,6 +247,7 @@ export default function MeetingPage() {
             setInput={setInput}
             sendMessage={sendMessage}
             selectedScenario={scenarioId}
+            isConnected={isConnected} // Passed Prop
             audioRef={() => {}} 
             />
         </main>

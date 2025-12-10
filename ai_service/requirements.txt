@@ -4,8 +4,6 @@ ollama
 openai
 websockets
 numpy
-edge-tts
-aiofiles
 faster-whisper
 python-multipart
 scipy

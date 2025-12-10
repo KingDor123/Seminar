@@ -7,17 +7,10 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Lifespan context manager for the FastAPI application.
-    Handles startup and shutdown events.
-    """
-    
-    logger.info("🚀 Starting SoftSkill AI Service...")
-    logger.info(f"   - LLM Host: {settings.OLLAMA_HOST}")
-    logger.info(f"   - Whisper Model: {settings.WHISPER_MODEL_SIZE}")
-    logger.info(f"   - TTS Voice: {settings.TTS_VOICE}")
+    logger.info("🚀 SoftSkill AI Service Online")
+    logger.info(f"   - LLM: {settings.OLLAMA_MODEL} @ {settings.OLLAMA_HOST}")
+    logger.info(f"   - STT: {settings.WHISPER_MODEL_SIZE}")
         
     yield
     
-    # --- Shutdown Phase ---
-    logger.info("🛑 Shutting down SoftSkill AI Service...")
+    logger.info("🛑 Service Shutting Down...")

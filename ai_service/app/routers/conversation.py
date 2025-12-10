@@ -12,257 +12,165 @@ from app.services.tts import TTSService
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# --- Service Initialization ---
-# We initialize services globally to persist models across connections.
+# --- Global AI Services ---
 try:
     stt_service = STTService()
     llm_service = LLMService()
     tts_service = TTSService()
 except Exception as e:
-    logger.critical(f"🔥 Critical: Failed to initialize AI Services: {e}")
+    logger.critical(f"🔥 Critical AI Failure: {e}")
 
 @router.websocket("/ai/stream")
 async def conversation_endpoint(websocket: WebSocket):
     """
-    Main WebSocket endpoint for real-time conversation. 
-    
-    Handles:
-    1. Text Chat: Receives JSON text, streams back tokens.
-    2. Voice Chat: Receives raw audio bytes, performs VAD (Voice Activity Detection),
-       STT (Speech-to-Text), LLM generation, and TTS (Text-to-Speech) streaming.
+    Real-time WebSocket for Voice/Text Chat.
     """
     await websocket.accept()
-    logger.info("🔌 Conversation WebSocket connected.")
+    logger.info("🔌 Client Connected")
 
-    # --- Conversation State ---
-    
-    # Default System Prompt
-    system_prompt_content = (
-        "You are a helpful, empathetic, and professional conversational partner. "
-        "Keep your responses concise and natural, like a real phone call."
+    # --- Config ---
+    system_prompt = (
+        "You are a supportive, patient soft skills trainer for people with HFASD. "
+        "Provide a safe environment. Be encouraging. "
+        "If a social mistake occurs, gently offer feedback."
     )
     
-    # Conversation History (Context Window)
-    history: List[Dict[str, str]] = [
-        {"role": "system", "content": system_prompt_content}
-    ]
+    history: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
-    # --- VAD (Voice Activity Detection) Parameters ---
+    # --- VAD Settings ---
     speech_buffer = bytearray()
     silence_counter = 0
-    SILENCE_THRESHOLD_CHUNKS = 6  # ~200-300ms of silence to trigger end-of-speech
-    AMPLITUDE_THRESHOLD = 0.02    # RMS threshold to distinguish speech from background noise
+    SILENCE_THRESHOLD = 5   # Increased to prevent cutting off words
+    AMP_THRESHOLD = 0.01   # Sensitivity (increased to reduce false positives)
 
     try:
         while True:
-            # Polymorphic Receive: Can be JSON (Text) or Bytes (Audio)
-            message = await websocket.receive()
-            
-            # ------------------------------------------------------------------
-            # Case 1: Text Payload (Chat Interface & Control Messages)
-            # ------------------------------------------------------------------
-            if "text" in message:
-                await _handle_text_message(
-                    websocket, 
-                    message["text"], 
-                    history, 
-                    system_prompt_content
-                )
+            try:
+                msg = await websocket.receive()
+            except WebSocketDisconnect:
+                logger.info("🔌 Client Disconnected")
+                break # Exit the loop gracefully on disconnect
+            except Exception as e:
+                logger.error(f"🚨 Error receiving WebSocket message: {e}")
+                break # Also break on other receive errors
 
-            # ------------------------------------------------------------------
-            # Case 2: Audio Payload (Real-time Voice/Video Call)
-            # ------------------------------------------------------------------
-            elif "bytes" in message:
-                data = message["bytes"]
-                
-                # Check for voice activity
-                is_speech = _detect_voice_activity(data, AMPLITUDE_THRESHOLD)
+            # 1. Text Control Messages
+            if "text" in msg:
+                await _handle_text(websocket, msg["text"], history, system_prompt)
+
+            # 2. Audio Stream
+            elif "bytes" in msg:
+                data = msg["bytes"]
+                is_speech, _ = _vad(data, AMP_THRESHOLD)
                 
                 if is_speech:
                     speech_buffer.extend(data)
                     silence_counter = 0
-                else:
-                    # Increment silence counter if we have data in the buffer
-                    if len(speech_buffer) > 0:
-                        silence_counter += 1
+                elif len(speech_buffer) > 0:
+                    silence_counter += 1
                 
-                # Process the buffered speech if silence threshold is reached
-                if len(speech_buffer) > 0 and silence_counter >= SILENCE_THRESHOLD_CHUNKS:
-                    await _process_speech_segment(websocket, speech_buffer, history)
+                # Trigger Processing
+                if len(speech_buffer) > 0 and silence_counter >= SILENCE_THRESHOLD:
+                    if len(speech_buffer) > 10000:
+                        await _process_speech(websocket, speech_buffer, history)
+                    else:
+                        logger.debug(f"Ignored short noise ({len(speech_buffer)} bytes)")
                     
-                    # Reset buffer
                     speech_buffer = bytearray()
                     silence_counter = 0
 
-    except WebSocketDisconnect:
-        logger.info("🔌 Client disconnected.")
-    except RuntimeError as e:
-        if "disconnect" in str(e).lower():
-            logger.info("🔌 Client disconnected (RuntimeError).")
-        else:
-            logger.error(f"🚨 WebSocket Runtime Error: {e}", exc_info=True)
     except Exception as e:
-        logger.error(f"🚨 WebSocket Error: {e}", exc_info=True)
+        logger.error(f"🚨 Socket Error (outside receive loop): {e}")
 
 
-# ==============================================================================
-# Helper Functions
-# ==============================================================================
+# --- Helpers ---
 
-async def _handle_text_message(websocket: WebSocket, text_data: str, history: List[dict], system_prompt: str):
-    """
-    Parses and processes text messages from the client.
-    Handles 'system_prompt' updates and standard chat flow.
-    """
+async def _handle_text(ws: WebSocket, text: str, history: List[dict], sys_prompt: str):
     try:
-        payload = json.loads(text_data)
-        logger.info(f"📨 Received Text Payload: {text_data[:100]}...")
+        data = json.loads(text)
+        
+        # Update Prompt
+        if "system_prompt" in data:
+            sys_prompt = data["system_prompt"]
+            history[0]["content"] = sys_prompt
 
-        # Update System Prompt
-        if "system_prompt" in payload:
-            system_prompt = payload["system_prompt"]
-            # Update history's first element
-            if history and history[0]["role"] == "system":
-                history[0]["content"] = system_prompt
-            else:
-                history.insert(0, {"role": "system", "content": system_prompt})
-
-        # Process Chat Request
-        if "history" in payload:
-            input_history = payload["history"]
-            # Reconstruct history with current system prompt
-            full_history = [{"role": "system", "content": system_prompt}] + input_history
+        # Chat Request
+        if "history" in data:
+            full_hist = [{"role": "system", "content": sys_prompt}] + data["history"]
             
-            response_mode = payload.get("mode", "text")
-            
-            if response_mode == "audio":
-                # Generate text AND audio (for simulated voice response)
-                await _generate_response_with_audio(websocket, full_history, history_ref=history)
+            if data.get("mode") == "audio":
+                await _gen_response(ws, full_hist, history)
             else:
-                # Standard text stream
-                await _generate_text_stream(websocket, full_history, history_ref=history)
-                
-        elif "user_text" in payload:
-            # Simple injection (used in some test cases)
-            user_text = payload["user_text"]
-            history.append({"role": "user", "content": user_text})
-            # (Note: This branch doesn't trigger generation in the current logic, mostly for state updates)
+                await _gen_text(ws, full_hist, history)
 
-    except json.JSONDecodeError:
-        logger.warning("Received invalid JSON text.")
+    except Exception:
+        pass
 
 
-def _detect_voice_activity(audio_chunk: bytes, threshold: float) -> bool:
-    """
-    Simple Energy-based VAD (Voice Activity Detection).
-    Returns True if RMS amplitude exceeds threshold.
-    """
-    chunk_np = np.frombuffer(audio_chunk, dtype=np.float32)
-    rms = np.sqrt(np.mean(chunk_np**2))
-    return rms > threshold
+def _vad(audio: bytes, threshold: float) -> (bool, float):
+    chunk = np.frombuffer(audio, dtype=np.float32)
+    if len(chunk) == 0: return False, 0.0
+    rms = np.sqrt(np.mean(chunk**2))
+    return rms > threshold, rms
 
 
-async def _process_speech_segment(websocket: WebSocket, audio_buffer: bytearray, history: List[dict]):
-    """
-    Orchestrates the pipeline: STT -> LLM -> TTS
-    """
-    logger.info(f"🎙️  Processing speech segment: {len(audio_buffer)} bytes")
+async def _process_speech(ws: WebSocket, buffer: bytearray, history: List[dict]):
+    logger.info(f"🎙️  Processing {len(buffer)} bytes...")
     
-    # 1. Speech-to-Text
-    # Run in thread to avoid blocking the event loop
-    user_text = await asyncio.to_thread(stt_service.transcribe, bytes(audio_buffer))
+    text = await asyncio.to_thread(stt_service.transcribe, bytes(buffer))
+    logger.debug(f"STT Raw Text: '{text}' (length: {len(text.strip())})")
     
-    if not user_text or len(user_text.strip()) < 2:
-        logger.debug("Ignored empty/noise transcription.")
-        return
+    if not text or len(text.strip()) < 5: return
 
-    # Send transcript back to UI
-    await websocket.send_json({"type": "transcript", "role": "user", "text": user_text})
+    await ws.send_json({"type": "transcript", "role": "user", "text": text})
+    history.append({"role": "user", "content": text})
+
+    await _gen_response(ws, history, history)
+
+
+async def _gen_response(ws: WebSocket, msgs: List[dict], history: List[dict]):
+    await ws.send_json({"type": "status", "status": "processing"})
     
-    # Update History
-    history.append({"role": "user", "content": user_text})
-
-    # 2. & 3. LLM Generation & TTS Streaming
-    await _generate_response_with_audio(websocket, history, history_ref=history)
-
-
-async def _generate_response_with_audio(websocket: WebSocket, messages: List[dict], history_ref: List[dict]):
-    """
-    Generates LLM response and streams Audio (TTS) sentence-by-sentence.
-    """
-    await websocket.send_json({"type": "status", "status": "processing"})
-    
-    full_ai_response = ""
-    current_sentence = ""
-    token_generator = llm_service.chat_stream(messages)
+    full_resp = ""
+    curr_sent = ""
     
     try:
-        for token in token_generator:
-            current_sentence += token
-            full_ai_response += token
+        for token in llm_service.chat_stream(msgs):
+            curr_sent += token
+            full_resp += token
 
-            # Check for sentence boundaries to trigger TTS
-            if token in [".", "?", "!", "\n"] and len(current_sentence.strip()) > 1:
-                sentence_to_speak = current_sentence.strip()
-                logger.debug(f"🗣️  Speaking: {sentence_to_speak}")
-                
-                # Send text transcript for UI
-                await websocket.send_json({
-                    "type": "transcript", 
-                    "role": "assistant", 
-                    "text": sentence_to_speak, 
-                    "partial": True
-                })
-                
-                # Stream Audio
-                await _stream_tts_audio(websocket, sentence_to_speak)
-                
-                current_sentence = ""
+            # Split sentences/phrases for fluid TTS (more aggressive splitting)
+            # Trigger on: . ? ! \n OR , ; (if length > 15 chars)
+            is_punctuated = token in [".", "?", "!", "\n"]
+            is_phrase_break = token in [",", ";"] and len(curr_sent.strip()) > 15
+            
+            if (is_punctuated or is_phrase_break) and len(curr_sent.strip()) > 2:
+                sent = curr_sent.strip()
+                await ws.send_json({"type": "transcript", "role": "assistant", "text": sent, "partial": True})
+                await _stream_tts(ws, sent)
+                curr_sent = ""
 
-        # Process any remaining text in the buffer
-        if current_sentence.strip():
-            await websocket.send_json({
-                "type": "transcript", 
-                "role": "assistant", 
-                "text": current_sentence.strip(), 
-                "partial": True
-            })
-            await _stream_tts_audio(websocket, current_sentence.strip())
+        # Flush remaining
+        if curr_sent.strip():
+            sent = curr_sent.strip()
+            await ws.send_json({"type": "transcript", "role": "assistant", "text": sent, "partial": True})
+            await _stream_tts(ws, sent)
 
-        # Update History with full response
-        history_ref.append({"role": "assistant", "content": full_ai_response})
-        await websocket.send_json({"type": "status", "status": "listening"})
+        history.append({"role": "assistant", "content": full_resp})
+        await ws.send_json({"type": "status", "status": "listening"})
         
     except Exception as e:
-        logger.error(f"Error during response generation: {e}")
-        await websocket.send_json({"type": "error", "message": str(e)})
+        logger.error(f"Gen Error: {e}")
 
 
-async def _stream_tts_audio(websocket: WebSocket, text: str):
-    """
-    Helper to generate and send TTS audio chunks.
-    """
-    try:
-        # Buffer audio for the entire sentence to ensure smooth playback
-        sentence_audio = bytearray()
-        async for audio_chunk in tts_service.stream_audio(text):
-            sentence_audio.extend(audio_chunk)
-        
-        if len(sentence_audio) > 0:
-            await websocket.send_bytes(bytes(sentence_audio))
-    except Exception as e:
-        logger.error(f"TTS Stream Error: {e}")
+async def _stream_tts(ws: WebSocket, text: str):
+    async for chunk in tts_service.stream_audio(text):
+        await ws.send_bytes(chunk)
 
 
-async def _generate_text_stream(websocket: WebSocket, messages: List[dict], history_ref: List[dict]):
-    """
-    Standard text-only streaming (ChatGPT style).
-    """
-    full_ai_response = ""
-    token_generator = llm_service.chat_stream(messages)
-    
-    for token in token_generator:
-        full_ai_response += token
-        await websocket.send_text(token)
-    
-    history_ref.append({"role": "assistant", "content": full_ai_response})
+async def _gen_text(ws: WebSocket, msgs: List[dict], history: List[dict]):
+    full_resp = ""
+    for token in llm_service.chat_stream(msgs):
+        full_resp += token
+        await ws.send_text(token)
+    history.append({"role": "assistant", "content": full_resp})
