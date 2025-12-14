@@ -281,13 +281,14 @@ async def _process_speech(ws: WebSocket, buffer: bytearray, history: List[dict],
 
 
 async def _gen_response(ws: WebSocket, msgs: List[dict], session_id: Optional[int]):
-    global last_ai_end_time # Declare global to modify it
+    global last_ai_end_time 
     await ws.send_json({"type": "status", "status": "processing"})
     
     full_resp = ""
     curr_sent = ""
     
     try:
+        # Stream the response
         for token in llm_service.chat_stream(msgs):
             curr_sent += token
             full_resp += token
@@ -301,6 +302,7 @@ async def _gen_response(ws: WebSocket, msgs: List[dict], session_id: Optional[in
                 await _stream_tts(ws, sent)
                 curr_sent = ""
 
+        # Send any remaining text
         if curr_sent.strip():
             sent = curr_sent.strip()
             await ws.send_json({"type": "transcript", "role": "assistant", "text": sent, "partial": True})
@@ -309,14 +311,18 @@ async def _gen_response(ws: WebSocket, msgs: List[dict], session_id: Optional[in
         # Update Memory
         msgs.append({"role": "assistant", "content": full_resp})
         
-        # Save to DB
-        asyncio.create_task(_save_message(session_id, "assistant", full_resp))
+        # Save to DB (Fire and forget)
+        if session_id:
+            asyncio.create_task(_save_message(session_id, "assistant", full_resp))
 
-        last_ai_end_time = time.time() # Mark the time AI finishes responding
+        # Update state
+        last_ai_end_time = time.time() 
         await ws.send_json({"type": "status", "status": "listening"})
         
     except Exception as e:
-        logger.error(f"Gen Error: {e}")
+        logger.error(f"🔥 Gen Error: {e}")
+        await ws.send_json({"type": "error", "message": "I lost my train of thought. Could you say that again?"})
+        await ws.send_json({"type": "status", "status": "listening"})
 
 
 async def _stream_tts(ws: WebSocket, text: str):
