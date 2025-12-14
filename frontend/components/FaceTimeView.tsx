@@ -1,5 +1,5 @@
 // frontend/components/FaceTimeView.tsx
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import Avatar3D from './Avatar3D';
 import { SCENARIOS } from '../constants/appConstants';
 import { ChatMessage } from '../types/chat';
@@ -42,18 +42,20 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
   audioRef,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [analyser, setAnalyser] = React.useState<AnalyserNode | null>(null);
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [showChat, setShowChat] = useState(false);
+  const [micMuted, setMicMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
+  
+  // Derived state for subtitles
+  const lastSubtitle = messages.length > 0 ? messages[messages.length - 1].content : "";
   
   // Refs for robust AudioContext management
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
 
   // Manage Audio Context
   useEffect(() => {
     if (!audioElement) return;
 
-    // Initialize AudioContext if not already done
     if (!audioContextRef.current) {
       try {
           const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -69,191 +71,221 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
 
     const ctx = audioContextRef.current;
 
-    // Connect source to element if not already connected
-    // We use a try-catch because checking if it's connected is hard
     if (!sourceRef.current && ctx && analyserRef.current) {
         try {
             const source = ctx.createMediaElementSource(audioElement);
             source.connect(analyserRef.current);
             analyserRef.current.connect(ctx.destination);
             sourceRef.current = source;
-            console.log("Audio Context & Source initialized successfully.");
         } catch (e) {
-            console.error("Error connecting MediaElementSource (likely already connected):", e);
+            console.error("Error connecting MediaElementSource:", e);
         }
     }
 
-    // Resume context if suspended
     if (ctx && ctx.state === 'suspended') {
         ctx.resume().catch(err => console.error("Failed to resume audio context:", err));
     }
-
-    // Cleanup logic:
-    // We intentionally DO NOT close the context or disconnect on unmount/re-mount 
-    // of this effect if the audioElement persists, because we can't reconnect easily.
-    // We relies on the browser/GC to clean up if the actual DOM element is destroyed.
-    
-    return () => {
-       // If we really wanted to be clean, we'd close the context ONLY if the component is truly unmounting
-       // but we can't know that for sure in Strict Mode's double-invocation.
-    };
   }, [audioElement]);
 
-  // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isThinking]);
+  }, [messages, isThinking, showChat]);
+
+  // Handle local mute/camera toggle logic
+  const toggleMic = () => {
+    setMicMuted(!micMuted);
+    // Note: Actual stream track disabling needs to happen in useUserCamera hook or here if we had access to the stream
+    // For now this is visual only + functionality link
+    if (isSpeechRecognitionListening && !micMuted) {
+       // logic to stop listening handled by parent mostly, but we can simulate "mute"
+    } else if (micMuted) {
+       startListening(); // Re-enable
+    }
+  };
+
+  const toggleCamera = () => {
+     setCameraOff(!cameraOff);
+     if (userVideoRef.current && userVideoRef.current.srcObject) {
+        const stream = userVideoRef.current.srcObject as MediaStream;
+        stream.getVideoTracks().forEach(track => track.enabled = cameraOff); // Toggle inverse because state is updating
+     }
+  };
 
   return (
-    <div className="flex flex-col h-[650px] w-full max-w-6xl border border-gray-800 rounded-xl shadow-2xl bg-black overflow-hidden">
-      {/* TOP HEADER: Scenario Title */}
-      <div className="h-12 bg-gray-900/80 backdrop-blur border-b border-gray-800 flex items-center justify-center">
-          <h2 className="text-gray-100 font-bold text-lg tracking-wide flex items-center gap-2">
-             <span className="text-blue-500">●</span> 
-             {SCENARIOS.find(s => s.id === selectedScenario)?.label || "Unknown Scenario"}
-          </h2>
-      </div>
-
-      <div className="flex flex-1 overflow-hidden">
+    <div className="relative flex h-[80vh] w-full max-w-7xl bg-black rounded-3xl overflow-hidden shadow-2xl border border-gray-800">
       
-      {/* LEFT PANEL: Main AI View & Controls */}
-      <div className="relative flex-1 bg-gray-900 flex flex-col">
+      {/* --- Main Stage (AI Avatar) --- */}
+      <div className={`relative transition-all duration-300 ${showChat ? 'w-2/3' : 'w-full'} h-full bg-gradient-to-b from-gray-900 to-black`}>
         
-        {/* 3D Scene Container */}
-        <div className="flex-1 relative overflow-hidden">
-           <Avatar3D audioElement={audioElement} visemes={visemes} audioAnalyser={analyser} />
-           
-           {/* Audio Player - technically visible but hidden from view to prevent browser 'display:none' optimizations */ }
-           {audioUrl && (
-             <div className="absolute opacity-0 pointer-events-none w-1 h-1 overflow-hidden">
-                 <audio 
-                   ref={audioRef} 
-                   src={audioUrl}
-                   onPlay={() => console.log("Audio started playing")}
-                   onEnded={() => console.log("Audio finished playing")}
-                   onError={(e) => console.error("Audio playback error:", e.currentTarget.error)}
-                   onLoadedData={(e) => {
-                      console.log("Audio loaded, attempting to play...");
-                      const audio = e.currentTarget;
-                      // Resume context if needed, then play
-                      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-                          audioContextRef.current.resume().then(() => {
-                              console.log("Resumed AudioContext from suspended state");
-                          }).catch(err => console.error("Failed to resume context:", err));
-                      }
-                      
-                      audio.play()
-                        .catch(err => {
-                            console.error("Autoplay failed:", err);
-                        });
-                   }}
-                 />
+        {/* Header Overlay */}
+        <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-10 bg-gradient-to-b from-black/60 to-transparent">
+             <div className="flex items-center gap-3">
+                 <div className="bg-gray-800/80 backdrop-blur-md p-2 rounded-lg border border-gray-700">
+                     <span className="text-xl">🏦</span>
+                 </div>
+                 <div>
+                     <h2 className="text-white font-bold text-lg leading-tight">
+                         {SCENARIOS.find(s => s.id === selectedScenario)?.label || "Meeting"}
+                     </h2>
+                     <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${isGeneratingAudio || isAiSpeaking ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
+                         <span className="text-gray-400 text-xs uppercase tracking-wider font-medium">
+                             {isGeneratingAudio ? "Generating..." : isAiSpeaking ? "Speaking" : "Connected"}
+                         </span>
+                     </div>
+                 </div>
              </div>
-           )}
-
-           {/* Overlay Info (Scenario Label & Status) */}
-           <div className="absolute top-4 left-4 z-10">
-               {isGeneratingAudio ? (
-                   <div className="text-green-400 animate-pulse font-bold bg-black/50 px-3 py-1 rounded-full backdrop-blur-md border border-green-500/30">
-                     Generating Speech...
-                   </div>
-               ) : (
-                   <div className="text-lg text-gray-200 font-medium bg-black/40 px-4 py-1 rounded-full backdrop-blur-md border border-white/10">
-                     {SCENARIOS.find(s => s.id === selectedScenario)?.label}
-                   </div>
-               )}
-           </div>
-
-           {/* User PIP (Picture in Picture) - Top Right */}
-           <div className="absolute top-4 right-4 w-48 h-36 bg-gray-900 rounded-lg border-2 border-white/20 overflow-hidden shadow-xl z-20">
-             <video ref={userVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
-           </div>
+             
+             <div className="bg-red-500/10 text-red-400 px-3 py-1 rounded-full text-xs font-mono border border-red-500/20 flex items-center gap-2">
+                 <span>REC</span>
+                 <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+             </div>
         </div>
 
-        {/* Controls Bar (Bottom of Left Panel) */}
-        <div className="h-20 bg-gray-900 border-t border-gray-800 flex items-center justify-center gap-8 z-20">
-          <button
-            onClick={onEndCall}
-            className="flex items-center gap-2 px-6 py-3 bg-red-600 rounded-full text-white font-semibold hover:bg-red-700 shadow-lg transition-all hover:scale-105"
-          >
-            <span>📞</span> End Call
-          </button>
-
-          <button
-            onClick={startListening}
-            className={`p-4 rounded-full text-white shadow-lg transition-all hover:scale-110 ${
-              isSpeechRecognitionListening 
-                ? 'bg-white text-red-600 animate-pulse ring-4 ring-red-500/50 shadow-red-500/50' 
-                : 'bg-gray-700 hover:bg-gray-600'
-            }`}
-          >
-            <span className="text-2xl">🎤</span>
-          </button>
+        {/* 3D Scene */}
+        <div className="w-full h-full">
+            <Avatar3D audioElement={audioElement} visemes={visemes} audioAnalyser={analyser} />
         </div>
+
+        {/* Dynamic Subtitles Overlay */}
+        <div className="absolute bottom-24 left-0 right-0 px-12 text-center pointer-events-none">
+            {lastSubtitle && (
+                 <div className="inline-block bg-black/60 backdrop-blur-md text-white text-lg px-6 py-3 rounded-2xl shadow-lg border border-white/5 transition-all duration-500">
+                     {lastSubtitle}
+                 </div>
+            )}
+        </div>
+
+        {/* Audio Element (Hidden) */}
+        {audioUrl && (
+             <div className="absolute opacity-0 pointer-events-none w-1 h-1">
+                 <audio ref={audioRef} src={audioUrl} autoPlay />
+             </div>
+        )}
       </div>
 
-      {/* RIGHT PANEL: Chat Sidebar */}
-      <div className="w-96 bg-gray-900 border-l border-gray-800 flex flex-col">
-        
-        {/* Header */}
-        <div className="p-4 border-b border-gray-800 bg-gray-900/50 backdrop-blur text-gray-100 font-bold tracking-wide shadow-sm">
-          Chat History
-        </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-900/95 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-           {messages.length === 0 && (
-             <div className="text-gray-500 text-center mt-10 italic text-sm">
-               Start the conversation...
-             </div>
-           )}
-           
-           {messages.map((msg, idx) => (
-             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed shadow-md ${
-                    msg.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-br-none'
-                    : 'bg-gray-800 text-gray-100 border border-gray-700 rounded-bl-none'
-                }`}>
-                    {msg.content}
-                </div>
-             </div>
-           ))}
-           
-           {isThinking && (
-             <div className="flex justify-start">
-               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl rounded-bl-none text-gray-400 text-xs italic animate-pulse">
-                 AI is thinking...
+      {/* --- Chat Sidebar (Collapsible) --- */}
+      <div className={`absolute right-0 top-0 bottom-0 bg-gray-900/95 backdrop-blur-xl border-l border-gray-700 transition-all duration-300 transform ${showChat ? 'translate-x-0 w-1/3' : 'translate-x-full w-0'} z-20 flex flex-col`}>
+          <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900">
+              <h3 className="text-white font-bold">Meeting Chat</h3>
+              <button onClick={() => setShowChat(false)} className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+              </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-200'}`}>
+                          {msg.content}
+                      </div>
+                  </div>
+              ))}
+              <div ref={messagesEndRef} />
+          </div>
+
+          <div className="p-4 border-t border-gray-700 bg-gray-900">
+              <div className="relative">
+                  <input 
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                      placeholder="Type a message..."
+                      className="w-full bg-gray-800 text-white rounded-full pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700"
+                  />
+                  <button onClick={() => sendMessage()} className="absolute right-2 top-1.5 text-blue-400 hover:text-blue-300">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                      </svg>
+                  </button>
+              </div>
+          </div>
+      </div>
+
+
+      {/* --- User PIP (Floating) --- */}
+      <div className={`absolute top-24 right-6 w-48 h-36 bg-gray-800 rounded-xl overflow-hidden shadow-2xl border-2 border-gray-700 z-10 transition-all duration-300 ${showChat ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+           {cameraOff ? (
+               <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-500">
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                   </svg>
                </div>
-             </div>
+           ) : (
+               <video ref={userVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
            )}
-           <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input Area */}
-        <div className="p-4 border-t border-gray-800 bg-gray-900">
-           <div className="flex gap-2 items-center bg-gray-800 rounded-full px-4 py-2 border border-gray-700 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
-             <input 
-               value={input}
-               onChange={(e) => setInput(e.target.value)}
-               onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-               placeholder="Type a message..."
-               className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm"
-             />
-             <button 
-               onClick={() => sendMessage()} 
-               className="text-blue-500 hover:text-blue-400 transition p-1 disabled:opacity-50 disabled:cursor-not-allowed"
-               disabled={!input.trim()}
-             >
-               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                 <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-               </svg>
-             </button>
+           <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[10px] text-white font-medium backdrop-blur-sm">
+               You
            </div>
-        </div>
       </div>
 
+
+      {/* --- Bottom Controls Bar --- */}
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 bg-gray-900/90 backdrop-blur-xl border border-gray-700 px-6 py-3 rounded-full shadow-2xl z-30">
+          
+          {/* Mute Button */}
+          <button 
+             onClick={toggleMic}
+             className={`p-3 rounded-full transition-all ${micMuted ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+             title={micMuted ? "Unmute" : "Mute"}
+          >
+              {micMuted ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
+                  </svg>
+              ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+              )}
+          </button>
+
+          {/* Camera Button */}
+          <button 
+             onClick={toggleCamera}
+             className={`p-3 rounded-full transition-all ${cameraOff ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+             title={cameraOff ? "Turn Video On" : "Turn Video Off"}
+          >
+              {cameraOff ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
+                  </svg>
+              ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+              )}
+          </button>
+
+          {/* Chat Toggle */}
+          <button 
+             onClick={() => setShowChat(!showChat)}
+             className={`p-3 rounded-full transition-all ${showChat ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+             title="Toggle Chat"
+          >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+          </button>
+
+          {/* End Call */}
+          <button 
+             onClick={onEndCall}
+             className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-bold flex items-center gap-2 shadow-lg transition-transform hover:scale-105"
+             title="End Meeting"
+          >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6.666M19.333 12.889A2.25 2.25 0 0121.583 15v3.667a2.25 2.25 0 01-2.25 2.25H2.417A2.25 2.25 0 01.167 18.667V15a2.25 2.25 0 012.25-2.111" />
+              </svg>
+              <span className="text-sm">Leave</span>
+          </button>
       </div>
+
     </div>
   );
 };

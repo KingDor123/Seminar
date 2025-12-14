@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from 'next/navigation';
 import FaceTimeView from '../../../components/FaceTimeView';
-import { SCENARIOS } from '../../../constants/appConstants';
 import { ChatMessage } from '../../../types/chat';
 import { useUserCamera } from '../../../hooks/useUserCamera';
 import { useChatSession } from '../../../hooks/useChatSession';
@@ -27,7 +26,7 @@ export default function MeetingPage() {
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   
   // Database Session Hook
-  const { startSession } = useChatSession();
+  const { startSession, sessionId, loadMessages } = useChatSession();
 
   // User Camera (now handles both Video & Audio request to avoid race conditions)
   const { userVideoRef, mediaStream } = useUserCamera(true);
@@ -36,16 +35,25 @@ export default function MeetingPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioQueue = useRef<ArrayBuffer[]>([]);
   const isPlayingRef = useRef(false);
-  const [visemes, setVisemes] = useState<any[]>([]); 
 
   // --- Session Start Logic ---
   useEffect(() => {
     if (scenarioId) {
       startSession(scenarioId).then(id => {
         console.log(`Session started: ${id} for scenario: ${scenarioId}`);
+        if (id) {
+            loadMessages(id).then(msgs => {
+                // Map backend messages to frontend format
+                const formattedMsgs = msgs.map((m: any) => ({
+                    role: m.role === 'ai' ? 'ai' : 'user',
+                    content: m.content
+                }));
+                setMessages(formattedMsgs);
+            });
+        }
       });
     }
-  }, [scenarioId, startSession]);
+  }, [scenarioId, startSession, loadMessages]);
 
   // --- Audio Playback Logic ---
   const processQueueRef = useRef<() => Promise<void>>(null);
@@ -114,19 +122,33 @@ export default function MeetingPage() {
   // --- Real-Time Conversation Hook ---
   const handleTranscript = useCallback((msg: { role: "user" | "assistant", text: string, partial?: boolean }) => {
     setMessages((prev) => {
+      const lastMsg = prev[prev.length - 1];
+      const isAi = msg.role === "assistant";
+      const role = isAi ? "ai" : "user";
+
+      // If it's a partial update (token streaming)
       if (msg.partial) {
-        const lastMsg = prev[prev.length - 1];
-        if (lastMsg && lastMsg.role === "ai") { 
+        // If the last message belongs to the AI, append the token
+        if (lastMsg && lastMsg.role === "ai" && isAi) {
              return [
                 ...prev.slice(0, -1),
-                { ...lastMsg, content: lastMsg.content + " " + msg.text } 
+                { ...lastMsg, content: lastMsg.content + msg.text } 
              ];
-        } else {
+        } 
+        // If it's the start of a new AI response (or previous was user)
+        else if (isAi) {
              return [...prev, { role: "ai", content: msg.text }];
         }
       } 
-      const role = msg.role === "assistant" ? "ai" : "user";
-      return [...prev, { role: role as "user" | "ai", content: msg.text }];
+      
+      // If it's a complete message (e.g. from user STT final result)
+      // or a "final" correction from AI (though we mostly use tokens now)
+      // For user messages, strictly add them.
+      if (!isAi) {
+          return [...prev, { role: "user", content: msg.text }];
+      }
+
+      return prev;
     });
   }, []);
 
@@ -166,15 +188,25 @@ export default function MeetingPage() {
 
   const { isConnected, sendAudioChunk } = useRealTimeConversation({
     selectedScenario: scenarioId,
+    sessionId: sessionId,
     onTranscript: handleTranscript,
     onAudioData: handleAudioData,
     onStatusChange: handleStatusChange
   });
 
+  // --- Echo Cancellation Logic ---
+  // Prevent sending audio while AI is speaking to avoid feedback loops (Self-Answering)
+  const handleSendAudioChunk = useCallback((data: ArrayBuffer) => {
+    if (isAiSpeaking || isPlayingRef.current) {
+        return; 
+    }
+    sendAudioChunk(data);
+  }, [isAiSpeaking, sendAudioChunk]);
+
   // --- Audio Recorder ---
   // Now uses the shared mediaStream from useUserCamera to avoid race conditions
   const { isRecording, startRecording, stopRecording } = useAudioRecorder({
-    onAudioData: sendAudioChunk,
+    onAudioData: handleSendAudioChunk,
     onError: (err) => console.error("Recorder error:", err),
     externalStream: mediaStream
   });
@@ -236,7 +268,7 @@ export default function MeetingPage() {
             isThinking={status === "processing"}
             audioElement={null}
             audioUrl={null}
-            visemes={visemes}
+            visemes={[]}
             isGeneratingAudio={status === "processing" || status === "speaking"}
             isAiSpeaking={isAiSpeaking}
             userVideoRef={userVideoRef}
@@ -247,7 +279,6 @@ export default function MeetingPage() {
             setInput={setInput}
             sendMessage={sendMessage}
             selectedScenario={scenarioId}
-            isConnected={isConnected} // Passed Prop
             audioRef={() => {}} 
             />
         </main>

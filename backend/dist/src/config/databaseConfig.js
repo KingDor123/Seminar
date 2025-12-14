@@ -28,15 +28,31 @@ export class Database {
             idleTimeoutMillis: 30000,
             connectionTimeoutMillis: 2000,
         });
-        // Log connection success or failure
-        this.pool
-            .connect()
-            .then(client => {
-            console.log('Connected to PostgreSQL successfully');
-            client.release();
-        })
-            .catch(err => {
-            console.error('PostgreSQL connection error:', err);
+        // Log connection success or failure with retry mechanism
+        const MAX_RETRIES = 5;
+        const RETRY_DELAY_MS = 3000; // 3 seconds
+        const connectWithRetry = async (retries) => {
+            try {
+                const client = await this.pool.connect();
+                console.log('Connected to PostgreSQL successfully');
+                client.release();
+            }
+            catch (err) {
+                console.error(`PostgreSQL connection error: ${err.message}. Retries left: ${retries}`);
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                    await connectWithRetry(retries - 1);
+                }
+                else {
+                    console.error('Max retries reached. Could not connect to PostgreSQL.');
+                    throw err; // Re-throw error if max retries are reached
+                }
+            }
+        };
+        connectWithRetry(MAX_RETRIES).catch(err => {
+            console.error('Failed to establish PostgreSQL connection after multiple attempts:', err);
+            // Depending on desired behavior, you might want to exit the process here
+            // process.exit(1); 
         });
         Database.instance = this;
     }

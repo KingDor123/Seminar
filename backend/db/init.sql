@@ -34,6 +34,25 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- טבלת מדדים (Metrics)
+CREATE TABLE IF NOT EXISTS session_metrics (
+    id SERIAL PRIMARY KEY,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+    metric_name VARCHAR(50) NOT NULL,
+    metric_value DOUBLE PRECISION NOT NULL,
+    context TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- טבלת דוחות (Reports)
+CREATE TABLE IF NOT EXISTS social_reports (
+    id SERIAL PRIMARY KEY,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+    overall_score DOUBLE PRECISION,
+    feedback TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- טריגר לעדכון updated_at אוטומטי
 CREATE OR REPLACE FUNCTION update_timestamp()
 RETURNS TRIGGER AS $$
