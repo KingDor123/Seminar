@@ -1,0 +1,30 @@
+@startuml
+title AI Social Skills Training Platform - Docker Architecture
+
+skinparam componentStyle rectangle
+
+actor "User" as U
+
+node "Docker Host" {
+
+  component "Frontend Container\nNext.js" as FE
+  component "Backend Container\nNode.js (API + FSM)" as BE
+  component "AI Service Container\nPython (Behavior Analysis)" as AI
+
+}
+
+U --> FE : Speak / Type
+FE --> BE : HTTP / WebSocket\n(user input, session_id)
+
+BE --> AI : HTTP\nanalyze(user_response)
+AI --> BE : JSON metrics\n(engagement, topic, clarity)
+
+BE --> BE : FSM + Decision Rules\n(select action)
+
+BE --> AI : HTTP\ngenerate_response(intent)
+AI --> BE : text response
+
+BE --> FE : text / audio
+FE --> U : Display / Play
+
+@enduml

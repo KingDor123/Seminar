@@ -1,0 +1,66 @@
+@startuml
+title AI Social Skills Training Pipeline
+
+' --- הגדרות עיצוב כלליות ---
+skinparam backgroundColor white
+skinparam handwritten false
+skinparam shadow false
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 14
+skinparam roundCorner 15
+skinparam linetype ortho
+' הגדלת המרווח האופקי כדי למנוע התנגשויות
+skinparam nodesep 120
+skinparam ranksep 45
+
+' --- עיצוב האלמנטים ---
+skinparam rectangle {
+    BackgroundColor White
+    BorderColor #2C3E50
+    BorderWidth 1.5
+    FontSize 14
+    FontStyle Bold
+    Padding 10
+}
+
+skinparam arrow {
+    Color #2C3E50
+    Thickness 1.5
+}
+
+' --- הרכיבים (Nodes) ---
+
+rectangle "User (Student)\n<size:11>Speech, Facial Expressions, Gaze</size>" as User
+
+rectangle "1. Multimodal Input\n<size:11>Video Stream + Audio Recording</size>" as Input
+
+rectangle "2. AI Analysis Core\n<size:11><b>LLaMA 3.2 (3B)</b>: Text/Intent</size>\n<size:11><b>CV Models</b>: Eye Contact/Emotion</size>" as Analysis
+
+rectangle "3. Metrics Extraction\n<size:11>Sentiments, Engagement, Clarity</size>" as Metrics
+
+rectangle "4. Pedagogical Engine\n<size:11>Decision Logic (Rule-Based)</size>\n<size:11>Decides: Difficulty level & Feedback</size>" as Decision
+
+' כאן השינוי: שני ריבועים נפרדים ללא קופסה עוטפת
+rectangle "5A. Response Generation\n<size:11><b>LLaMA 3.2</b> (Context Aware)</size>\n<size:11>Produces the Avatar's speech</size>" as NLP
+
+rectangle "5B. Feedback Mechanism\n<size:11>Real-time Hints</size>\n<size:11>Visual/Textual guidance</size>" as Feedback
+
+' --- החיבורים (Edges) ---
+
+User -down-> Input
+Input -down-> Analysis
+Analysis -down-> Metrics
+Metrics -down-> Decision
+
+' פיצול ברור לשני צדדים
+Decision -down-> NLP
+Decision -down-> Feedback
+
+' יצירת קשר נסתר כדי להכריח אותם להיות באותו גובה ורחוקים אחד מהשני
+NLP -[hidden]right- Feedback
+
+' חצים חזרה למשתמש (מהצדדים)
+NLP -up-> User : Avatar Response
+Feedback -up-> User : Guidance
+
+@enduml
