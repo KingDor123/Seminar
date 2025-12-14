@@ -42,6 +42,10 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
   audioRef,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [showChat, setShowChat] = useState(false);
   const [micMuted, setMicMuted] = useState(false);

@@ -143,6 +143,7 @@ export default function ChatInterface() {
 
   const { isConnected, sendAudioChunk } = useRealTimeConversation({
     selectedScenario: selectedScenario,
+    sessionId: sessionId,
     onTranscript: handleTranscript,
     onAudioData: handleAudioData,
     onStatusChange: handleStatusChange

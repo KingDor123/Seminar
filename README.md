@@ -6,23 +6,24 @@
 
 ## 🚀 Quick Start
 
-### Prerequisites
-*   **Software:** Docker Desktop, Git.
+*   [Docker](https://www.docker.com/) and Docker Compose.
+*   Node.js and npm (for local development without Docker).
 
 ### Installation & Running
 
-1.  **Clone the Repository:**
+1.  **Environment Setup:**
+    Ensure you have a `.env` file in the root.
+
+2.  **Install Dependencies:**
     ```bash
-    git clone https://github.com/KingDor/Seminar.git
-    cd Seminar
+    cd frontend && npm install
+    cd ../backend && npm install
     ```
 
-2.  **Start the Application:**
-    Use the provided start script. It builds all containers, sets up the database, and initializes the AI models (Ollama & Whisper).
+3.  **Build and Run:**
     ```bash
-    ./start.sh
+    docker-compose up --build
     ```
-    *Note: The first run may take a few minutes as it downloads the Llama 3.2 model inside the Ollama container.*
 
 3.  **Access:**
     *   **Frontend:** [http://localhost:3000](http://localhost:3000)
