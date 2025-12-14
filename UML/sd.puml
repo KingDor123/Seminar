@@ -1,0 +1,23 @@
+@startuml
+title One Interaction Turn - Docker Pipeline
+
+actor User
+participant "Frontend\n(Next.js)" as FE
+participant "Backend\n(Node.js)" as BE
+participant "AI Service\n(Python)" as AI
+
+User -> FE : Speak / Type
+FE -> BE : send input (text/audio)
+
+BE -> AI : analyze_response(text)
+AI --> BE : metrics JSON
+
+BE -> BE : FSM decision\n(redirect / clarify / advance)
+
+BE -> AI : generate_response(intent)
+AI --> BE : assistant_text
+
+BE --> FE : assistant_text
+FE --> User : Show / Play response
+
+@enduml
