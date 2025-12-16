@@ -1,20 +1,23 @@
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
-import Page from '../app/page'
+import { render } from '@testing-library/react'
+import Home from '../app/page'
+import { redirect } from 'next/navigation'
 
-// Mock the ChatInterface component since we are only testing the Page component
-jest.mock('../components/ChatInterface', () => {
-  return function DummyChatInterface() {
-    return <div data-testid="chat-interface">Chat Interface Mock</div>;
-  };
-});
- 
+// Mock next/navigation
+jest.mock('next/navigation', () => ({
+  redirect: jest.fn(),
+}));
+
 describe('Page', () => {
-  it('renders the main heading', () => {
-    render(<Page />)
+  it('redirects to /login', () => {
+    // Render the Home component (which calls redirect)
+    try {
+        render(<Home />);
+    } catch {
+        // redirect() throws an error in Next.js, so we might catch it here if not fully mocked, 
+        // but with jest.fn() it should just be called.
+    }
  
-    const heading = screen.getByRole('heading', { level: 1, name: 'SoftSkill AI Coach' })
- 
-    expect(heading).toBeInTheDocument()
-  })
+    expect(redirect).toHaveBeenCalledWith('/login');
+  });
 })

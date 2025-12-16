@@ -2,14 +2,14 @@
 import React, { useRef, useEffect, useState } from 'react';
 import Avatar3D from './Avatar3D';
 import { SCENARIOS } from '../constants/appConstants';
-import { ChatMessage } from '../types/chat';
+import { ChatMessage, Viseme } from '../types/chat';
 
 interface FaceTimeViewProps {
   messages: ChatMessage[];
   isThinking: boolean;
   audioElement: HTMLAudioElement | null;
   audioUrl: string | null;
-  visemes?: any[];
+  visemes?: Viseme[];
   isGeneratingAudio: boolean;
   isAiSpeaking: boolean;
   userVideoRef: React.RefObject<HTMLVideoElement | null>;
@@ -62,6 +62,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
 
     if (!audioContextRef.current) {
       try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
           audioContextRef.current = new AudioContext();
           analyserRef.current = audioContextRef.current.createAnalyser();

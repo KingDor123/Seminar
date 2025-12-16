@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
-  const { user, checkAuth } = useAuth();
+  const { user, checkAuth, isLoading } = useAuth();
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -44,7 +44,7 @@ export default function ProfilePage() {
 
     try {
       // Filter out empty password fields to avoid sending them
-      const updatePayload: any = {
+      const updatePayload: Partial<ProfileFormInputs> = {
           full_name: data.full_name,
           email: data.email
       };
@@ -61,14 +61,25 @@ export default function ProfilePage() {
       setValue('password', '');
       setValue('confirmPassword', '');
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to update profile');
+      let errorMessage = 'Failed to update profile';
+      if (err && typeof err === 'object' && 'response' in err) {
+         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         errorMessage = (err as any).response?.data?.message || errorMessage;
+      } else if (err instanceof Error) {
+         errorMessage = err.message;
+      }
+      setError(errorMessage);
     }
   };
 
+  if (isLoading) {
+      return <div className="flex justify-center items-center min-h-screen">Loading user profile...</div>;
+  }
+
   if (!user) {
-      return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+      return null; // AuthContext redirect handles this
   }
 
   return (

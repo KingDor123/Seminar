@@ -24,9 +24,16 @@ export default function LoginPage() {
       setError(null);
       await login(data);
       // Redirect is handled by AuthContext
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.response?.data?.message || 'Login failed');
+      let errorMessage = 'Login failed';
+      if (err && typeof err === 'object' && 'response' in err) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          errorMessage = (err as any).response?.data?.message || errorMessage;
+      } else if (err instanceof Error) {
+          errorMessage = err.message;
+      }
+      setError(errorMessage);
     }
   };
 

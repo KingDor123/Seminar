@@ -4,7 +4,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 // Augment window interface for SpeechRecognition
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     SpeechRecognition: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     webkitSpeechRecognition: any;
   }
 }
@@ -12,11 +14,26 @@ declare global {
 interface UseSpeechRecognitionProps {
   language: "en-US" | "he-IL";
   onTranscript: (transcript: string) => void;
-  onError: (error: any) => void;
+  onError: (error: unknown) => void;
+}
+
+interface SpeechRecognitionEvent {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: unknown;
 }
 
 export const useSpeechRecognition = ({ language, onTranscript, onError }: UseSpeechRecognitionProps) => {
   const [isListening, setIsListening] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
 
   const startListening = useCallback(() => {
@@ -41,12 +58,12 @@ export const useSpeechRecognition = ({ language, onTranscript, onError }: UseSpe
 
     recognition.onstart = () => setIsListening(true);
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
       onTranscript(transcript);
     };
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error("Speech Recognition Error:", event.error);
       onError(event.error);
       setIsListening(false);

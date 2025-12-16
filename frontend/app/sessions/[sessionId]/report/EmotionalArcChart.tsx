@@ -1,32 +1,31 @@
 "use client";
 
-import { useMemo, useState, useEffect } from 'react';
+import { useId } from 'react';
 import {
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   ReferenceLine,
-  Legend,
-  Brush,
-  ReferenceArea,
-  Label
+  Brush
 } from 'recharts';
 
-interface RawMetric {
+export interface RawMetric {
   id: number;
   session_id: number;
   metric_name: string;
   metric_value: number;
-  context: string; // e.g., "Analyzed user text: 'Hello'"
+  context?: string;
   created_at: string;
 }
 
 export interface ChartDataPoint {
-  turn: number;
+  turn: string;
   sentiment: number;
   topic_adherence: number;
   clarity: number;
@@ -35,267 +34,178 @@ export interface ChartDataPoint {
 }
 
 interface EmotionalArcChartProps {
-  metrics: RawMetric[];
-  onDataTransformed?: (data: ChartDataPoint[]) => void;
+  data: ChartDataPoint[];
 }
 
-export default function EmotionalArcChart({ metrics, onDataTransformed }: EmotionalArcChartProps) {
-  const [mounted, setMounted] = useState(false);
+export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
+  // Generate a unique ID for SVG gradients to prevent hydration mismatch
+  const rawId = useId();
+  const safeId = rawId.replace(/:/g, "");
+  const gradientId = `sentiment-gradient-${safeId}`;
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // DEBUG OVERLAY
+  if (true) { 
+      console.log("Chart Data:", data);
+  }
 
-  const chartData = useMemo(() => {
-    if (!metrics || metrics.length === 0) return [];
-    
-    console.log("Processing metrics for chart:", metrics.length);
-
-    // 1. Group metrics by their approximate timestamp or "context" to bundle them into "turns"
-    const turnsMap = new Map<string, Partial<ChartDataPoint>>();
-    let turnCounter = 0;
-
-    // Sort by time first to ensure order
-    const sortedMetrics = [...metrics].sort((a, b) => 
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
-
-    sortedMetrics.forEach((m) => {
-      // Create a unique key for the "turn" based on the user text context
-      // Fallback to timestamp if context is missing
-      const key = m.context || m.created_at;
-
-      if (!turnsMap.has(key)) {
-        turnCounter++;
-        turnsMap.set(key, { 
-          turn: turnCounter,
-          context: m.context ? m.context.replace("Analyzed user text: ", "").replace("User responded after AI message:", "User Reply: ") : "Unknown"
-        });
-      }
-
-      const entry = turnsMap.get(key)!;
-      const name = m.metric_name.toLowerCase().trim();
-
-      // Assign values based on metric name (Case insensitive check)
-      if (name === 'sentiment') entry.sentiment = m.metric_value;
-      if (name === 'topic_adherence' || name === 'topic adherence') entry.topic_adherence = m.metric_value;
-      if (name === 'clarity') entry.clarity = m.metric_value;
-      if (name === 'response_latency' || name === 'latency') entry.latency = m.metric_value;
-    });
-
-    const finalData = Array.from(turnsMap.values()).map(entry => ({
-        turn: entry.turn || 0,
-        context: entry.context || "",
-        sentiment: entry.sentiment ?? 0,
-        topic_adherence: entry.topic_adherence ?? 0,
-        clarity: entry.clarity ?? 0,
-        latency: entry.latency ?? 0
-    })) as ChartDataPoint[];
-    
-    console.log("Generated chart data points:", finalData.length);
-    return finalData;
-  }, [metrics]);
-
-  // Sync data to parent via Effect, not Memo (Avoids side-effects during render)
-  useEffect(() => {
-    if (onDataTransformed && chartData.length > 0) {
-        onDataTransformed(chartData);
-    }
-  }, [chartData, onDataTransformed]);
-
-  if (!mounted) return <div className="h-[500px] w-full bg-gray-100 dark:bg-gray-800 animate-pulse rounded-xl" />;
-
-  if (chartData.length === 0) {
+  if (!data || data.length === 0) {
     return (
-        <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-            <p className="text-gray-500 dark:text-gray-400">Not enough data to generate chart. (Metrics: {metrics?.length || 0})</p>
-        </div>
+      <div className="h-[500px] flex flex-col items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-900/50">
+        <div className="text-4xl mb-4">📊</div>
+        <p className="text-gray-500 dark:text-gray-400 font-medium">No session data available yet.</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Start a conversation to see your emotional arc.</p>
+      </div>
     );
   }
 
-  const gradIdSuffix = Math.random().toString(36).substr(2, 5);
-  const sentimentGradId = `sentimentGradient-${gradIdSuffix}`;
-  const focusGradId = `focusGradient-${gradIdSuffix}`;
-
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 space-y-6">
-      <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-4">
+    <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 transition-all hover:shadow-2xl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <span>📈</span> Emotional & Focus Arc
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            Emotional Resonance Arc
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Visualizing the emotional journey and conversation quality.
+            Real-time analysis of sentiment, focus, and clarity throughout the session.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-red-500 to-green-500"></span>
-                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Sentiment</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
-                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Focus</span>
-            </div>
-             <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Clarity</span>
-            </div>
+        
+        {/* Custom Legend */}
+        <div className="flex flex-wrap gap-4 text-xs font-medium bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-gradient-to-r from-emerald-400 to-rose-500 shadow-sm"></span>
+            <span className="text-gray-700 dark:text-gray-200">Sentiment (Area)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-cyan-500 shadow-sm"></span>
+            <span className="text-gray-700 dark:text-gray-200">Focus</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-purple-500 shadow-sm"></span>
+            <span className="text-gray-700 dark:text-gray-200">Clarity</span>
+          </div>
         </div>
       </div>
-      
-      <div className="flex justify-center overflow-x-auto w-full border border-gray-100 dark:border-gray-700 rounded-lg bg-gray-50/50 dark:bg-gray-900/50 p-4">
-            <LineChart
-              width={1000}
-              height={500}
-              data={chartData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
-            >
-              <defs>
-                <linearGradient id={sentimentGradId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={1}/>
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={1}/>
-                </linearGradient>
-                <linearGradient id={focusGradId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
 
-              <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} stroke="#9ca3af" />
-              
-              <XAxis 
-                  dataKey="turn" 
-                  tick={{ fill: '#9ca3af', fontSize: 12 }}
-                  axisLine={{ stroke: '#4b5563', opacity: 0.3 }}
-                  tickLine={{ stroke: '#4b5563', opacity: 0.3 }}
-                  height={60}
-                  // Removed 'type="number"' and domain to let Recharts handle category auto-scaling which is safer for mixed data
-              >
-                 <Label 
-                    value="Conversation Progression (Turn #)" 
-                    offset={0} 
-                    position="insideBottom" 
-                    fill="#9ca3af" 
-                    fontSize={12} 
-                    dy={10} 
-                 />
-              </XAxis>
-              
-              <YAxis 
-                  domain={[-1.2, 1.2]} 
-                  ticks={[-1, -0.5, 0, 0.5, 1]}
-                  tick={{ fill: '#9ca3af', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={80}
-                  tickFormatter={(value) => {
-                      if (value === 1) return 'High (+1)';
-                      if (value === 0) return 'Neutral (0)';
-                      if (value === -1) return 'Low (-1)';
-                      return value;
-                  }}
-              >
-                  <Label 
-                    value="Score / Intensity" 
-                    angle={-90} 
-                    position="insideLeft" 
-                    style={{ textAnchor: 'middle' }} 
-                    fill="#6b7280" 
-                    fontSize={13} 
-                    fontWeight="bold"
-                  />
-              </YAxis>
+      {/* Chart Container - Fixed Dimensions with Scroll */}
+      <div className="w-full overflow-x-auto border border-gray-100 dark:border-gray-700 rounded-lg bg-gray-50/50 dark:bg-gray-900/50 p-2 flex justify-center">
+          <ComposedChart
+            width={1000}
+            height={500}
+            data={data}
+            margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
+          >
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                <stop offset="50%" stopColor="#f59e0b" stopOpacity={0.1} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
 
-              <Tooltip 
-                  contentStyle={{ 
-                      backgroundColor: 'rgba(17, 24, 39, 0.85)', 
-                      backdropFilter: 'blur(8px)',
-                      color: '#f3f4f6', 
-                      borderRadius: '12px', 
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' 
-                  }}
-                  itemStyle={{ fontSize: '0.85rem', padding: '2px 0' }}
-                  labelStyle={{ fontWeight: 'bold', color: '#fbbf24', marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}
-                  formatter={(value: number, name: string) => {
-                      const formatted = value.toFixed(2);
-                      if (name === 'sentiment') return [formatted, 'Sentiment'];
-                      if (name === 'topic_adherence') return [formatted, 'Topic Focus'];
-                      if (name === 'clarity') return [formatted, 'Clarity'];
-                      return [formatted, name];
-                  }}
-                  labelFormatter={(label, payload) => {
-                    if (payload && payload.length > 0) {
-                        const context = payload[0].payload.context;
-                        return `Turn ${label}: "${context.length > 60 ? context.substring(0, 60) + '...' : context}"`;
-                    }
-                    return `Turn ${label}`;
-                  }}
-              />
-              
-              <Legend verticalAlign="top" height={36} iconType="circle" />
+            <CartesianGrid strokeDasharray="3 3" opacity={0.08} vertical={false} />
+            
+            <XAxis 
+              dataKey="turn" 
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: '#9ca3af', fontSize: 11 }}
+              dy={10}
+              minTickGap={30}
+            />
+            
+            <YAxis 
+              domain={[-1.1, 1.1]}
+              ticks={[-1, -0.5, 0, 0.5, 1]}
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: '#9ca3af', fontSize: 11 }}
+              tickFormatter={(val) => {
+                  if (val === 1) return 'Positive (+1)';
+                  if (val === -1) return 'Negative (-1)';
+                  if (val === 0) return 'Neutral (0)';
+                  return val.toFixed(1);
+              }}
+              width={80}
+            />
 
-              <ReferenceArea y1={0} y2={1.2} fill="#22c55e" fillOpacity={0.03} />
-              <ReferenceArea y1={-1.2} y2={0} fill="#ef4444" fillOpacity={0.03} />
-              <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="3 3" opacity={0.5} />
-              
-              <Line
-                type="monotone"
-                dataKey="sentiment"
-                stroke={`url(#${sentimentGradId})`}
-                name="Sentiment"
-                strokeWidth={3}
-                dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: '#888' }} 
-                activeDot={{ r: 7, strokeWidth: 0, fill: '#fbbf24' }}
-                animationDuration={1500}
-                animationEasing="ease-in-out"
-              />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                  const ctx = payload[0].payload.context;
+                  return (
+                    <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border border-gray-200 dark:border-gray-700 p-4 rounded-xl shadow-2xl max-w-xs">
+                      <p className="font-bold text-gray-800 dark:text-gray-100 mb-2 border-b border-gray-200 dark:border-gray-800 pb-2">
+                        {label}
+                      </p>
+                      <div className="space-y-2 mb-3">
+                        {payload.map((p: any) => (
+                          <div key={p.name} className="flex justify-between items-center text-sm">
+                            <span className="capitalize text-gray-500 dark:text-gray-400">{p.name === 'topic_adherence' ? 'Focus' : p.name}:</span>
+                            <span className="font-mono font-bold" style={{ color: p.color }}>
+                              {Number(p.value).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 italic line-clamp-3">
+                        "{ctx}"
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
 
-              <Line
-                type="monotone"
-                dataKey="topic_adherence"
-                stroke="#06b6d4" 
-                name="Topic Focus"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 6, fill: '#06b6d4' }}
-                strokeDasharray="5 5" 
-                animationDuration={1500}
-                animationEasing="ease-in-out"
-                animationBegin={300} 
-              />
+            <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" opacity={0.5} />
 
-               <Line
-                type="monotone"
-                dataKey="clarity"
-                stroke="#a855f7"
-                name="Speech Clarity"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 6, fill: '#a855f7' }}
-                strokeDasharray="3 3"
-                animationDuration={1500}
-                animationEasing="ease-in-out"
-                animationBegin={600} 
-              />
+            <Brush 
+              dataKey="turn"
+              height={30}
+              stroke="#6366f1"
+              fill="rgba(99, 102, 241, 0.1)"
+              tickFormatter={() => ''}
+            />
 
-              {/* Restored Brush for zooming */}
-              <Brush 
-                  dataKey="turn" 
-                  height={30} 
-                  stroke="#4b5563"
-                  fill="rgba(31, 41, 55, 0.05)"
-                  tickFormatter={() => ""}
-                  travellerWidth={10}
-              />
+            {/* Sentiment Dots (Green/Red Gradient) */}
+            <Line
+              type="monotone"
+              dataKey="sentiment"
+              name="Sentiment"
+              stroke="none" // No line
+              dot={{ r: 8, strokeWidth: 2, fill: `url(#${gradientId})`, stroke: '#fff' }} 
+              activeDot={{ r: 10, strokeWidth: 0, fill: '#10b981' }}
+              animationDuration={1500}
+            />
 
-            </LineChart>
+            {/* Focus Dots (Blue) */}
+            <Line
+              type="monotone"
+              dataKey="topic_adherence"
+              name="Focus"
+              stroke="none" // No line
+              dot={{ r: 6, fill: '#06b6d4' }}
+              activeDot={{ r: 8, fill: '#06b6d4' }}
+              animationDuration={1500}
+              animationBegin={300}
+            />
+
+            {/* Clarity Dots (Purple) */}
+            <Line
+              type="monotone"
+              dataKey="clarity"
+              name="Clarity"
+              stroke="none" // No line
+              dot={{ r: 6, fill: '#a855f7' }}
+              activeDot={{ r: 8, fill: '#a855f7' }}
+              animationDuration={1500}
+              animationBegin={600}
+            />
+
+          </ComposedChart>
       </div>
-      
-      <p className="text-xs text-center text-gray-500 italic">
-        Tip: Drag the slider at the bottom to zoom into specific parts of the conversation.
-      </p>
     </div>
   );
 }

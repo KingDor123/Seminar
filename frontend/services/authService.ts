@@ -15,6 +15,7 @@ export interface AuthResponse {
 export const authService = {
   register: async (data: RegisterFormInputs): Promise<AuthResponse> => {
     // We send only the necessary fields to the backend (exclude confirmPassword)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { confirmPassword, ...registerData } = data;
     const response = await api.post<AuthResponse>('/auth/register', registerData);
     return response.data;

@@ -1,5 +1,5 @@
 class PCMProcessor extends AudioWorkletProcessor {
-  process(inputs, outputs, parameters) {
+  process(inputs) {
     // inputs[0] is the input channel (microphone)
     const input = inputs[0];
     if (input && input.length > 0) {

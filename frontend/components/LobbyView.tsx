@@ -1,5 +1,5 @@
 // frontend/components/LobbyView.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { SCENARIOS } from '../constants/appConstants';
 import { useChatSession } from '../hooks/useChatSession';
 import { useAuth } from '../context/AuthContext';

@@ -1,15 +1,7 @@
 "use client";
 
 import { useMemo } from 'react';
-
-interface ChartDataPoint {
-  turn: number;
-  sentiment: number;
-  topic_adherence: number;
-  clarity: number;
-  latency: number;
-  context: string;
-}
+import { ChartDataPoint } from './EmotionalArcChart';
 
 interface AICoachSummaryProps {
   data: ChartDataPoint[];

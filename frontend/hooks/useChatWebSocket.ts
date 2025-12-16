@@ -18,6 +18,7 @@ interface UseChatWebSocketProps {
 }
 
 export const useChatWebSocket = ({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   language,
   selectedScenario,
   messages,

@@ -30,8 +30,10 @@ export const useChatSession = () => {
       });
       setSessionId(res.data.id);
       return res.data.id;
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to start session');
+    } catch (err: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const message = (err as any).response?.data?.message || (err as Error).message || 'Failed to start session';
+      setError(message);
       return null;
     } finally {
       setLoading(false);

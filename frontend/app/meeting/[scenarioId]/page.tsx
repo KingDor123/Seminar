@@ -8,8 +8,10 @@ import { useUserCamera } from '../../../hooks/useUserCamera';
 import { useChatSession } from '../../../hooks/useChatSession';
 import { useAudioRecorder } from "../../../hooks/useAudioRecorder";
 import { useRealTimeConversation } from "../../../hooks/useRealTimeConversation";
+import { useAuth } from "../../../context/AuthContext";
 
 export default function MeetingPage() {
+  const { user, isLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
   const scenarioId = params.scenarioId as string;
@@ -29,7 +31,8 @@ export default function MeetingPage() {
   const { startSession, sessionId, loadMessages } = useChatSession();
 
   // User Camera (now handles both Video & Audio request to avoid race conditions)
-  const { userVideoRef, mediaStream } = useUserCamera(true);
+  // Only enable camera if user is authenticated
+  const { userVideoRef, mediaStream } = useUserCamera(!!user);
 
   // Audio Context & Queue
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -38,12 +41,13 @@ export default function MeetingPage() {
 
   // --- Session Start Logic ---
   useEffect(() => {
-    if (scenarioId) {
+    if (scenarioId && user) {
       startSession(scenarioId).then(id => {
         console.log(`Session started: ${id} for scenario: ${scenarioId}`);
         if (id) {
             loadMessages(id).then(msgs => {
                 // Map backend messages to frontend format
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const formattedMsgs = msgs.map((m: any) => ({
                     role: m.role === 'ai' ? 'ai' : 'user',
                     content: m.content
@@ -53,7 +57,7 @@ export default function MeetingPage() {
         }
       });
     }
-  }, [scenarioId, startSession, loadMessages]);
+  }, [scenarioId, startSession, loadMessages, user]);
 
   // --- Audio Playback Logic ---
   const processQueueRef = useRef<() => Promise<void>>(null);
@@ -69,6 +73,7 @@ export default function MeetingPage() {
     setIsAiSpeaking(true);
 
     if (!audioContextRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
 
@@ -106,7 +111,6 @@ export default function MeetingPage() {
   }, []);
 
   useEffect(() => {
-      // @ts-ignore
       processQueueRef.current = playNextChunk;
   }, [playNextChunk]);
 
@@ -124,7 +128,6 @@ export default function MeetingPage() {
     setMessages((prev) => {
       const lastMsg = prev[prev.length - 1];
       const isAi = msg.role === "assistant";
-      const role = isAi ? "ai" : "user";
 
       // If it's a partial update (token streaming)
       if (msg.partial) {
@@ -159,6 +162,7 @@ export default function MeetingPage() {
   // --- Sound Effects ---
   const playListeningCue = useCallback(() => {
      if (!audioContextRef.current) {
+         // eslint-disable-next-line @typescript-eslint/no-explicit-any
          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
      }
      const ctx = audioContextRef.current;
@@ -233,6 +237,7 @@ export default function MeetingPage() {
 
     // Resume AudioContext on user interaction to fix "no sound" issue
     if (!audioContextRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     if (audioContextRef.current.state === 'suspended') {
@@ -259,6 +264,14 @@ export default function MeetingPage() {
   const handleEndCall = () => {
     router.push('/home');
   };
+
+  if (isLoading) {
+      return <div className="flex h-screen items-center justify-center bg-black text-white">Initializing Meeting...</div>;
+  }
+
+  if (!user) {
+      return null;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-black font-sans">
