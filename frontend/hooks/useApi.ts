@@ -23,7 +23,7 @@ export const useTTS = () => {
   const resolveApiBase = useApiBase();
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [visemes, setVisemes] = useState<any[]>([]); // Store visemes
+  const [visemes, setVisemes] = useState<unknown[]>([]); // Store visemes
   
   // Ref to track the current URL for cleanup
   const audioUrlRef = useRef<string | null>(null);

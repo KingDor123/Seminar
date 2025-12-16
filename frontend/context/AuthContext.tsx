@@ -25,14 +25,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/register', '/'];
-
   const checkAuth = async () => {
     try {
       const userData = await authService.getMe();
       setUser(userData);
-    } catch (error) {
+    } catch {
+      // If authenticaton fails (e.g. 401), we must ensure the local cookie is cleared
+      // to prevent Middleware from redirecting back to home in an infinite loop.
+      try {
+          await authService.logout(); 
+      } catch (e) {
+          console.error("Failed to perform cleanup logout", e);
+      }
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -45,6 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Protect routes
   useEffect(() => {
+    // Public routes that don't require authentication
+    const publicRoutes = ['/login', '/register', '/'];
     if (!isLoading && !user && !publicRoutes.includes(pathname)) {
         // If not logged in and trying to access a protected route
         // We could redirect here, or let the page handle it.

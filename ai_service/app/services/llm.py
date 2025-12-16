@@ -63,14 +63,15 @@ class LLMService:
                 stream=False
             )
             content = response.choices[0].message.content.strip()
-            # Basic cleanup if the model chats a bit (though strict instruction helps)
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0].strip()
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0].strip()
+            
+            # Robust JSON extraction
+            import re
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                content = json_match.group(0)
             
             import json
             return json.loads(content)
         except Exception as e:
-            logger.error(f"❌ Analysis Error: {e}")
+            logger.error(f"❌ Analysis Error: {e} | Content was: {content if 'content' in locals() else 'Unknown'}")
             return {"sentiment": 0.0, "topic_adherence": 0.0, "clarity": 0.0}

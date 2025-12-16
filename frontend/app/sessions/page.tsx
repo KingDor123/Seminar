@@ -13,16 +13,18 @@ interface Session {
 }
 
 export default function SessionsPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
-      router.push('/login'); // Redirect to login if not authenticated
-      return;
+      // AuthContext handles redirect, but we can double check or just return
+      return; 
     }
 
     const fetchSessions = async () => {
@@ -31,16 +33,25 @@ export default function SessionsPage() {
         // Use the sessionService to fetch user sessions
         const response = await sessionService.getUserSessions(user.id); 
         setSessions(response);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Failed to fetch user sessions:", err);
-        setError(err.response?.data?.message || "Failed to load sessions.");
+        let errorMessage = "Failed to load sessions.";
+        if (err && typeof err === 'object' && 'response' in err) {
+             // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             errorMessage = (err as any).response?.data?.message || errorMessage;
+        }
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
     };
 
     fetchSessions();
-  }, [user, router]);
+  }, [user, isLoading, router]);
+
+  if (isLoading) {
+      return <div className="text-center py-8">Verifying session...</div>;
+  }
 
   if (loading) {
     return <div className="text-center py-8">Loading sessions...</div>;
@@ -56,7 +67,15 @@ export default function SessionsPage() {
         <h2 className="text-3xl font-extrabold text-center">Your Past Sessions</h2>
 
         {sessions.length === 0 ? (
-          <p className="text-center text-gray-600 dark:text-gray-400">You have no recorded sessions yet.</p>
+          <div className="text-center py-12">
+            <p className="text-gray-600 dark:text-gray-400 mb-6 text-lg">You have no recorded sessions yet.</p>
+            <Link 
+              href="/home" 
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              Start a New Session
+            </Link>
+          </div>
         ) : (
           <div className="bg-white shadow overflow-hidden sm:rounded-lg dark:bg-gray-800">
             <ul role="list" className="divide-y divide-gray-200 dark:divide-gray-700">

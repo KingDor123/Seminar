@@ -4,10 +4,12 @@ import React, { useRef, useEffect, useState } from "react";
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { useGLTF, Environment, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
+import { Viseme } from "../types/chat";
 
 // --- 1. The 3D Model Component (Preferred) ---
-function Model({ audioAnalyser, onError, visemes, audioElement }: { audioAnalyser: AnalyserNode | null, onError: () => void, visemes?: any[], audioElement?: HTMLAudioElement | null }) {
+function Model({ audioAnalyser, onError, visemes, audioElement }: { audioAnalyser: AnalyserNode | null, onError: () => void, visemes?: Viseme[], audioElement?: HTMLAudioElement | null }) {
   // Attempt to load the GLB. If it fails (404), catch error.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const gltf = useGLTF("/Businesswoman_Avatar_1202205922_texture.glb", true) as any; 
   
   useEffect(() => {
@@ -21,6 +23,7 @@ function Model({ audioAnalyser, onError, visemes, audioElement }: { audioAnalyse
   
   useEffect(() => {
     if (gltf.scene) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       gltf.scene.traverse((child: any) => {
         if (child.isMesh && child.morphTargetDictionary && !headMeshRef.current) {
            if (child.name.includes("Head") || child.name.includes("Face")) {
@@ -109,7 +112,7 @@ function TwoDAvatar({ audioAnalyser }: { audioAnalyser: AnalyserNode | null }) {
 }
 
 // --- Wrapper to Handle Suspense & Errors ---
-function SceneContent({ audioAnalyser, visemes, audioElement }: { audioAnalyser: AnalyserNode | null, visemes?: any[], audioElement?: HTMLAudioElement | null }) {
+function SceneContent({ audioAnalyser, visemes, audioElement }: { audioAnalyser: AnalyserNode | null, visemes?: Viseme[], audioElement?: HTMLAudioElement | null }) {
     const [use3D, setUse3D] = useState(true);
 
     if (!use3D) {
@@ -130,6 +133,7 @@ function SceneContent({ audioAnalyser, visemes, audioElement }: { audioAnalyser:
 
 // Simple Error Boundary for React Three Fiber
 class ErrorBoundary extends React.Component<{ children: React.ReactNode, onFail: () => void }, { hasError: boolean }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(props: any) {
     super(props);
     this.state = { hasError: false };
@@ -137,6 +141,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode, onFail:
   static getDerivedStateFromError() {
     return { hasError: true };
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   componentDidCatch(error: any) {
     console.warn("Failed to load 3D Model, falling back to 2D:", error);
     this.props.onFail();
@@ -147,7 +152,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode, onFail:
   }
 }
 
-export default function Avatar3D({ audioElement, visemes, audioAnalyser }: { audioElement: HTMLAudioElement | null, visemes?: any[], audioAnalyser?: AnalyserNode | null }) {
+export default function Avatar3D({ audioElement, visemes, audioAnalyser }: { audioElement: HTMLAudioElement | null, visemes?: Viseme[], audioAnalyser?: AnalyserNode | null }) {
   // Internal analyser state removed; use prop instead.
 
   return (

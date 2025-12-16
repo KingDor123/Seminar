@@ -1,7 +1,7 @@
 # SoftSkill v2 Project Context
 
 ## Project Overview
-**SoftSkill v2** is a microservices-based application designed for soft skills training or assessment. It utilizes a modern full-stack architecture with a clear separation of concerns between the frontend, backend, AI services, and database.
+**SoftSkill v2** is a microservices-based application designed for soft skills training or assessment, specifically targeting individuals with **High-Functioning Autism Spectrum Disorder (HFASD)**. It utilizes a modern full-stack architecture with a clear separation of concerns between the frontend, backend, AI services, and database. The project follows a **Design-Oriented Applied Research** methodology.
 
 ## Architecture
 
@@ -12,6 +12,7 @@
 *   **Key Components:**
     *   `app/page.tsx`: Main entry point.
     *   `components/User.tsx`: Fetches and displays user data.
+    *   **Vision Integration:** Planned integration with **MediaPipe Face Mesh** for real-time expression and eye contact analysis.
 
 ### 2. Backend (`backend/`)
 *   **Framework:** Node.js with [Express](https://expressjs.com/).
@@ -24,7 +25,13 @@
 ### 3. AI Service (`ai_service/`)
 *   **Framework:** Python [FastAPI](https://fastapi.tiangolo.com/).
 *   **Port:** `8000`
-*   **Purpose:** Dedicated service for AI/ML operations (currently basic ping endpoint).
+*   **Purpose:** Dedicated service for AI/ML operations.
+*   **Key Models (Planned/Implemented):**
+    *   **LLM:** **Llama 3.2 (3B/8B)** running locally for scenario generation and conversation.
+    *   **TTS:** **gTTS** (current fallback) / Coqui TTS (planned).
+    *   **STT:** **Whisper** / Web Speech API.
+    *   **Vision:** **MediaPipe Face Mesh** (Client-side primarily, metadata to backend).
+    *   **Behavioral Analysis:** JSON output from LLM including `Sentiment`, `Topic Adherence`, and `Clarity` scores.
 
 ### 4. Database (`db`)
 *   **Engine:** PostgreSQL 16.
@@ -33,7 +40,7 @@
 
 ### 5. Infrastructure
 *   **Orchestration:** Docker Compose.
-*   **Proxy:** Traefik configuration exists in `traefik/`, possibly for production or advanced routing (currently not in the main `docker-compose.yml`).
+*   **Proxy:** Traefik configuration exists in `traefik/`, possibly for production or advanced routing.
 
 ## Getting Started
 
@@ -88,9 +95,11 @@
     *   Interactive scenarios (e.g., "Job Interview," "Grocery Store," "Date").
     *   **Real-time Interaction:** Users converse with an AI avatar.
     *   **Unpredictability:** Simulations must include surprise elements (e.g., sudden topic change) to train cognitive flexibility.
+    *   **Scenario Management:** Implemented as a **Finite State Machine (FSM)**.
 
 2.  **Real-Time Feedback System:**
     *   Analysis of user's tone, speech content, and potentially non-verbal cues.
+    *   **Behavioral Metrics:** `Sentiment` (-1.0 to 1.0), `Topic Adherence` (0.0 to 1.0), `Clarity` (0.0 to 1.0).
     *   Immediate positive reinforcement and constructive suggestions.
     *   Based on "Video Modeling + Feedback" principles.
 

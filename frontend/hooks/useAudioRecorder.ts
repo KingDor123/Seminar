@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 
 interface UseAudioRecorderProps {
   onAudioData: (data: ArrayBuffer) => void;
-  onError: (error: any) => void;
+  onError: (error: unknown) => void;
   externalStream?: MediaStream | null;
 }
 
@@ -26,8 +26,9 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
           try {
              stream = await navigator.mediaDevices.getUserMedia({ audio: true });
              streamRef.current = stream;
-          } catch (e: any) {
-              if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
+          } catch (e: unknown) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              if ((e as any).name === 'NotFoundError' || (e as any).name === 'DevicesNotFoundError') {
                   console.warn("No microphone found.");
               }
               throw e;
@@ -39,6 +40,7 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
       }
 
       // Create AudioContext
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioContextClass({ sampleRate: 16000 });
       console.log("AudioContext created with sample rate:", ctx.sampleRate);
@@ -71,7 +73,7 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
 
       setIsRecording(true);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error accessing microphone:", err);
       onError(err);
     }

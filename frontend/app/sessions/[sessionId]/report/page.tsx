@@ -1,17 +1,34 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { analyticsApi } from '../../../../lib/analyticsApi';
-import { SessionMetric } from '../../../backend/src/repositories/analytics.repo'; // Using backend interface for type consistency
+import AICoachSummary from './AICoachSummary';
+import { processMetricsToChartData } from '../../../../utils/chartHelpers';
+import { RawMetric } from './EmotionalArcChart';
+
+const EmotionalArcChart = dynamic(
+  () => import('./EmotionalArcChart'),
+  { 
+    ssr: false,
+    loading: () => <div className="h-[500px] w-full bg-gray-100 dark:bg-gray-800 animate-pulse rounded-xl" />
+  }
+);
 
 export default function SessionReportPage() {
   const params = useParams();
   const sessionId = params.sessionId ? parseInt(params.sessionId as string) : null;
 
-  const [metrics, setMetrics] = useState<SessionMetric[]>([]);
+  const [metrics, setMetrics] = useState<RawMetric[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Process data immediately when metrics change
+  // This removes the need for the child component to "transform and callback"
+  const chartData = useMemo(() => {
+      return processMetricsToChartData(metrics);
+  }, [metrics]);
 
   useEffect(() => {
     if (sessionId) {
@@ -20,9 +37,12 @@ export default function SessionReportPage() {
           setLoading(true);
           const data = await analyticsApi.getMetricsForSession(sessionId);
           setMetrics(data);
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error("Failed to fetch session metrics:", err);
-          setError(err.response?.data?.message || "Failed to load metrics.");
+          const errorMessage = err instanceof Error ? err.message : "Failed to load metrics.";
+          // @ts-expect-error - axios error structure
+          const responseMessage = err?.response?.data?.message;
+          setError(responseMessage || errorMessage);
         } finally {
           setLoading(false);
         }
@@ -45,15 +65,23 @@ export default function SessionReportPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 dark:bg-gray-900 text-gray-900 dark:text-white">
-      <div className="max-w-3xl mx-auto space-y-8">
-        <h2 className="text-3xl font-extrabold text-center">Session Report for ID: {sessionId}</h2>
+      <div className="max-w-4xl mx-auto space-y-8">
+        <h2 className="text-3xl font-extrabold text-center">Session Report (ID: {sessionId})</h2>
         
+        {/* AI Coach Summary Section */}
+        {chartData.length > 0 && <AICoachSummary data={chartData} />}
+
+        {/* Emotional Arc Chart - Now purely presentational */}
+        {metrics.length > 0 && (
+            <EmotionalArcChart data={chartData} />
+        )}
+
         {metrics.length === 0 ? (
           <p className="text-center text-gray-600 dark:text-gray-400">No metrics available for this session yet.</p>
         ) : (
           <div className="bg-white shadow overflow-hidden sm:rounded-lg dark:bg-gray-800">
             <div className="px-4 py-5 sm:px-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Collected Metrics</h3>
+              <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Detailed Metrics Log</h3>
             </div>
             <div className="border-t border-gray-200 dark:border-gray-700">
               <dl>

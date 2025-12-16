@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Avatar3D from "./Avatar3D";
 import { SCENARIOS } from '../constants/appConstants';
-import { ChatMessage } from '../types/chat';
-import { useUserCamera } from '../hooks/useUserCamera';
+import { ChatMessage, Viseme } from '../types/chat';
 import { useChatSession } from '../hooks/useChatSession';
 import LobbyView from './LobbyView';
 import FaceTimeView from './FaceTimeView';
@@ -31,7 +29,7 @@ export default function ChatInterface() {
   }, [selectedScenario]);
 
   // Database Session Hook
-  const { sessionId, startSession, saveMessage } = useChatSession();
+  const { sessionId, startSession } = useChatSession();
 
   // User Camera
   const userVideoRef = useRef<HTMLVideoElement>(null);
@@ -43,7 +41,7 @@ export default function ChatInterface() {
   const isPlayingRef = useRef(false);
   // We expose this for the UI to know if AI is speaking
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
-  const [visemes, setVisemes] = useState<any[]>([]); 
+  const [visemes] = useState<Viseme[]>([]); 
 
   const processQueueRef = useRef<() => Promise<void>>(null);
 
@@ -58,6 +56,7 @@ export default function ChatInterface() {
     setIsAiSpeaking(true);
 
     if (!audioContextRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
 
@@ -94,7 +93,6 @@ export default function ChatInterface() {
   }, []);
 
   useEffect(() => {
-    // @ts-ignore
     processQueueRef.current = playNextChunk;
   }, [playNextChunk]);
 
@@ -141,8 +139,9 @@ export default function ChatInterface() {
     setStatus(newStatus);
   }, []);
 
-  const { isConnected, sendAudioChunk } = useRealTimeConversation({
+  const { sendAudioChunk } = useRealTimeConversation({
     selectedScenario: selectedScenario,
+    sessionId: sessionId,
     onTranscript: handleTranscript,
     onAudioData: handleAudioData,
     onStatusChange: handleStatusChange
