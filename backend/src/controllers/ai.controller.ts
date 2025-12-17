@@ -120,6 +120,33 @@ class AiController {
         res.status(500).json({ error: "Internal Proxy Error" });
     }
   }
+
+  async generateReport(req: Request, res: Response) {
+    const sessionId = req.params.sessionId;
+    try {
+      console.log(`[AiController] Proxying Report Generation for Session ${sessionId}...`);
+      const controller = new AbortController();
+      // Long timeout for analysis (e.g. 5 minutes)
+      const timeout = setTimeout(() => controller.abort(), 300000); 
+
+      const response = await fetch(`${AI_SERVICE_BASE_URL}/report/generate/${sessionId}`, {
+        method: "POST",
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+         const err = await response.text();
+         throw new Error(`AI Service returned ${response.status}: ${err}`);
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+        console.error("Report Generation Proxy Error:", error);
+        res.status(502).json({ error: "Report Generation Failed", details: error.message });
+    }
+  }
 }
 
 export default new AiController();

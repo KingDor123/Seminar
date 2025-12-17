@@ -188,16 +188,15 @@ async def interact(
             # 5. Save AI Response
             asyncio.create_task(_save_message(session_id, "assistant", full_ai_response))
 
-            # 6. Analyze Behavior (Async - Post Response)
-            # Moved here to ensure LLM generates response FIRST (Critical for local LLM latency)
+            # 6. Save Fast Metrics (Async - Fire & Forget)
+            # Only saves WPM, Pauses, etc. No LLM analysis here.
             if last_ai_message:
                 asyncio.create_task(
-                    _analyze_and_save_metrics(
+                    _save_fast_metrics(
                         session_id, 
                         stt_result if stt_result else {"clean_text": user_text}, 
                         0.0, 
-                        last_ai_message, 
-                        llm_service
+                        last_ai_message
                     )
                 )
 
@@ -211,12 +210,72 @@ async def interact(
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
+@router.post("/report/generate/{session_id}")
+async def generate_report(session_id: int):
+    """
+    Trigger a full retrospective analysis of the session.
+    Iterates through history and runs deep LLM analysis on user messages.
+    """
+    logger.info(f"📊 Generating Report for Session {session_id}...")
+    try:
+        _, llm_service, _ = get_services()
+        
+        # 1. Fetch Full History
+        history = await _fetch_history(session_id)
+        if not history:
+            return {"status": "empty", "message": "No history found for this session."}
+
+        analyzed_count = 0
+        
+        # 2. Iterate and Analyze
+        # We look for User messages and their preceding AI context
+        for i in range(len(history)):
+            msg = history[i]
+            if msg["role"] == "user":
+                user_text = msg["content"]
+                
+                # Find preceding AI message for context
+                context = ""
+                if i > 0 and history[i-1]["role"] == "assistant":
+                    context = history[i-1]["content"]
+                
+                # Skip if empty
+                if not user_text.strip(): continue
+
+                # Run Deep Analysis (Synchronous here is fine, it's a background job for the user)
+                # We pass empty behavior_context as we don't have the original audio timing data here easily
+                # unless we stored it. For now, we focus on Semantic Analysis (Sentiment, Topic).
+                behavior_context = {} 
+                
+                analysis_results = await asyncio.to_thread(
+                    llm_service.analyze_behavior, 
+                    user_text, 
+                    context,
+                    behavior_context
+                )
+                
+                # Save Metrics
+                for metric_name, metric_value in analysis_results.items():
+                    # We only care about the semantic ones now: sentiment, topic_adherence
+                    # (Clarity/Confidence might be inaccurate without audio data, but we save what we get)
+                    if isinstance(metric_value, (int, float)):
+                        async with httpx.AsyncClient() as client:
+                            await client.post(
+                                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
+                                json={"name": metric_name, "value": metric_value, "context": f"Retrospective: '{user_text[:20]}...'"}
+                            )
+                analyzed_count += 1
+
+        return {"status": "success", "analyzed_messages": analyzed_count}
+
+    except Exception as e:
+        logger.error(f"Report Generation Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- Helpers ---
 
 def _sse_event(event_type: str, data: str) -> str:
-    # SSE Format:
-    # event: type\n
-    # data: ...\n\n
     return f"event: {event_type}\ndata: {data}\n\n"
 
 def _is_sentence_complete(text: str) -> bool:
@@ -250,15 +309,15 @@ async def _save_message(session_id: int, role: str, content: str):
     except Exception as e:
         logger.error(f"DB Save Error: {e}")
 
-async def _analyze_and_save_metrics(
+async def _save_fast_metrics(
     session_id: int, 
     stt_result: Dict[str, Any], 
     latency: float, 
-    last_ai_message: str,
-    llm_service: LLMService
+    last_ai_message: str
 ):
     """
-    Analyzes user speech behavior and saves metrics.
+    Saves ONLY fast, STT-based metrics (WPM, Pauses, Fillers).
+    NO LLM calls here.
     """
     if not session_id: return
 
@@ -296,28 +355,5 @@ async def _analyze_and_save_metrics(
                 json={"name": "filler_word_count", "value": float(filler_count), "context": user_text}
             )
 
-        # 5. Semantic Analysis (LLM) with Behavioral Context
-        behavior_context = {
-            "latency": latency,
-            "wpm": wpm,
-            "pauses": pause_count,
-            "fillers": filler_count
-        }
-        
-        analysis_results = await asyncio.to_thread(
-            llm_service.analyze_behavior, 
-            user_text, 
-            last_ai_message,
-            behavior_context
-        )
-        
-        for metric_name, metric_value in analysis_results.items():
-            if isinstance(metric_value, (int, float)):
-                async with httpx.AsyncClient() as client:
-                    await client.post(
-                        f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
-                        json={"name": metric_name, "value": metric_value, "context": f"Analysis of: '{user_text}'"}
-                    )
-
     except Exception as e:
-        logger.error(f"❌ Error during metric analysis: {e}")
+        logger.error(f"❌ Error during fast metric saving: {e}")
