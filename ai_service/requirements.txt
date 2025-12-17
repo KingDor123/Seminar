@@ -13,3 +13,5 @@ pytest-asyncio
 httpx
 pydantic-settings
 gTTS
+nvidia-cudnn-cu12
+nvidia-cublas-cu12

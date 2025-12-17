@@ -19,6 +19,9 @@ RUN apt-get update && \
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Set LD_LIBRARY_PATH for CTranslate2 to find cuDNN/cuBLAS
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.11/site-packages/nvidia/cudnn/lib:/usr/local/lib/python3.11/site-packages/nvidia/cublas/lib
+
 # --- Application Code ---
 COPY . .
 

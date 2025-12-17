@@ -1,4 +1,5 @@
 import logging
+import io
 from faster_whisper import WhisperModel
 import numpy as np
 from app.core.config import settings
@@ -44,14 +45,14 @@ class STTService:
 
     def transcribe(self, audio_bytes: bytes) -> str:
         """
-        Transcribes raw Float32 audio bytes to text.
+        Transcribes audio file bytes (WAV/WebM) to text.
         """
         try:
-            # Convert raw bytes to numpy array (Float32)
-            audio_array = np.frombuffer(audio_bytes, dtype=np.float32)
+            # Wrap bytes in BytesIO to let faster-whisper handle decoding (via ffmpeg)
+            audio_file = io.BytesIO(audio_bytes)
             
             # Transcription (beam_size=5 for accuracy)
-            segments, info = self.model.transcribe(audio_array, beam_size=5)
+            segments, info = self.model.transcribe(audio_file, beam_size=5)
 
             text = " ".join([segment.text for segment in segments]).strip()
             
