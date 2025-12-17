@@ -4,10 +4,11 @@ import asyncio
 import base64
 import httpx
 import time
+import os
 from fastapi import APIRouter, HTTPException, Form, File, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Optional, AsyncGenerator
+from typing import List, Dict, Optional, AsyncGenerator, Any
 
 from app.services.stt import STTService
 from app.services.llm import LLMService
@@ -16,16 +17,29 @@ from app.services.tts import TTSService
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# --- Global AI Services ---
-try:
-    stt_service = STTService()
-    llm_service = LLMService()
-    tts_service = TTSService()
-except Exception as e:
-    logger.critical(f"🔥 Critical AI Failure: {e}")
+# --- Global AI Services (Lazy Loaded) ---
+_services = {
+    "stt": None,
+    "llm": None,
+    "tts": None
+}
+
+def get_services():
+    """Lazy load services to avoid heavy initialization at import time."""
+    global _services
+    if _services["stt"] is None:
+        try:
+            logger.info("lazy loading AI services...")
+            _services["stt"] = STTService()
+            _services["llm"] = LLMService()
+            _services["tts"] = TTSService()
+        except Exception as e:
+            logger.critical(f"🔥 Critical AI Failure during lazy load: {e}")
+            raise e
+    return _services["stt"], _services["llm"], _services["tts"]
 
 # --- Constants ---
-BACKEND_URL = "http://backend:5000/api"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:5000/api")
 
 # --- Pydantic Models ---
 class TTSRequest(BaseModel):
@@ -41,6 +55,8 @@ async def generate_tts(request: TTSRequest):
     Returns JSON with base64 encoded audio.
     """
     try:
+        _, _, tts_service = get_services()
+        
         if not request.text.strip():
             raise HTTPException(status_code=400, detail="Text cannot be empty")
 
@@ -76,18 +92,22 @@ async def interact(
 
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
+            # Initialize services
+            stt_service, llm_service, tts_service = get_services()
+            
             # 1. Process Input (STT if Audio)
             user_text = text or ""
+            stt_result = {}
+            
             if audio:
                 try:
                     audio_bytes = await audio.read()
                     if len(audio_bytes) > 0:
-                        transcribed = await asyncio.to_thread(stt_service.transcribe, audio_bytes)
-                        user_text = transcribed.strip()
+                        stt_result = await asyncio.to_thread(stt_service.transcribe, audio_bytes)
+                        user_text = stt_result.get("clean_text", "").strip()
+                        
                         if not user_text:
                             yield _sse_event("status", "processing_empty_audio")
-                            # If audio was noise, we might want to stop or ask for repeat.
-                            # For now, let's yield a debug event and stop if empty.
                             yield _sse_event("debug", "No speech detected in audio.")
                             return
                 except Exception as e:
@@ -109,7 +129,7 @@ async def interact(
             prev_msgs = await _fetch_history(session_id)
             history.extend(prev_msgs)
             
-            # Determine last AI message for analysis context (before appending new user msg)
+            # Determine last AI message for analysis context
             last_ai_message = ""
             if len(history) > 1 and history[-1]["role"] == "assistant":
                 last_ai_message = history[-1]["content"]
@@ -119,11 +139,6 @@ async def interact(
             
             # Append current user message to history for LLM
             history.append({"role": "user", "content": user_text})
-
-            # 3. Analyze User Input (Async)
-            # We can do this now or later. Let's fire it now.
-            if last_ai_message:
-                asyncio.create_task(_analyze_behavior(session_id, user_text, last_ai_message))
 
             # 4. Generate AI Response (Streaming)
             yield _sse_event("status", "thinking")
@@ -173,6 +188,19 @@ async def interact(
             # 5. Save AI Response
             asyncio.create_task(_save_message(session_id, "assistant", full_ai_response))
 
+            # 6. Analyze Behavior (Async - Post Response)
+            # Moved here to ensure LLM generates response FIRST (Critical for local LLM latency)
+            if last_ai_message:
+                asyncio.create_task(
+                    _analyze_and_save_metrics(
+                        session_id, 
+                        stt_result if stt_result else {"clean_text": user_text}, 
+                        0.0, 
+                        last_ai_message, 
+                        llm_service
+                    )
+                )
+
             yield _sse_event("status", "done")
             yield _sse_event("done", "[DONE]")
 
@@ -204,7 +232,6 @@ async def _fetch_history(session_id: int) -> List[Dict[str, str]]:
             if resp.status_code == 200:
                 messages = resp.json()
                 for m in messages:
-                    # Map 'ai' role to 'assistant' for LLM
                     role = "assistant" if m["role"] == "ai" else m["role"]
                     history.append({"role": role, "content": m["content"]})
     except Exception as e:
@@ -223,15 +250,74 @@ async def _save_message(session_id: int, role: str, content: str):
     except Exception as e:
         logger.error(f"DB Save Error: {e}")
 
-async def _analyze_behavior(session_id: int, user_text: str, context: str):
+async def _analyze_and_save_metrics(
+    session_id: int, 
+    stt_result: Dict[str, Any], 
+    latency: float, 
+    last_ai_message: str,
+    llm_service: LLMService
+):
+    """
+    Analyzes user speech behavior and saves metrics.
+    """
+    if not session_id: return
+
     try:
-        results = await asyncio.to_thread(llm_service.analyze_behavior, user_text, context)
-        for metric_name, metric_value in results.items():
+        user_text = stt_result.get("clean_text", "")
+        
+        # 1. Save Latency
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
+                json={"name": "response_latency", "value": latency, "context": f"Response to: '{last_ai_message}'"}
+            )
+        
+        # 2. Save Speech Rate
+        wpm = stt_result.get("speech_rate_wpm", 0.0)
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
+                json={"name": "speech_rate_wpm", "value": wpm, "context": user_text}
+            )
+            
+        # 3. Save Pauses
+        pause_count = stt_result.get("pause_count", 0)
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
+                json={"name": "pause_count", "value": float(pause_count), "context": user_text}
+            )
+
+        # 4. Save Fillers
+        filler_count = stt_result.get("filler_word_count", 0)
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
+                json={"name": "filler_word_count", "value": float(filler_count), "context": user_text}
+            )
+
+        # 5. Semantic Analysis (LLM) with Behavioral Context
+        behavior_context = {
+            "latency": latency,
+            "wpm": wpm,
+            "pauses": pause_count,
+            "fillers": filler_count
+        }
+        
+        analysis_results = await asyncio.to_thread(
+            llm_service.analyze_behavior, 
+            user_text, 
+            last_ai_message,
+            behavior_context
+        )
+        
+        for metric_name, metric_value in analysis_results.items():
             if isinstance(metric_value, (int, float)):
                 async with httpx.AsyncClient() as client:
                     await client.post(
                         f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
-                        json={"name": metric_name, "value": metric_value, "context": user_text[:50]}
+                        json={"name": metric_name, "value": metric_value, "context": f"Analysis of: '{user_text}'"}
                     )
+
     except Exception as e:
-        logger.error(f"Analysis Error: {e}")
+        logger.error(f"❌ Error during metric analysis: {e}")

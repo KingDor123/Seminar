@@ -1,5 +1,5 @@
 import logging
-from typing import Generator, List, Dict
+from typing import Generator, List, Dict, Any
 from openai import OpenAI
 from app.core.config import settings
 
@@ -40,19 +40,48 @@ class LLMService:
             logger.error(f"❌ LLM Error: {e}")
             yield " ... (My brain connection timed out)."
 
-    def analyze_behavior(self, user_text: str, context: str) -> Dict[str, float]:
+    def analyze_behavior(
+        self, 
+        user_text: str, 
+        context: str, 
+        behavior_context: Dict[str, Any] = None
+    ) -> Dict[str, float]:
         """
-        Analyzes the user's response for soft skills metrics.
-        Returns a dictionary with 'sentiment', 'topic_adherence', etc.
+        Analyzes the user's response including behavioral metrics.
+        Returns a dictionary with 'sentiment', 'topic_adherence', 'confidence', etc.
         """
+        if behavior_context is None:
+            behavior_context = {}
+            
+        latency = behavior_context.get("latency", 0.0)
+        wpm = behavior_context.get("wpm", 0.0)
+        fillers = behavior_context.get("fillers", 0)
+        pauses = behavior_context.get("pauses", 0)
+
+        # --- Deterministic Calculation (No LLM) ---
+        
+        # Clarity Score: Penalize for fillers and pauses
+        # Base 1.0
+        clarity_penalty = (fillers * 0.1) + (pauses * 0.05)
+        clarity = max(0.0, 1.0 - clarity_penalty)
+
+        # Confidence Score: Penalize for latency, low WPM, and fillers
+        # Base 1.0
+        confidence_penalty = 0.0
+        if latency > 2.0: confidence_penalty += 0.2
+        if wpm < 100: confidence_penalty += 0.2
+        confidence_penalty += (fillers * 0.05)
+        confidence = max(0.0, 1.0 - confidence_penalty)
+
+        # --- LLM Analysis (Subjective Metrics) ---
+
         prompt = (
             f"Analyze the user's response in this conversation context.\n"
             f"Context (AI said): \"{context}\"\n"
             f"User replied: \"{user_text}\"\n\n"
-            f"Provide a JSON object with:\n"
-            f"1. 'sentiment': float between -1.0 (negative) and 1.0 (positive).\n"
-            f"2. 'topic_adherence': float between 0.0 (off-topic) and 1.0 (on-topic).\n"
-            f"3. 'clarity': float between 0.0 (confusing) and 1.0 (clear).\n"
+            f"Provide a JSON object with these metrics:\n"
+            f"1. 'sentiment': float -1.0 (negative) to 1.0 (positive).\n"
+            f"2. 'topic_adherence': float 0.0 (off-topic) to 1.0 (on-topic).\n"
             f"Only return the JSON object, nothing else."
         )
 
@@ -65,13 +94,29 @@ class LLMService:
             content = response.choices[0].message.content.strip()
             
             # Robust JSON extraction
+            # 1. Strip Markdown code blocks
+            if "```" in content:
+                content = content.replace("```json", "").replace("```", "")
+            
             import re
+            # 2. Find the first valid JSON object
             json_match = re.search(r'\{.*\}', content, re.DOTALL)
             if json_match:
                 content = json_match.group(0)
             
             import json
-            return json.loads(content)
+            llm_metrics = json.loads(content)
         except Exception as e:
             logger.error(f"❌ Analysis Error: {e} | Content was: {content if 'content' in locals() else 'Unknown'}")
-            return {"sentiment": 0.0, "topic_adherence": 0.0, "clarity": 0.0}
+            llm_metrics = {
+                "sentiment": 0.0, 
+                "topic_adherence": 0.0
+            }
+
+        # Merge Deterministic and LLM Metrics
+        return {
+            "sentiment": float(llm_metrics.get("sentiment", 0.0)),
+            "topic_adherence": float(llm_metrics.get("topic_adherence", 0.0)),
+            "clarity": round(clarity, 2),
+            "confidence_estimate": round(confidence, 2)
+        }

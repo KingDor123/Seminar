@@ -1,0 +1,50 @@
+@startuml
+top to bottom direction
+skinparam shadowing false
+skinparam rectangle {
+  BorderColor Black
+  BackgroundColor White
+}
+skinparam defaultFontName Arial
+
+package "Speech-to-Text Output" {
+    rectangle TXT as "Raw Transcription\n+ Word Timestamps"
+}
+
+package "Deterministic Feature Extraction" {
+    rectangle FILL as "Filler Detection\n(Regex)"
+    rectangle PAUSE as "Pause Detection"
+    rectangle WPM as "Speech Rate (WPM)"
+}
+
+package "Behavioral Metrics" {
+    rectangle CLAR as "Clarity Score"
+    rectangle CONF as "Confidence Score"
+}
+
+package "LLM Semantic Analysis" {
+    rectangle SENT as "Sentiment"
+    rectangle TOPIC as "Topic Adherence"
+}
+
+database DB as "Session Database"
+
+TXT --> FILL
+TXT --> PAUSE
+TXT --> WPM
+
+FILL --> CLAR
+PAUSE --> CLAR
+
+WPM --> CONF
+FILL --> CONF
+
+TXT --> SENT : Clean Text
+TXT --> TOPIC : Clean Text
+
+CLAR --> DB
+CONF --> DB
+SENT --> DB
+TOPIC --> DB
+
+@enduml
