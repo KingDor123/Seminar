@@ -63,7 +63,7 @@ export const useStreamingConversation = ({
         // Let's assume the Next.js middleware/proxy handles `/api/ai/interact` -> `ai_service:8000/interact`
         // OR we use the backend proxy.
         // Let's use the hook's base URL.
-        const url = `${getApiUrl()}/ai/interact`; 
+        const url = `${getApiUrl()}/api/interact`; 
 
         try {
             await fetchEventSource(url, {
