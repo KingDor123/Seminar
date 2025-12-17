@@ -52,7 +52,7 @@ export const useChatSession = () => {
   }, []);
 
   const loadSessions = useCallback(async () => {
-    if (!user) return;
+    if (!user || !user.id) return;
     setLoading(true);
     try {
       const res = await api.get<ChatSession[]>(`/chat/users/${user.id}/sessions`);
