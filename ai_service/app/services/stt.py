@@ -11,17 +11,36 @@ class STTService:
     """
 
     def __init__(self):
-        logger.info(f"🎧 Initializing Whisper ({settings.WHISPER_MODEL_SIZE}) on {settings.WHISPER_DEVICE}...")
+        device = settings.WHISPER_DEVICE
+        compute_type = settings.WHISPER_COMPUTE_TYPE
+        
+        logger.info(f"🎧 Initializing Whisper ({settings.WHISPER_MODEL_SIZE}) on preferred device: {device}...")
+
         try:
+            # Attempt to initialize with preferred settings
             self.model = WhisperModel(
                 settings.WHISPER_MODEL_SIZE, 
-                device=settings.WHISPER_DEVICE, 
-                compute_type=settings.WHISPER_COMPUTE_TYPE
+                device=device, 
+                compute_type=compute_type
             )
-            logger.info("✅ Whisper Ready.")
         except Exception as e:
-            logger.critical(f"❌ Whisper Failed: {e}")
-            raise e
+            if device == "cuda":
+                logger.warning(f"⚠️ Failed to initialize Whisper on CUDA: {e}. Falling back to CPU.")
+                try:
+                    self.model = WhisperModel(
+                        settings.WHISPER_MODEL_SIZE, 
+                        device="cpu", 
+                        compute_type="int8" # CPU usually needs int8 or float32
+                    )
+                    device = "cpu"
+                except Exception as cpu_e:
+                    logger.critical(f"❌ Whisper CPU Fallback Failed: {cpu_e}")
+                    raise cpu_e
+            else:
+                logger.critical(f"❌ Whisper Failed: {e}")
+                raise e
+        
+        logger.info(f"✅ Whisper Ready on {device}.")
 
     def transcribe(self, audio_bytes: bytes) -> str:
         """
