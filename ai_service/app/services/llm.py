@@ -94,7 +94,12 @@ class LLMService:
             content = response.choices[0].message.content.strip()
             
             # Robust JSON extraction
+            # 1. Strip Markdown code blocks
+            if "```" in content:
+                content = content.replace("```json", "").replace("```", "")
+            
             import re
+            # 2. Find the first valid JSON object
             json_match = re.search(r'\{.*\}', content, re.DOTALL)
             if json_match:
                 content = json_match.group(0)

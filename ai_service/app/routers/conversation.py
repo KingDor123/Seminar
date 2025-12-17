@@ -5,6 +5,7 @@ import base64
 import numpy as np
 import httpx
 import time 
+import os
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
@@ -38,7 +39,7 @@ def get_services():
     return _services["stt"], _services["llm"], _services["tts"]
 
 # --- Constants ---
-BACKEND_URL = "http://backend:5000/api"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:5000/api")
 
 # --- Pydantic Models ---
 class TTSRequest(BaseModel):

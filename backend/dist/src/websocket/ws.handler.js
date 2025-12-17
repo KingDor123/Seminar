@@ -1,7 +1,38 @@
 // backend/src/websocket/ws.handler.ts
 import { WebSocketServer, WebSocket } from 'ws';
+import jwt from 'jsonwebtoken';
 import { AI_SERVICE_WS_BASE_URL, MAX_QUEUE_LENGTH, HEARTBEAT_INTERVAL_MS } from '../config/appConfig.js';
 const wssChat = new WebSocketServer({ noServer: true });
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_key_change_me';
+const authenticate = (request) => {
+    try {
+        // 1. Try to get token from 'cookie' header
+        let token;
+        if (request.headers.cookie) {
+            const cookies = request.headers.cookie.split(';');
+            for (const cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'token') {
+                    token = value;
+                    break;
+                }
+            }
+        }
+        // 2. Fallback: Authorization Header (if passed during handshake, though rare for browser WS)
+        if (!token && request.headers.authorization && request.headers.authorization.startsWith('Bearer ')) {
+            token = request.headers.authorization.split(' ')[1];
+        }
+        if (!token)
+            return false;
+        // 3. Verify
+        jwt.verify(token, JWT_SECRET);
+        return true;
+    }
+    catch (err) {
+        console.error('WS Auth Failed:', err);
+        return false;
+    }
+};
 const setupHeartbeatInterval = (clientWs, aiWs, messageQueue) => {
     const heartbeat = { clientAlive: true, aiAlive: true };
     const interval = setInterval(() => {
@@ -103,6 +134,12 @@ export const attachWebSocketHandlers = (server) => {
         }
         const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
         if (pathname === '/api/chat') {
+            if (!authenticate(request)) {
+                console.warn('Unauthorized WebSocket connection attempt');
+                socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+                socket.destroy();
+                return;
+            }
             wssChat.handleUpgrade(request, socket, head, (ws) => {
                 wssChat.emit('connection', ws, request);
             });

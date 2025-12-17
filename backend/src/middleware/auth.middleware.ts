@@ -45,7 +45,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     try {
         // 2. Verify token
         const secret = process.env.JWT_SECRET || 'dev_secret_key_change_me';
-        const decoded = jwt.verify(token, secret) as JwtPayload;
+        const decoded = jwt.verify(token, secret) as unknown as JwtPayload;
 
         // 3. Attach user info to request
         req.user = {

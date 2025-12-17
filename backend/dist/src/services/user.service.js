@@ -45,6 +45,26 @@ export class UserService {
         const { password_hash: _, ...userWithoutPassword } = user;
         return { user: userWithoutPassword, token };
     }
+    async updateUser(userId, data) {
+        const updates = {};
+        if (data.full_name)
+            updates.full_name = data.full_name;
+        if (data.email) {
+            const existing = await this.userRepo.findUserByEmail(data.email);
+            if (existing && existing.id !== userId) {
+                throw new AppError('Email already in use', 409);
+            }
+            updates.email = data.email;
+        }
+        if (data.password) {
+            updates.password_hash = await bcrypt.hash(data.password, this.SALT_ROUNDS);
+        }
+        const updatedUser = await this.userRepo.updateUser(userId, updates);
+        if (!updatedUser)
+            throw new AppError('User not found', 404);
+        const { password_hash: _, ...userWithoutPassword } = updatedUser;
+        return userWithoutPassword;
+    }
     generateToken(userId, role) {
         return jwt.sign({ sub: userId, role }, this.JWT_SECRET, { expiresIn: '7d' });
     }
