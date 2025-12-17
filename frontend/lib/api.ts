@@ -2,6 +2,14 @@ import axios from 'axios';
 
 let API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001/api';
 
+// --- Start of Fix ---
+// Ensure the API_URL is always a valid HTTP/HTTPS URL when running in the browser
+if (typeof window !== 'undefined' && API_URL.startsWith('backend:')) {
+  console.warn(`Frontend: Correcting malformed NEXT_PUBLIC_BACKEND_URL from '${API_URL}' to 'http://localhost:5001/api' for browser access.`);
+  API_URL = 'http://localhost:5001'; // Fallback to localhost for client-side
+}
+// --- End of Fix ---
+
 // Normalize URL: remove trailing slash
 API_URL = API_URL.replace(/\/$/, "");
 

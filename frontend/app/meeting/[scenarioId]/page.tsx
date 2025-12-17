@@ -21,14 +21,17 @@ export default function MeetingPage() {
   
   useEffect(() => {
     messagesRef.current = messages;
+    console.log("[MeetingPage] Messages updated:", messages.length);
   }, [messages]);
 
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   
-  // Database Session Hook
-  const { startSession, sessionId, loadMessages } = useChatSession();
+  // Database Session Hook - now with sessionStatus
+  const { startSession, sessionId, loadMessages, sessionStatus } = useChatSession();
+
+  console.log(`[MeetingPage Render] sessionId=${sessionId}, sessionStatus=${sessionStatus}, user=${user?.id}, scenarioId=${scenarioId}`);
 
   // User Camera (now handles both Video & Audio request to avoid race conditions)
   // Only enable camera if user is authenticated
@@ -41,11 +44,26 @@ export default function MeetingPage() {
 
   // --- Session Start Logic ---
   useEffect(() => {
-    if (scenarioId && user) {
-      startSession(scenarioId).then(id => {
-        console.log(`Session started: ${id} for scenario: ${scenarioId}`);
-        if (id) {
-            loadMessages(id).then(msgs => {
+    let isMounted = true; // Flag to track if component is mounted
+    console.log(`[MeetingPage useEffect] Called. isMounted=${isMounted}, scenarioId=${scenarioId}, user=${user?.id}, sessionStatus=${sessionStatus}`);
+
+    const initiateSession = async () => {
+        console.log(`[MeetingPage initiateSession] Trying to initiate session. isMounted=${isMounted}, sessionStatus=${sessionStatus}`);
+        if (!isMounted || sessionStatus !== 'idle') {
+            console.log(`[MeetingPage initiateSession] Aborting: !isMounted (${!isMounted}) or sessionStatus (${sessionStatus}) is not 'idle'.`);
+            return;
+        }
+        
+        try {
+            console.log(`[MeetingPage initiateSession] Calling startSession for scenario ${scenarioId}...`);
+            const id = await startSession(scenarioId); // startSession is now idempotent
+            if (!isMounted) { console.log("[MeetingPage initiateSession] Aborting after startSession: component unmounted."); return; }
+            
+            console.log(`[MeetingPage initiateSession] Session started: ${id} for scenario: ${scenarioId}. Now loading messages...`);
+            
+            if (id) {
+                const msgs = await loadMessages(id);
+                if (!isMounted) { console.log("[MeetingPage initiateSession] Aborting after loadMessages: component unmounted."); return; }
                 // Map backend messages to frontend format
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const formattedMsgs = msgs.map((m: any) => ({
@@ -53,11 +71,29 @@ export default function MeetingPage() {
                     content: m.content
                 }));
                 setMessages(formattedMsgs);
-            });
+                console.log(`[MeetingPage initiateSession] Messages loaded and set (${formattedMsgs.length} messages).`);
+            }
+        } catch (err) {
+            if (!isMounted) { console.log("[MeetingPage initiateSession] Aborting on error: component unmounted."); return; }
+            console.error("[MeetingPage initiateSession] Failed to start session or load messages:", err);
+            router.push('/home'); // Redirect on error
         }
-      });
+    };
+
+    // Only attempt to start a session if we have a scenarioId, a user, and the session is idle
+    if (scenarioId && user && sessionStatus === 'idle') {
+        console.log("[MeetingPage useEffect] Conditions met: calling initiateSession().");
+        initiateSession();
+    } else {
+        console.log(`[MeetingPage useEffect] Conditions NOT met: scenarioId=${!!scenarioId}, user=${!!user}, sessionStatus=${sessionStatus === 'idle'}`);
     }
-  }, [scenarioId, startSession, loadMessages, user]);
+
+    // Cleanup function
+    return () => {
+        isMounted = false; // Mark component as unmounted
+        console.log("MeetingPage useEffect cleanup: isMounted set to false.");
+    };
+  }, [scenarioId, startSession, loadMessages, user, sessionStatus, router, setMessages]);
 
   // --- Audio Playback Logic ---
   const processQueueRef = useRef<() => Promise<void>>(null);
