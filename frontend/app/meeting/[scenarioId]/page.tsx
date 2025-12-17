@@ -35,7 +35,7 @@ export default function MeetingPage() {
 
   // User Camera (now handles both Video & Audio request to avoid race conditions)
   // Only enable camera if user is authenticated
-  const { userVideoRef, mediaStream } = useUserCamera(!!user);
+  const { userVideoRef, mediaStream, error: cameraError } = useUserCamera(!!user);
 
   // Audio Context & Queue
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -226,13 +226,22 @@ export default function MeetingPage() {
       }
   }, [status, playListeningCue]);
 
-  const { isConnected, sendAudioChunk } = useRealTimeConversation({
+  const { isConnected, sendAudioChunk, notifyAiFinishedSpeaking } = useRealTimeConversation({
     selectedScenario: scenarioId,
     sessionId: sessionId,
     onTranscript: handleTranscript,
     onAudioData: handleAudioData,
     onStatusChange: handleStatusChange
   });
+
+  // --- Notify Backend when AI stops speaking ---
+  const wasAiSpeakingRef = useRef(false);
+  useEffect(() => {
+      if (wasAiSpeakingRef.current && !isAiSpeaking) {
+          notifyAiFinishedSpeaking();
+      }
+      wasAiSpeakingRef.current = isAiSpeaking;
+  }, [isAiSpeaking, notifyAiFinishedSpeaking]);
 
   // --- Echo Cancellation Logic ---
   // Prevent sending audio while AI is speaking to avoid feedback loops (Self-Answering)
@@ -329,6 +338,7 @@ export default function MeetingPage() {
             sendMessage={sendMessage}
             selectedScenario={scenarioId}
             audioRef={() => {}} 
+            cameraError={cameraError}
             />
         </main>
     </div>

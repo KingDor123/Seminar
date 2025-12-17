@@ -60,7 +60,13 @@ export const useChatSession = () => {
       setSessionStatus('active'); // Set status to active on success
       return res.data.id;
     } catch (err: unknown) {
-      const message = (err as any).response?.data?.message || (err as Error).message || 'Failed to start session';
+      let message = 'Failed to start session';
+      if (err && typeof err === 'object' && 'response' in err) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          message = (err as any).response?.data?.message || message;
+      } else if (err instanceof Error) {
+          message = err.message;
+      }
       console.error("[useChatSession:startSession] API call failed:", message);
       setError(message);
       setSessionStatus('error'); // Set status to error on failure

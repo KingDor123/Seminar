@@ -25,6 +25,7 @@ export const useRealTimeConversation = ({
   const wsRef = useRef<WebSocket | null>(null);
   const activeConnection = useRef(false); // Flag to indicate if connection should be active
   const [isConnected, setIsConnected] = useState(false);
+  const hasSentFirstChunk = useRef(false);
 
   useEffect(() => {
     // Wait for sessionId before connecting
@@ -102,6 +103,9 @@ export const useRealTimeConversation = ({
                         partial: true // Treat tokens as partial updates
                     });
                 } else if (msg.type === "status") {
+                    if (msg.status === "listening") {
+                        hasSentFirstChunk.current = false; // Reset for next turn
+                    }
                     onStatusChange(msg.status);
                 }
                 } catch (e) {
@@ -151,11 +155,28 @@ export const useRealTimeConversation = ({
 
   const sendAudioChunk = useCallback((data: ArrayBuffer) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      if (!hasSentFirstChunk.current) {
+         // Send audio_start metadata before the first audio chunk of a turn
+         wsRef.current.send(JSON.stringify({
+             type: "user_started_speaking",
+             timestamp: Date.now()
+         }));
+         hasSentFirstChunk.current = true;
+      }
       wsRef.current.send(data);
     } else {
        console.warn("Cannot send audio, socket not open (State: " + wsRef.current?.readyState + ")");
     }
   }, []);
 
-  return { isConnected, sendAudioChunk };
+  const notifyAiFinishedSpeaking = useCallback(() => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+              type: "ai_stopped_speaking",
+              timestamp: Date.now()
+          }));
+      }
+  }, []);
+
+  return { isConnected, sendAudioChunk, notifyAiFinishedSpeaking };
 };

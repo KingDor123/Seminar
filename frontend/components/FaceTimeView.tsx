@@ -21,6 +21,7 @@ interface FaceTimeViewProps {
   sendMessage: (textOverride?: string) => void;
   selectedScenario: string;
   audioRef: React.Ref<HTMLAudioElement>;
+  cameraError?: string | null;
 }
 
 const FaceTimeView: React.FC<FaceTimeViewProps> = ({
@@ -40,6 +41,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
   sendMessage,
   selectedScenario,
   audioRef,
+  cameraError,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -213,7 +215,14 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
 
       {/* --- User PIP (Floating) --- */}
       <div className={`absolute top-24 right-6 w-48 h-36 bg-gray-800 rounded-xl overflow-hidden shadow-2xl border-2 border-gray-700 z-10 transition-all duration-300 ${showChat ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-           {cameraOff ? (
+           {cameraError ? (
+               <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900 text-red-500 p-2 text-center">
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                   </svg>
+                   <span className="text-[10px] font-medium leading-tight">{cameraError}</span>
+               </div>
+           ) : cameraOff ? (
                <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-500">
                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
