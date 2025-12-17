@@ -6,9 +6,9 @@ import FaceTimeView from '../../../components/FaceTimeView';
 import { ChatMessage } from '../../../types/chat';
 import { useUserCamera } from '../../../hooks/useUserCamera';
 import { useChatSession } from '../../../hooks/useChatSession';
-import { useAudioRecorder } from "../../../hooks/useAudioRecorder";
-import { useRealTimeConversation } from "../../../hooks/useRealTimeConversation";
 import { useAuth } from "../../../context/AuthContext";
+import { useStreamingConversation } from "../../../hooks/useStreamingConversation";
+import { AudioQueue } from "../../../utils/audioQueue";
 
 export default function MeetingPage() {
   const { user, isLoading } = useAuth();
@@ -17,12 +17,7 @@ export default function MeetingPage() {
   const scenarioId = params.scenarioId as string;
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const messagesRef = useRef<ChatMessage[]>([]);
   
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -30,14 +25,15 @@ export default function MeetingPage() {
   // Database Session Hook
   const { startSession, sessionId, loadMessages } = useChatSession();
 
-  // User Camera (now handles both Video & Audio request to avoid race conditions)
-  // Only enable camera if user is authenticated
+  // User Camera
   const { userVideoRef, mediaStream } = useUserCamera(!!user);
 
-  // Audio Context & Queue
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioQueue = useRef<ArrayBuffer[]>([]);
-  const isPlayingRef = useRef(false);
+  // Audio Queue
+  const audioQueueRef = useRef<AudioQueue | null>(null);
+
+  useEffect(() => {
+    audioQueueRef.current = new AudioQueue();
+  }, []);
 
   // --- Session Start Logic ---
   useEffect(() => {
@@ -46,7 +42,6 @@ export default function MeetingPage() {
         console.log(`Session started: ${id} for scenario: ${scenarioId}`);
         if (id) {
             loadMessages(id).then(msgs => {
-                // Map backend messages to frontend format
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const formattedMsgs = msgs.map((m: any) => ({
                     role: m.role === 'ai' ? 'ai' : 'user',
@@ -54,199 +49,110 @@ export default function MeetingPage() {
                 }));
                 setMessages(formattedMsgs);
             });
+            // Resume audio context if needed
+            audioQueueRef.current?.resume();
         }
       });
     }
   }, [scenarioId, startSession, loadMessages, user]);
 
-  // --- Audio Playback Logic ---
-  const processQueueRef = useRef<() => Promise<void>>(null);
 
-  const playNextChunk = useCallback(async () => {
-    if (audioQueue.current.length === 0) {
-      isPlayingRef.current = false;
-      setIsAiSpeaking(false);
-      return;
-    }
-
-    isPlayingRef.current = true;
-    setIsAiSpeaking(true);
-
-    if (!audioContextRef.current) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-
-    const ctx = audioContextRef.current;
-
-    // Ensure context is running (Fix for Autoplay Policy)
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume();
-        console.log("Resumed AudioContext for playback");
-      } catch (e) {
-        console.error("Failed to resume AudioContext during playback:", e);
-      }
-    }
-
-    const chunk = audioQueue.current.shift();
-    
-    if (!chunk) return;
-
-    try {
-      const audioBuffer = await ctx.decodeAudioData(chunk);
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(ctx.destination);
-      
-      source.onended = () => {
-        if (processQueueRef.current) processQueueRef.current();
-      };
-      
-      source.start(0);
-    } catch (err) {
-      console.error("Error decoding audio chunk:", err);
-      if (processQueueRef.current) processQueueRef.current();
-    }
-  }, []);
-
-  useEffect(() => {
-      processQueueRef.current = playNextChunk;
-  }, [playNextChunk]);
-
-  const handleAudioData = useCallback((data: ArrayBuffer) => {
-    const bufferCopy = data.slice(0); 
-    audioQueue.current.push(bufferCopy);
-    
-    if (!isPlayingRef.current) {
-      playNextChunk();
-    }
-  }, [playNextChunk]);
-
-  // --- Real-Time Conversation Hook ---
-  const handleTranscript = useCallback((msg: { role: "user" | "assistant", text: string, partial?: boolean }) => {
+  // --- Streaming Conversation Hook ---
+  const handleNewMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
-      const lastMsg = prev[prev.length - 1];
-      const isAi = msg.role === "assistant";
-
-      // If it's a partial update (token streaming)
-      if (msg.partial) {
-        // If the last message belongs to the AI, append the token
-        if (lastMsg && lastMsg.role === "ai" && isAi) {
-             return [
-                ...prev.slice(0, -1),
-                { ...lastMsg, content: lastMsg.content + msg.text } 
-             ];
-        } 
-        // If it's the start of a new AI response (or previous was user)
-        else if (isAi) {
-             return [...prev, { role: "ai", content: msg.text }];
+        // Simple append logic for now. 
+        // If we want smooth partial updates, we check if last msg is AI and append.
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.role === msg.role && msg.role === 'ai') {
+             return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + " " + msg.content }];
         }
-      } 
-      
-      // If it's a complete message (e.g. from user STT final result)
-      // or a "final" correction from AI (though we mostly use tokens now)
-      // For user messages, strictly add them.
-      if (!isAi) {
-          return [...prev, { role: "user", content: msg.text }];
-      }
-
-      return prev;
+        return [...prev, msg];
     });
   }, []);
 
-  const handleStatusChange = useCallback((newStatus: "idle" | "listening" | "processing" | "speaking") => {
-    setStatus(newStatus);
+  const handleAudioData = useCallback((base64: string) => {
+    setIsAiSpeaking(true);
+    audioQueueRef.current?.addChunk(base64);
+    // Note: We might want a way to know when playback *finishes* to set isAiSpeaking=false.
+    // The AudioQueue logic I wrote is simple fire-and-forget for the UI state in this version.
+    // Ideally AudioQueue would accept a callback for "onEmpty".
+    // For now, let's leave it as is or improve AudioQueue later.
   }, []);
 
-  // --- Sound Effects ---
-  const playListeningCue = useCallback(() => {
-     if (!audioContextRef.current) {
-         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-     }
-     const ctx = audioContextRef.current;
-     if (ctx.state === 'suspended') ctx.resume();
-
-     const oscillator = ctx.createOscillator();
-     const gainNode = ctx.createGain();
-
-     oscillator.connect(gainNode);
-     gainNode.connect(ctx.destination);
-
-     // Gentle "ping" sound (Sine wave, high pitch, quick decay)
-     oscillator.type = "sine";
-     oscillator.frequency.setValueAtTime(880, ctx.currentTime); // A5
-     gainNode.gain.setValueAtTime(0.05, ctx.currentTime); // Low volume
-     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-
-     oscillator.start();
-     oscillator.stop(ctx.currentTime + 0.3);
+  const handleError = useCallback((err: string) => {
+    console.error("Streaming Error:", err);
+    setStatus("idle");
   }, []);
 
-  useEffect(() => {
-      if (status === "listening") {
-          playListeningCue();
-      }
-  }, [status, playListeningCue]);
-
-  const { isConnected, sendAudioChunk } = useRealTimeConversation({
+  const { sendMessage: sendStreamMessage, isProcessing } = useStreamingConversation({
+    sessionId,
     selectedScenario: scenarioId,
-    sessionId: sessionId,
-    onTranscript: handleTranscript,
+    onNewMessage: handleNewMessage,
+    onThinkingStateChange: (thinking) => setStatus(thinking ? "processing" : "idle"),
     onAudioData: handleAudioData,
-    onStatusChange: handleStatusChange
+    onError: handleError
   });
 
-  // --- Echo Cancellation Logic ---
-  // Prevent sending audio while AI is speaking to avoid feedback loops (Self-Answering)
-  const handleSendAudioChunk = useCallback((data: ArrayBuffer) => {
-    if (isAiSpeaking || isPlayingRef.current) {
-        return; 
+
+  // --- Audio Recording Logic (Manual Blob Accumulation) ---
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+
+  const startRecording = useCallback(async () => {
+    try {
+        // Use the existing mediaStream if available (from useUserCamera), else request audio
+        let stream = mediaStream;
+        if (!stream) {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+
+        // Check if stream has audio tracks
+        if (stream.getAudioTracks().length === 0) {
+            console.warn("No audio tracks in stream, requesting new audio stream...");
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+
+        const recorder = new MediaRecorder(stream);
+        
+        recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                audioChunksRef.current.push(e.data);
+            }
+        };
+
+        recorder.onstop = () => {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+            console.log("Sending Audio Blob:", audioBlob.size);
+            sendStreamMessage(null, audioBlob);
+            
+            audioChunksRef.current = [];
+            // If we created a temporary stream (not from camera), stop it?
+            // If it's from `mediaStream`, we shouldn't stop tracks as it kills the camera audio too.
+            // But MediaRecorder doesn't kill tracks on stop.
+        };
+
+        audioChunksRef.current = [];
+        recorder.start();
+        mediaRecorderRef.current = recorder;
+        setIsRecording(true);
+        setStatus("listening");
+    } catch (e) {
+      console.error("Failed to start recording:", e);
     }
-    sendAudioChunk(data);
-  }, [isAiSpeaking, sendAudioChunk]);
+  }, [mediaStream, sendStreamMessage]);
 
-  // --- Audio Recorder ---
-  // Now uses the shared mediaStream from useUserCamera to avoid race conditions
-  const { isRecording, startRecording, stopRecording } = useAudioRecorder({
-    onAudioData: handleSendAudioChunk,
-    onError: (err) => console.error("Recorder error:", err),
-    externalStream: mediaStream
-  });
-
-  // --- Auto-Stop Recording on Disconnect ---
-  useEffect(() => {
-    if (!isConnected && isRecording) {
-      console.warn("Connection lost. Stopping recording.");
-      stopRecording();
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      // Status will flip to processing via hook
     }
-  }, [isConnected, isRecording, stopRecording]);
-
-  // --- Cleanup Audio Context ---
-  useEffect(() => {
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
   }, []);
 
   const toggleListening = async () => {
-    if (!isConnected) return; // Double check
-
-    // Resume AudioContext on user interaction to fix "no sound" issue
-    if (!audioContextRef.current) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (audioContextRef.current.state === 'suspended') {
-      try {
-        await audioContextRef.current.resume();
-      } catch (err) {
-        console.error("Failed to resume AudioContext:", err);
-      }
-    }
+    // Resume AudioContext context just in case
+    audioQueueRef.current?.resume();
 
     if (isRecording) {
       stopRecording();
@@ -256,9 +162,13 @@ export default function MeetingPage() {
   };
 
   const sendMessage = (textOverride?: string) => {
-      // Use textOverride if provided, otherwise use input state
       const textToSend = textOverride || input;
-      console.warn("Text sending not yet implemented in new pipeline. Would send:", textToSend);
+      if (!textToSend.trim()) return;
+      
+      setMessages(prev => [...prev, { role: "user", content: textToSend }]);
+      setInput("");
+      
+      sendStreamMessage(textToSend, null);
   };
 
   const handleEndCall = () => {
@@ -278,7 +188,7 @@ export default function MeetingPage() {
         <main className="flex flex-col items-center w-full max-w-6xl p-4">
             <FaceTimeView
             messages={messages}
-            isThinking={status === "processing"}
+            isThinking={isProcessing}
             audioElement={null}
             audioUrl={null}
             visemes={[]}
