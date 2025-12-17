@@ -165,7 +165,8 @@ export default function MeetingPage() {
       const textToSend = textOverride || input;
       if (!textToSend.trim()) return;
       
-      setMessages(prev => [...prev, { role: "user", content: textToSend }]);
+      // Removed optimistic update to prevent double messages (stream sends transcript)
+      // setMessages(prev => [...prev, { role: "user", content: textToSend }]);
       setInput("");
       
       sendStreamMessage(textToSend, null);
