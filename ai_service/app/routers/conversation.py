@@ -40,6 +40,7 @@ def get_services():
 
 # --- Constants ---
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:5000/api")
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "supersecretkey")
 
 # --- Pydantic Models ---
 class TTSRequest(BaseModel):
@@ -243,9 +244,7 @@ async def generate_report(session_id: int):
                 if not user_text.strip(): continue
 
                 # Run Deep Analysis (Synchronous here is fine, it's a background job for the user)
-                # We pass empty behavior_context as we don't have the original audio timing data here easily
-                # unless we stored it. For now, we focus on Semantic Analysis (Sentiment, Topic).
-                behavior_context = {} 
+                behavior_context = {}
                 
                 analysis_results = await asyncio.to_thread(
                     llm_service.analyze_behavior, 
@@ -256,10 +255,8 @@ async def generate_report(session_id: int):
                 
                 # Save Metrics
                 for metric_name, metric_value in analysis_results.items():
-                    # We only care about the semantic ones now: sentiment, topic_adherence
-                    # (Clarity/Confidence might be inaccurate without audio data, but we save what we get)
                     if isinstance(metric_value, (int, float)):
-                        async with httpx.AsyncClient() as client:
+                        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
                             await client.post(
                                 f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
                                 json={"name": metric_name, "value": metric_value, "context": f"Retrospective: '{user_text[:20]}...'"}
@@ -286,7 +283,7 @@ def _is_sentence_complete(text: str) -> bool:
 async def _fetch_history(session_id: int) -> List[Dict[str, str]]:
     history = []
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             resp = await client.get(f"{BACKEND_URL}/chat/sessions/{session_id}/messages")
             if resp.status_code == 200:
                 messages = resp.json()
@@ -301,7 +298,7 @@ async def _save_message(session_id: int, role: str, content: str):
     if not session_id or not content: return
     try:
         db_role = "ai" if role == "assistant" else role
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             await client.post(
                 f"{BACKEND_URL}/chat/sessions/{session_id}/messages",
                 json={"role": db_role, "content": content}
@@ -325,7 +322,7 @@ async def _save_fast_metrics(
         user_text = stt_result.get("clean_text", "")
         
         # 1. Save Latency
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             await client.post(
                 f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
                 json={"name": "response_latency", "value": latency, "context": f"Response to: '{last_ai_message}'"}
@@ -333,7 +330,7 @@ async def _save_fast_metrics(
         
         # 2. Save Speech Rate
         wpm = stt_result.get("speech_rate_wpm", 0.0)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             await client.post(
                 f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
                 json={"name": "speech_rate_wpm", "value": wpm, "context": user_text}
@@ -341,7 +338,7 @@ async def _save_fast_metrics(
             
         # 3. Save Pauses
         pause_count = stt_result.get("pause_count", 0)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             await client.post(
                 f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
                 json={"name": "pause_count", "value": float(pause_count), "context": user_text}
@@ -349,7 +346,7 @@ async def _save_fast_metrics(
 
         # 4. Save Fillers
         filler_count = stt_result.get("filler_word_count", 0)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             await client.post(
                 f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
                 json={"name": "filler_word_count", "value": float(filler_count), "context": user_text}

@@ -30,6 +30,19 @@ declare global {
 }
 
 export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+    // 0. Check for Internal API Key (System Bypass)
+    const internalKey = process.env.INTERNAL_API_KEY;
+    const requestKey = req.headers['x-internal-api-key'];
+
+    if (internalKey && requestKey === internalKey) {
+        // System Request: Bypass standard auth
+        req.user = {
+            id: 0, // System User ID
+            role: 'system' // System Role
+        };
+        return next();
+    }
+
     // 1. Get token from cookies or header
     let token = req.cookies.token;
 
@@ -76,6 +89,12 @@ export const sessionOwnershipMiddleware = async (req: Request, res: Response, ne
 
         if (!session) {
             return next(new AppError('Session not found', 404));
+        }
+
+        // Allow System Role to access any session
+        if (req.user.role === 'system') {
+             req.session = session;
+             return next();
         }
 
         if (session.user_id !== req.user.id) {
