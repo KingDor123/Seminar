@@ -39,7 +39,6 @@ export default function MeetingPage() {
   useEffect(() => {
     if (scenarioId && user) {
       startSession(scenarioId).then(id => {
-        console.log(`Session started: ${id} for scenario: ${scenarioId}`);
         if (id) {
             loadMessages(id).then(msgs => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,7 +48,6 @@ export default function MeetingPage() {
                 }));
                 setMessages(formattedMsgs);
             });
-            // Resume audio context if needed
             audioQueueRef.current?.resume();
         }
       });
@@ -60,8 +58,6 @@ export default function MeetingPage() {
   // --- Streaming Conversation Hook ---
   const handleNewMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
-        // Simple append logic for now. 
-        // If we want smooth partial updates, we check if last msg is AI and append.
         const lastMsg = prev[prev.length - 1];
         if (lastMsg && lastMsg.role === msg.role && msg.role === 'ai') {
              return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + " " + msg.content }];
@@ -73,10 +69,6 @@ export default function MeetingPage() {
   const handleAudioData = useCallback((base64: string) => {
     setIsAiSpeaking(true);
     audioQueueRef.current?.addChunk(base64);
-    // Note: We might want a way to know when playback *finishes* to set isAiSpeaking=false.
-    // The AudioQueue logic I wrote is simple fire-and-forget for the UI state in this version.
-    // Ideally AudioQueue would accept a callback for "onEmpty".
-    // For now, let's leave it as is or improve AudioQueue later.
   }, []);
 
   const handleError = useCallback((err: string) => {
@@ -94,22 +86,128 @@ export default function MeetingPage() {
   });
 
 
-  // --- Audio Recording Logic (Manual Blob Accumulation) ---
+  // --- Recording & VAD State ---
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  
+  // VAD Refs to avoid re-renders
+  const vadContextRef = useRef<{
+      audioCtx: AudioContext | null;
+      source: MediaStreamAudioSourceNode | null;
+      analyser: AnalyserNode | null;
+      animationFrameId: number | null;
+      silenceStart: number | null;
+      hasSpoken: boolean;
+  }>({
+      audioCtx: null,
+      source: null,
+      analyser: null,
+      animationFrameId: null,
+      silenceStart: null,
+      hasSpoken: false
+  });
+
+  const stopVAD = useCallback(() => {
+      const vad = vadContextRef.current;
+      if (vad.animationFrameId) cancelAnimationFrame(vad.animationFrameId);
+      if (vad.source) {
+          vad.source.disconnect();
+          vad.source = null;
+      }
+      if (vad.analyser) {
+          vad.analyser.disconnect();
+          vad.analyser = null;
+      }
+      if (vad.audioCtx && vad.audioCtx.state !== 'closed') {
+          vad.audioCtx.close().catch(e => console.error("VAD Close error:", e));
+          vad.audioCtx = null;
+      }
+      vad.animationFrameId = null;
+      vad.hasSpoken = false;
+      vad.silenceStart = null;
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    // Stop VAD first
+    stopVAD();
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  }, [stopVAD]);
+
+  const startVAD = useCallback((stream: MediaStream) => {
+      try {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 512;
+          analyser.smoothingTimeConstant = 0.1; // Respond quickly
+          source.connect(analyser);
+
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+
+          // Update Ref
+          vadContextRef.current = {
+              audioCtx,
+              source,
+              analyser,
+              animationFrameId: null,
+              silenceStart: null,
+              hasSpoken: false
+          };
+
+          const checkVolume = () => {
+              if (!vadContextRef.current.analyser) return;
+
+              vadContextRef.current.analyser.getByteFrequencyData(dataArray);
+              let sum = 0;
+              for(let i = 0; i < bufferLength; i++) sum += dataArray[i];
+              const average = sum / bufferLength;
+
+              // Thresholds
+              const SPEECH_THRESHOLD = 15; // Volume threshold (0-255)
+              const SILENCE_DURATION = 1500; // ms
+
+              if (average > SPEECH_THRESHOLD) {
+                  vadContextRef.current.hasSpoken = true;
+                  vadContextRef.current.silenceStart = null; // Reset silence
+              } else {
+                  // Silence detected
+                  if (vadContextRef.current.hasSpoken) {
+                      if (!vadContextRef.current.silenceStart) {
+                          vadContextRef.current.silenceStart = Date.now();
+                      } else {
+                          const silenceTime = Date.now() - vadContextRef.current.silenceStart;
+                          if (silenceTime > SILENCE_DURATION) {
+                              console.log("VAD: Auto-Stop Triggered (Silence > 1.5s)");
+                              stopRecording();
+                              return; // Stop loop
+                          }
+                      }
+                  }
+              }
+
+              vadContextRef.current.animationFrameId = requestAnimationFrame(checkVolume);
+          };
+
+          checkVolume();
+
+      } catch (e) {
+          console.error("VAD Init Error:", e);
+      }
+  }, [stopRecording]);
 
   const startRecording = useCallback(async () => {
     try {
-        // Use the existing mediaStream if available (from useUserCamera), else request audio
         let stream = mediaStream;
         if (!stream) {
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
-
-        // Check if stream has audio tracks
         if (stream.getAudioTracks().length === 0) {
-            console.warn("No audio tracks in stream, requesting new audio stream...");
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
 
@@ -124,12 +222,10 @@ export default function MeetingPage() {
         recorder.onstop = () => {
             const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
             console.log("Sending Audio Blob:", audioBlob.size);
-            sendStreamMessage(null, audioBlob);
-            
+            if (audioBlob.size > 0) {
+                 sendStreamMessage(null, audioBlob);
+            }
             audioChunksRef.current = [];
-            // If we created a temporary stream (not from camera), stop it?
-            // If it's from `mediaStream`, we shouldn't stop tracks as it kills the camera audio too.
-            // But MediaRecorder doesn't kill tracks on stop.
         };
 
         audioChunksRef.current = [];
@@ -137,23 +233,17 @@ export default function MeetingPage() {
         mediaRecorderRef.current = recorder;
         setIsRecording(true);
         setStatus("listening");
+        
+        // Start VAD monitoring on the same stream
+        startVAD(stream);
+
     } catch (e) {
       console.error("Failed to start recording:", e);
     }
-  }, [mediaStream, sendStreamMessage]);
-
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      // Status will flip to processing via hook
-    }
-  }, []);
+  }, [mediaStream, sendStreamMessage, startVAD]);
 
   const toggleListening = async () => {
-    // Resume AudioContext context just in case
     audioQueueRef.current?.resume();
-
     if (isRecording) {
       stopRecording();
     } else {
@@ -164,11 +254,7 @@ export default function MeetingPage() {
   const sendMessage = (textOverride?: string) => {
       const textToSend = textOverride || input;
       if (!textToSend.trim()) return;
-      
-      // Removed optimistic update to prevent double messages (stream sends transcript)
-      // setMessages(prev => [...prev, { role: "user", content: textToSend }]);
       setInput("");
-      
       sendStreamMessage(textToSend, null);
   };
 
@@ -176,13 +262,8 @@ export default function MeetingPage() {
     router.push('/home');
   };
 
-  if (isLoading) {
-      return <div className="flex h-screen items-center justify-center bg-black text-white">Initializing Meeting...</div>;
-  }
-
-  if (!user) {
-      return null;
-  }
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-black text-white">Initializing Meeting...</div>;
+  if (!user) return null;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-black font-sans">
