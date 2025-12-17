@@ -48,14 +48,12 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
 
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [showChat, setShowChat] = useState(false);
-  const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   
-  // Derived state for subtitles
+  // Derived state
+  const isMuted = !isSpeechRecognitionListening;
   const lastSubtitle = messages.length > 0 ? messages[messages.length - 1].content : "";
   
-  // Refs for robust AudioContext management
-
   // Manage Audio Context
   useEffect(() => {
     if (!audioElement) return;
@@ -98,21 +96,14 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
 
   // Handle local mute/camera toggle logic
   const toggleMic = () => {
-    setMicMuted(!micMuted);
-    // Note: Actual stream track disabling needs to happen in useUserCamera hook or here if we had access to the stream
-    // For now this is visual only + functionality link
-    if (isSpeechRecognitionListening && !micMuted) {
-       // logic to stop listening handled by parent mostly, but we can simulate "mute"
-    } else if (micMuted) {
-       startListening(); // Re-enable
-    }
+    startListening(); // Parent toggles recording state
   };
 
   const toggleCamera = () => {
      setCameraOff(!cameraOff);
      if (userVideoRef.current && userVideoRef.current.srcObject) {
         const stream = userVideoRef.current.srcObject as MediaStream;
-        stream.getVideoTracks().forEach(track => track.enabled = cameraOff); // Toggle inverse because state is updating
+        stream.getVideoTracks().forEach(track => track.enabled = cameraOff);
      }
   };
 
@@ -143,7 +134,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
              
              <div className="bg-red-500/10 text-red-400 px-3 py-1 rounded-full text-xs font-mono border border-red-500/20 flex items-center gap-2">
                  <span>REC</span>
-                 <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                 <span className={`w-2 h-2 bg-red-500 rounded-full ${!isMuted ? 'animate-pulse' : 'opacity-20'}`}></span>
              </div>
         </div>
 
@@ -234,10 +225,10 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
           {/* Mute Button */}
           <button 
              onClick={toggleMic}
-             className={`p-3 rounded-full transition-all ${micMuted ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
-             title={micMuted ? "Unmute" : "Mute"}
+             className={`p-3 rounded-full transition-all ${isMuted ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+             title={isMuted ? "Unmute (Start Recording)" : "Mute (Stop Recording)"}
           >
-              {micMuted ? (
+              {isMuted ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
