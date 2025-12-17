@@ -112,3 +112,9 @@ export const useWebSocketUrl = () => {
 
   return getWsUrl;
 };
+
+// Generic API Hook
+export const useApi = () => {
+  const resolveApiBase = useApiBase();
+  return { getApiUrl: resolveApiBase };
+};

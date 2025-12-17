@@ -6,27 +6,17 @@ import { ChatMessage, Viseme } from '../types/chat';
 import { useChatSession } from '../hooks/useChatSession';
 import LobbyView from './LobbyView';
 import FaceTimeView from './FaceTimeView';
-import { useAudioRecorder } from "../hooks/useAudioRecorder";
-import { useRealTimeConversation } from "../hooks/useRealTimeConversation";
+import { useStreamingConversation } from "../hooks/useStreamingConversation";
+import { AudioQueue } from "../utils/audioQueue";
 
 export default function ChatInterface() {
   const [isInCall, setIsInCall] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const messagesRef = useRef<ChatMessage[]>([]);
   
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
-  const [input, setInput] = useState(""); // Kept for fallback manual entry if needed
+  const [input, setInput] = useState(""); 
   const [status, setStatus] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
   const [language, setLanguage] = useState<"en-US" | "he-IL">("he-IL");
   const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[0].id);
-
-  // Debug logging
-  useEffect(() => {
-    console.log("Current Selected Scenario:", selectedScenario);
-  }, [selectedScenario]);
 
   // Database Session Hook
   const { sessionId, startSession } = useChatSession();
@@ -35,135 +25,115 @@ export default function ChatInterface() {
   const userVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
-  // --- Audio Playback Logic (Queue System) ---
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioQueue = useRef<ArrayBuffer[]>([]);
-  const isPlayingRef = useRef(false);
-  // We expose this for the UI to know if AI is speaking
+  // Audio Playback
+  const audioQueueRef = useRef<AudioQueue | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [visemes] = useState<Viseme[]>([]); 
 
-  const processQueueRef = useRef<() => Promise<void>>(null);
-
-  const playNextChunk = useCallback(async () => {
-    if (audioQueue.current.length === 0) {
-      isPlayingRef.current = false;
-      setIsAiSpeaking(false);
-      return;
-    }
-
-    isPlayingRef.current = true;
-    setIsAiSpeaking(true);
-
-    if (!audioContextRef.current) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-
-    const ctx = audioContextRef.current;
-    
-    // Ensure context is running (Fix for Autoplay Policy)
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume();
-      } catch (e) {
-        console.error("Failed to resume AudioContext during playback:", e);
-      }
-    }
-
-    const chunk = audioQueue.current.shift();
-    
-    if (!chunk) return;
-
-    try {
-      const audioBuffer = await ctx.decodeAudioData(chunk);
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(ctx.destination);
-      
-      source.onended = () => {
-        if (processQueueRef.current) processQueueRef.current();
-      };
-      
-      source.start(0);
-    } catch (err) {
-      console.error("Error decoding audio chunk:", err);
-      if (processQueueRef.current) processQueueRef.current();
-    }
+  useEffect(() => {
+    // Initialize AudioQueue
+    audioQueueRef.current = new AudioQueue();
   }, []);
 
-  useEffect(() => {
-    processQueueRef.current = playNextChunk;
-  }, [playNextChunk]);
-
-  const handleAudioData = useCallback((data: ArrayBuffer) => {
-    // Clone buffer because decodeAudioData detaches it
-    const bufferCopy = data.slice(0); 
-    audioQueue.current.push(bufferCopy);
-    
-    if (!isPlayingRef.current) {
-      playNextChunk();
-    }
-  }, [playNextChunk]);
-
-  // --- Real-Time Hook Integration ---
-  const handleTranscript = useCallback((msg: { role: "user" | "assistant", text: string, partial?: boolean }) => {
+  // --- Streaming Hook ---
+  const handleNewMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
-      // If it's a partial update (streaming token), update the last message if it matches role
-      if (msg.partial) {
+        // If the last message is from AI, append to it (simple heuristic for streaming)
+        // However, the backend might send full sentences or partials.
+        // My SSE implementation sends "partial: true" for chunks.
+        // The hook I wrote in `useStreamingConversation` sends { role, content }.
+        // Let's assume the hook sends what we need.
+        // If it's a new message event from SSE, we append.
+        
+        // *Correction*: The SSE hook logic I wrote earlier:
+        // onmessage: if (transcript) -> onNewMessage({ role, content })
+        // It doesn't distinguish partials in the callback *signature*, but the logic inside `useStreamingConversation` was:
+        // `onNewMessage({ role: ..., content: data.text })`
+        // We need to handle appending here if we want smooth streaming text.
+        
         const lastMsg = prev[prev.length - 1];
-        if (lastMsg && lastMsg.role === "ai") { 
-            // Note: msg.role from hook is "assistant", we use "ai" in frontend types usually
-            // If the hook sends entire chunks (sentences), we might append. 
-            // The backend sends full sentences in 'text' field when partial=True currently? 
-            // Let's assume 'text' is the chunk to append or replace.
-            // Looking at backend: "transcript" with partial=True sends the NEW sentence.
-            
-            // Logic: If the last message is "ai", append.
-             return [
-                ...prev.slice(0, -1),
-                { ...lastMsg, content: lastMsg.content + " " + msg.text } // simplistic append
-             ];
-        } else {
-             return [...prev, { role: "ai", content: msg.text }];
+        if (lastMsg && lastMsg.role === msg.role && msg.role === 'ai') {
+             // If we assume the backend sends *chunks* (words/sentences) and not the *full text so far*:
+             return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + " " + msg.content }];
         }
-      } 
-      
-      // Standard full message (User or final AI)
-      const role = msg.role === "assistant" ? "ai" : "user";
-      return [...prev, { role: role as "user" | "ai", content: msg.text }];
+        return [...prev, msg];
     });
   }, []);
 
-  const handleStatusChange = useCallback((newStatus: "idle" | "listening" | "processing" | "speaking") => {
-    setStatus(newStatus);
+  const handleAudioData = useCallback((base64: string) => {
+    setIsAiSpeaking(true);
+    // Add to queue
+    audioQueueRef.current?.addChunk(base64);
   }, []);
 
-  const { sendAudioChunk } = useRealTimeConversation({
-    selectedScenario: selectedScenario,
-    sessionId: sessionId,
-    onTranscript: handleTranscript,
+  const handleError = useCallback((err: string) => {
+    console.error("Streaming Error:", err);
+    setStatus("idle");
+  }, []);
+
+  const { sendMessage: sendStreamMessage, isProcessing } = useStreamingConversation({
+    sessionId,
+    selectedScenario,
+    onNewMessage: handleNewMessage,
+    onThinkingStateChange: (thinking) => setStatus(thinking ? "processing" : "idle"), // naive status mapping
     onAudioData: handleAudioData,
-    onStatusChange: handleStatusChange
+    onError: handleError
   });
 
-  // --- Audio Recording ---
-  const { isRecording, startRecording, stopRecording } = useAudioRecorder({
-    onAudioData: sendAudioChunk,
-    onError: (err) => console.error("Recorder error:", err)
-  });
+  // --- Recorder Logic (Simple Manual Implementation for Blob) ---
+  // Since we need a blob to send *after* recording, not a stream of chunks.
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
 
-  // --- Lifecycle & Cleanup ---
-  useEffect(() => {
-    // Cleanup AudioContext
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' }); // or 'audio/webm' depending on browser
+        // Send to API
+        sendStreamMessage(null, audioBlob);
+        
+        // Cleanup
+        audioChunksRef.current = [];
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      audioChunksRef.current = [];
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setStatus("listening");
+    } catch (e) {
+      console.error("Failed to start recording:", e);
+    }
+  }, [sendStreamMessage]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      // Status will flip to "processing" when `sendStreamMessage` is called in onstop
+    }
   }, []);
 
-  // Cleanup camera stream
+  const toggleListening = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  // --- Cleanup ---
   useEffect(() => {
     const stopLocalStream = () => {
       if (localStreamRef.current) {
@@ -176,7 +146,7 @@ export default function ChatInterface() {
     };
 
     if (isInCall && userVideoRef.current) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false }) // Audio handled by recorder
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false }) 
         .then(stream => {
           if (userVideoRef.current) userVideoRef.current.srcObject = stream;
           localStreamRef.current = stream;
@@ -194,23 +164,23 @@ export default function ChatInterface() {
     const id = await startSession(selectedScenario);
     if (id) {
       setIsInCall(true);
+      // Resume audio context just in case
+      audioQueueRef.current?.resume();
     } else {
       alert("Failed to start chat session. Check console/backend.");
     }
   };
 
-  const toggleListening = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-  
   const sendMessage = (textOverride?: string) => {
-      // Use textOverride if provided, otherwise use input state
       const textToSend = textOverride || input;
-      console.warn("Text sending not yet implemented in new pipeline. Would send:", textToSend);
+      if (!textToSend.trim()) return;
+      
+      // Update UI immediately for user message
+      setMessages(prev => [...prev, { role: "user", content: textToSend }]);
+      setInput("");
+      
+      // Send
+      sendStreamMessage(textToSend, null);
   };
 
   const toggleLanguage = () => {
@@ -232,11 +202,11 @@ export default function ChatInterface() {
   return (
     <FaceTimeView
       messages={messages}
-      isThinking={status === "processing"}
-      audioElement={null} // Not using HTMLAudioElement anymore
-      audioUrl={null}     // Not using blob URLs anymore
+      isThinking={isProcessing}
+      audioElement={null}
+      audioUrl={null}
       visemes={visemes}
-      isGeneratingAudio={status === "processing" || status === "speaking"}
+      isGeneratingAudio={status === "speaking"} // Adjust logic as needed
       isAiSpeaking={isAiSpeaking}
       userVideoRef={userVideoRef}
       isSpeechRecognitionListening={isRecording}
