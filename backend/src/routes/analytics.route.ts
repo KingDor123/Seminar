@@ -1,11 +1,16 @@
 import { Router } from 'express';
 import * as analyticsController from '../controllers/analytics.controller.js';
+import { authMiddleware, sessionOwnershipMiddleware } from '../middleware/auth.middleware.js'; // Import both middlewares
 
 const router = Router();
 
-router.post('/sessions/:sessionId/metrics', analyticsController.saveMetric);
-router.post('/sessions/:sessionId/report', analyticsController.saveReport);
-router.get('/sessions/:sessionId/metrics', analyticsController.getMetrics);
-router.get('/sessions/:sessionId/report', analyticsController.getReport);
+// Apply authMiddleware to all analytics routes
+router.use(authMiddleware);
+
+// These routes require authentication and session ownership check
+router.post('/sessions/:sessionId/metrics', sessionOwnershipMiddleware, analyticsController.saveMetric);
+router.post('/sessions/:sessionId/report', sessionOwnershipMiddleware, analyticsController.saveReport);
+router.get('/sessions/:sessionId/metrics', sessionOwnershipMiddleware, analyticsController.getMetrics);
+router.get('/sessions/:sessionId/report', sessionOwnershipMiddleware, analyticsController.getReport);
 
 export default router;

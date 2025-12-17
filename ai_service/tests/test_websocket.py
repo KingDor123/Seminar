@@ -15,17 +15,29 @@ async def test_websocket_conversation_flow():
     and verifying the sequence of responses (Transcripts, Status updates, Audio).
     """
     
-    # We need to patch the services that are instantiated in app.routers.conversation
-    # Since they are module-level variables in that file, we patch them there.
-    
-    with patch("app.routers.conversation.stt_service") as mock_stt, \
-         patch("app.routers.conversation.llm_service") as mock_llm, \
-         patch("app.routers.conversation.tts_service") as mock_tts:
+    # Patch the get_services function to return our mocks
+    with patch("app.routers.conversation.get_services") as mock_get_services:
+        
+        # 1. Setup Mock Services
+        mock_stt = MagicMock()
+        mock_llm = MagicMock()
+        mock_tts = MagicMock()
+        
+        # Configure get_services to return them
+        mock_get_services.return_value = (mock_stt, mock_llm, mock_tts)
 
-        # 1. Setup Mock Behaviors
+        # 2. Setup Mock Behaviors
         
         # STT: Returns "Hello AI" when called
-        mock_stt.transcribe.return_value = "Hello AI"
+        # Note: transcribe returns a dict now, not a string
+        mock_stt.transcribe.return_value = {
+            "clean_text": "Hello AI",
+            "raw_text": "Hello AI",
+            "word_count": 2,
+            "speech_rate_wpm": 120.0,
+            "pause_count": 0,
+            "filler_word_count": 0
+        }
         
         # LLM: Yields tokens "Hi", " there", "."
         # We need to mock the generator properly
@@ -36,20 +48,20 @@ async def test_websocket_conversation_flow():
         mock_llm.chat_stream.side_effect = llm_gen
         
         # TTS: Yields audio bytes
-        async def tts_gen(text):
+        async def tts_gen(text, voice=None):
             yield b"audio_chunk_1"
             yield b"audio_chunk_2"
         mock_tts.stream_audio.side_effect = tts_gen
 
-        # 2. Start TestClient
+        # 3. Start TestClient
         client = TestClient(app)
         
-        with client.websocket_connect("/ws/conversation") as websocket:
+        with client.websocket_connect("/ai/stream") as websocket:
             
-            # 3. Simulate sending Audio (dummy bytes)
+            # 4. Simulate sending Audio (dummy bytes)
             websocket.send_bytes(b"fake_wav_header_and_pcm")
             
-            # 4. Verify Response Sequence
+            # 5. Verify Response Sequence
             
             # Expect: Transcript (User)
             data = websocket.receive_json()

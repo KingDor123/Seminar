@@ -32,10 +32,6 @@ services:
   ai_service:
     build: ./ai_service
     container_name: ai_service
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
-      - 1.1.1.1
     env_file:
       - .env
     # depends_on: - ollama # No longer needed!
@@ -57,7 +53,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     # Run server in background, pull model, then wait for server
-    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5 && ollama pull llama3.2 && wait"]
+    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5; ollama pull llama3.2; wait"]
     networks:
       - web
 

@@ -25,4 +25,15 @@ export class UserRepo {
         const result = await this.db.execute(sql, params);
         return result[0];
     }
+    async updateUser(userId, updates) {
+        const fields = Object.keys(updates).filter(key => ['full_name', 'email', 'password_hash'].includes(key));
+        if (fields.length === 0)
+            return undefined;
+        const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ');
+        const sql = `UPDATE users SET ${setClause} WHERE id = $1 RETURNING *`;
+        const values = fields.map(key => updates[key]);
+        const params = [userId, ...values];
+        const result = await this.db.execute(sql, params);
+        return result[0];
+    }
 }

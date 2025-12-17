@@ -13,8 +13,40 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
+  const cleanup = useCallback(() => {
+    // 1. Disconnect and clean up Worklet
+    if (workletNodeRef.current) {
+        workletNodeRef.current.port.onmessage = null;
+        workletNodeRef.current.disconnect();
+        workletNodeRef.current = null;
+    }
+    
+    // 2. Disconnect Source
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+      sourceRef.current = null;
+    }
+
+    // 3. Close AudioContext
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(console.error);
+      audioContextRef.current = null;
+    }
+    
+    // 4. Stop Stream Tracks (only if we created them)
+    if (streamRef.current && !externalStream) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    streamRef.current = null;
+
+    setIsRecording(false);
+  }, [externalStream]);
+
   const startRecording = useCallback(async () => {
     try {
+      // Ensure clean state before starting
+      cleanup();
+
       let stream = externalStream;
 
       if (stream && stream.getAudioTracks().length === 0) {
@@ -24,12 +56,15 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
 
       if (!stream) {
           try {
-             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-             streamRef.current = stream;
+             stream = await navigator.mediaDevices.getUserMedia({ audio: {
+                 echoCancellation: true,
+                 noiseSuppression: true,
+                 autoGainControl: true
+             } });
           } catch (e: unknown) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               if ((e as any).name === 'NotFoundError' || (e as any).name === 'DevicesNotFoundError') {
-                  console.warn("No microphone found.");
+                  console.error("No microphone found.");
               }
               throw e;
           }
@@ -39,12 +74,24 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
           throw new Error("No media stream available for recording.");
       }
 
+      streamRef.current = stream;
+
+      // Handle stream inactivity (e.g. user revoked permission or unplugged mic)
+      stream.getAudioTracks()[0].onended = () => {
+          console.log("Microphone track ended externally.");
+          cleanup();
+      };
+
       // Create AudioContext
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioContextClass({ sampleRate: 16000 });
-      console.log("AudioContext created with sample rate:", ctx.sampleRate);
       audioContextRef.current = ctx;
+
+      // CRITICAL: Ensure context is running (fixes browser autoplay policy issues)
+      if (ctx.state === 'suspended') {
+          await ctx.resume();
+      }
 
       // Load the AudioWorklet Module
       try {
@@ -64,49 +111,26 @@ export const useAudioRecorder = ({ onAudioData, onError, externalStream }: UseAu
       // Handle data from the worklet
       workletNode.port.onmessage = (event) => {
         const float32Data = event.data; // This is a Float32Array
-        // We pass the underlying buffer (ArrayBuffer) to the callback
         onAudioData(float32Data.buffer);
       };
 
       source.connect(workletNode);
-      workletNode.connect(ctx.destination); // Connect to destination to keep the graph alive (often needed)
+      workletNode.connect(ctx.destination); // Connect to destination to keep the graph alive
 
       setIsRecording(true);
 
     } catch (err: unknown) {
       console.error("Error accessing microphone:", err);
       onError(err);
+      cleanup();
     }
-  }, [onAudioData, onError, externalStream]);
-
-  const stopRecording = useCallback(() => {
-    if (workletNodeRef.current) {
-        workletNodeRef.current.port.onmessage = null;
-        workletNodeRef.current.disconnect();
-    }
-    
-    if (sourceRef.current) {
-      sourceRef.current.disconnect();
-    }
-
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-
-    setIsRecording(false);
-  }, []);
+  }, [onAudioData, onError, externalStream, cleanup]);
 
   useEffect(() => {
     return () => {
-      stopRecording();
+      cleanup();
     };
-  }, [stopRecording]);
+  }, [cleanup]);
 
-  return { isRecording, startRecording, stopRecording };
+  return { isRecording, startRecording, stopRecording: cleanup };
 };

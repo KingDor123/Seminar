@@ -2,7 +2,11 @@ import * as chatService from '../services/chat.service.js';
 export const startSession = async (req, res) => {
     try {
         const { userId, scenarioId } = req.body;
-        const session = await chatService.startSession(userId, scenarioId);
+        if (!userId || isNaN(parseInt(userId))) {
+            res.status(400).json({ error: 'Valid User ID is required' });
+            return;
+        }
+        const session = await chatService.startSession(parseInt(userId), scenarioId);
         res.status(201).json(session);
     }
     catch (error) {
@@ -14,8 +18,13 @@ export const saveMessage = async (req, res) => {
     try {
         const { sessionId } = req.params;
         const { role, content } = req.body;
+        const sId = parseInt(sessionId);
+        if (isNaN(sId)) {
+            res.status(400).json({ error: 'Valid Session ID is required' });
+            return;
+        }
         // Ensure sessionId is parsed to a number if your DB expects it, or keep as string if UUID
-        const message = await chatService.saveMessage(parseInt(sessionId), role, content);
+        const message = await chatService.saveMessage(sId, role, content);
         res.status(201).json(message);
     }
     catch (error) {
@@ -26,7 +35,12 @@ export const saveMessage = async (req, res) => {
 export const getUserSessions = async (req, res) => {
     try {
         const { userId } = req.params;
-        const sessions = await chatService.getUserSessions(parseInt(userId));
+        const uId = parseInt(userId);
+        if (isNaN(uId)) {
+            res.status(400).json({ error: 'Valid User ID is required' });
+            return;
+        }
+        const sessions = await chatService.getUserSessions(uId);
         res.json(sessions);
     }
     catch (error) {
@@ -37,7 +51,12 @@ export const getUserSessions = async (req, res) => {
 export const getSessionHistory = async (req, res) => {
     try {
         const { sessionId } = req.params;
-        const messages = await chatService.getSessionHistory(parseInt(sessionId));
+        const sId = parseInt(sessionId);
+        if (isNaN(sId)) {
+            res.status(400).json({ error: 'Valid Session ID is required' });
+            return;
+        }
+        const messages = await chatService.getSessionHistory(sId);
         res.json(messages);
     }
     catch (error) {

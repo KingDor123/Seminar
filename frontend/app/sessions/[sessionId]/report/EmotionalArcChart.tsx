@@ -4,13 +4,10 @@ import { useId } from 'react';
 import {
   ComposedChart,
   Line,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
-  ResponsiveContainer,
   ReferenceLine,
   Brush
 } from 'recharts';
@@ -140,6 +137,7 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
                         {label}
                       </p>
                       <div className="space-y-2 mb-3">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         {payload.map((p: any) => (
                           <div key={p.name} className="flex justify-between items-center text-sm">
                             <span className="capitalize text-gray-500 dark:text-gray-400">{p.name === 'topic_adherence' ? 'Focus' : p.name}:</span>
@@ -150,7 +148,7 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
                         ))}
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 italic line-clamp-3">
-                        "{ctx}"
+                        &quot;{ctx}&quot;
                       </p>
                     </div>
                   );
