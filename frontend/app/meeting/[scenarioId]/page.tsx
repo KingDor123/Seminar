@@ -10,6 +10,9 @@ import { useAuth } from "../../../context/AuthContext";
 import { useStreamingConversation } from "../../../hooks/useStreamingConversation";
 import { AudioQueue } from "../../../utils/audioQueue";
 
+// Global set to track pending session creations across component remounts (Strict Mode fix)
+const pendingSessions = new Set<string>();
+
 export default function MeetingPage() {
   const { user, isLoading } = useAuth();
   const params = useParams();
@@ -51,14 +54,28 @@ export default function MeetingPage() {
 
     const initiateSession = async () => {
         console.log(`[MeetingPage initiateSession] Trying to initiate session. isMounted=${isMounted}, sessionStatus=${sessionStatus}`);
+        
+        // Check global pending set to prevent double-fire in Strict Mode
+        const sessionKey = `${user?.id}-${scenarioId}`;
+        if (pendingSessions.has(sessionKey)) {
+             console.log(`[MeetingPage] Session creation already pending for ${sessionKey}. Skipping.`);
+             return;
+        }
+
         if (!isMounted || sessionStatus !== 'idle') {
             console.log(`[MeetingPage initiateSession] Aborting: !isMounted (${!isMounted}) or sessionStatus (${sessionStatus}) is not 'idle'.`);
             return;
         }
         
         try {
+            pendingSessions.add(sessionKey);
             console.log(`[MeetingPage initiateSession] Calling startSession for scenario ${scenarioId}...`);
             const id = await startSession(scenarioId); // startSession is now idempotent
+            
+            // Clean up global set after a short delay to allow for eventual re-creation if needed, 
+            // but keep it long enough to cover the Strict Mode remount cycle.
+            setTimeout(() => pendingSessions.delete(sessionKey), 2000);
+
             if (!isMounted) { console.log("[MeetingPage initiateSession] Aborting after startSession: component unmounted."); return; }
             
             console.log(`[MeetingPage initiateSession] Session started: ${id} for scenario: ${scenarioId}. Now loading messages...`);
@@ -76,6 +93,7 @@ export default function MeetingPage() {
                 console.log(`[MeetingPage initiateSession] Messages loaded and set (${formattedMsgs.length} messages).`);
             }
         } catch (err) {
+            pendingSessions.delete(sessionKey); // Clean up on error
             if (!isMounted) { console.log("[MeetingPage initiateSession] Aborting on error: component unmounted."); return; }
             console.error("[MeetingPage initiateSession] Failed to start session or load messages:", err);
             router.push('/home'); // Redirect on error

@@ -34,7 +34,9 @@ services:
     container_name: ai_service
     env_file:
       - .env
-    # depends_on: - ollama # No longer needed!
+    environment:
+      - MODEL_NAME=llama3.1:8b
+    
     ports:
       - "8000:8000"
     volumes:
