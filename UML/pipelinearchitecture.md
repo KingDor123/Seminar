@@ -1,38 +1,38 @@
 ```mermaid
 flowchart TD
     %% Global Styles
-    classDef client fill:#f9f9f9,stroke:#333,stroke-width:2px,rx:10,ry:10;
-    classDef service fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,rx:5,ry:5;
-    classDef storage fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,rx:5,ry:5;
-    classDef external fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,rx:5,ry:5;
-    classDef process fill:#fff,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5;
+    classDef client stroke:#333,stroke-width:2px,rx:10,ry:10;
+    classDef service stroke:#0277bd,stroke-width:2px,rx:5,ry:5;
+    classDef storage stroke:#fbc02d,stroke-width:2px,rx:5,ry:5;
+    classDef external stroke:#2e7d32,stroke-width:2px,rx:5,ry:5;
+    classDef process stroke:#333,stroke-width:1px,stroke-dasharray: 5 5;
 
     %% Nodes
-    Client([👤 Frontend Client])
+    Client([ Frontend Client])
 
     subgraph AI_Service_Container [AI Service Architecture]
         direction TB
-        Router["📡 Router / Controller<br/>POST /ai/interact"]
+        Router[" Router / Controller<br/>POST /ai/interact"]
 
         subgraph Preprocessing_Layer [Layer 1: Normalization & Safety]
-            AudioNorm["🔊 Preprocessor.normalize_audio<br/>(FFmpeg)"]
-            TextClean["🧹 Preprocessor.process_text<br/>(Regex Filter)"]
+            AudioNorm[" Preprocessor.normalize_audio<br/>(FFmpeg)"]
+            TextClean[" Preprocessor.process_text<br/>(Regex Filter)"]
         end
 
         subgraph Perception_Layer [Layer 2: Perception]
-            STT["🗣️ STT Service<br/>(Faster-Whisper)"]
+            STT[" STT Service<br/>(Faster-Whisper)"]
         end
 
         subgraph Cognition_Layer [Layer 3: Cognition]
-            LLM["🧠 LLM Service<br/>(Ollama Llama 3.2)"]
-            TTS["🔈 TTS Service<br/>(gTTS)"]
+            LLM[" LLM Service<br/>(Ollama Llama 3.2)"]
+            TTS[" TTS Service<br/>(gTTS)"]
         end
     end
 
     subgraph Backend_Container [Backend Infrastructure]
-        DB[(🗄️ Database)]
-        HistoryAPI[📜 History API]
-        AnalyticsAPI[📊 Analytics API]
+        DB[( Database)]
+        HistoryAPI[ History API]
+        AnalyticsAPI[ Analytics API]
     end
 
     %% Data Flow Connections

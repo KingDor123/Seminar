@@ -5,7 +5,7 @@ import base64
 import httpx
 import time
 import os
-from fastapi import APIRouter, HTTPException, Form, File, UploadFile
+from fastapi import APIRouter, HTTPException, Form, File, UploadFile, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional, AsyncGenerator, Any
@@ -79,6 +79,7 @@ async def generate_tts(request: TTSRequest):
 
 @router.post("/interact")
 async def interact(
+    background_tasks: BackgroundTasks,
     session_id: int = Form(...),
     text: Optional[str] = Form(None),
     audio: Optional[UploadFile] = File(None),
@@ -105,7 +106,7 @@ async def interact(
                 try:
                     audio_bytes = await audio.read()
                     if len(audio_bytes) > 0:
-                        stt_result = await asyncio.to_thread(stt_service.transcribe, audio_bytes)
+                        stt_result = await stt_service.transcribe(audio_bytes)
                         user_text = stt_result.get("clean_text", "").strip()
                         
                         if not user_text:
@@ -147,8 +148,8 @@ async def interact(
             if len(history) > 1 and history[-1]["role"] == "assistant":
                 last_ai_message = history[-1]["content"]
 
-            # Save User Message to DB (Fire & Forget)
-            asyncio.create_task(_save_message(session_id, "user", user_text))
+            # Save User Message to DB (Background)
+            background_tasks.add_task(_save_message, session_id, "user", user_text)
             
             # Append current user message to history for LLM
             history.append({"role": "user", "content": user_text})
@@ -159,7 +160,7 @@ async def interact(
             full_ai_response = ""
             current_sentence = ""
 
-            for token in llm_service.chat_stream(history):
+            async for token in llm_service.chat_stream(history):
                 full_ai_response += token
                 current_sentence += token
                 
@@ -199,18 +200,16 @@ async def interact(
                     logger.error(f"TTS Stream Error: {e}")
 
             # 5. Save AI Response
-            asyncio.create_task(_save_message(session_id, "assistant", full_ai_response))
+            background_tasks.add_task(_save_message, session_id, "assistant", full_ai_response)
 
-            # 6. Save Fast Metrics (Async - Fire & Forget)
-            # Only saves WPM, Pauses, etc. No LLM analysis here.
+            # 6. Save Fast Metrics (Background)
             if last_ai_message:
-                asyncio.create_task(
-                    _save_fast_metrics(
-                        session_id, 
-                        stt_result if stt_result else {"clean_text": user_text}, 
-                        0.0, 
-                        last_ai_message
-                    )
+                background_tasks.add_task(
+                    _save_fast_metrics,
+                    session_id, 
+                    stt_result if stt_result else {"clean_text": user_text}, 
+                    0.0, 
+                    last_ai_message
                 )
 
             yield _sse_event("status", "done")
@@ -255,11 +254,10 @@ async def generate_report(session_id: int):
                 # Skip if empty
                 if not user_text.strip(): continue
 
-                # Run Deep Analysis (Synchronous here is fine, it's a background job for the user)
+                # Run Deep Analysis (Async)
                 behavior_context = {}
                 
-                analysis_results = await asyncio.to_thread(
-                    llm_service.analyze_behavior, 
+                analysis_results = await llm_service.analyze_behavior( 
                     user_text, 
                     context,
                     behavior_context

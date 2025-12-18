@@ -1,6 +1,6 @@
 import logging
-from typing import Generator, List, Dict, Any
-from openai import OpenAI
+from typing import AsyncGenerator, List, Dict, Any
+from openai import AsyncOpenAI
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -14,24 +14,24 @@ class LLMService:
     def __init__(self):
         self.host = settings.OLLAMA_HOST
         self.model_name = settings.OLLAMA_MODEL
-        # Initialize OpenAI client pointing to our local Ollama instance
-        self.client = OpenAI(base_url=self.host, api_key="ollama")
+        # Initialize AsyncOpenAI client pointing to our local Ollama instance
+        self.client = AsyncOpenAI(base_url=self.host, api_key="ollama")
 
-    def chat_stream(self, messages: List[Dict[str, str]]) -> Generator[str, None, None]:
+    async def chat_stream(self, messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
         """
-        Streams the LLM response token by token.
+        Streams the LLM response token by token asynchronously.
         """
         try:
             logger.info(f"🧠 Thinking with {self.model_name}...")
 
-            stream = self.client.chat.completions.create(
+            stream = await self.client.chat.completions.create(
                 model=self.model_name,
                 messages=messages,
                 stream=True,
                 stop=["<|start_header_id|>", "<|eot_id|>", "user:", "User:"]
             )
 
-            for chunk in stream:
+            async for chunk in stream:
                 content = chunk.choices[0].delta.content
                 if content:
                     yield content
@@ -40,7 +40,7 @@ class LLMService:
             logger.error(f"❌ LLM Error: {e}")
             yield " ... (My brain connection timed out)."
 
-    def analyze_behavior(
+    async def analyze_behavior(
         self, 
         user_text: str, 
         context: str, 
@@ -86,7 +86,7 @@ class LLMService:
         )
 
         try:
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
                 stream=False

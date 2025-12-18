@@ -1,9 +1,37 @@
 import logging
-import subprocess
+import asyncio
 import re
 from typing import Tuple, List
 
 logger = logging.getLogger(__name__)
+
+class PreprocessingError(Exception):
+    """Custom exception for preprocessing failures."""
+    pass
+
+# --- Module-Level Regex Constants ---
+FILLER_WORDS = [
+    "um", "uh", "erm", "ah", "umm", "uhh", 
+    "you know", "i mean", "sort of", "kind of"
+]
+
+# Compiled regex for generic fillers (consumes optional trailing comma/space)
+_FILLER_REGEX = re.compile(
+    r"\b(" + "|".join(FILLER_WORDS) + r")\b[\s,]*", 
+    re.IGNORECASE
+)
+
+# Smart Like Patterns
+_LIKE_COMMA_REGEX = re.compile(r",\s*like\s*,", re.IGNORECASE)
+_LIKE_AFTER_FILLER_REGEX = re.compile(r"\b(um|uh|erm|ah)\s+like\b", re.IGNORECASE)
+_LIKE_BEFORE_FILLER_REGEX = re.compile(r"\blike\s+(um|uh|erm|ah)\b", re.IGNORECASE)
+
+# Cleanup Patterns
+_WHITESPACE_REGEX = re.compile(r'\s+')
+_DOUBLE_COMMA_REGEX = re.compile(r',+')
+_LEADING_PUNCT_REGEX = re.compile(r'^[\s,.]+')
+_TRAILING_PUNCT_REGEX = re.compile(r'[\s,]+$')
+_GLUE_PUNCT_REGEX = re.compile(r'\s+([?.!,])')
 
 class Preprocessor:
     """
@@ -12,33 +40,11 @@ class Preprocessor:
     before reaching AI models (Whisper/LLM).
     """
 
-    # 1. Generic Filler Words (REMOVED 'like' to handle it contextually)
-    FILLER_WORDS = [
-        "um", "uh", "erm", "ah", "umm", "uhh", 
-        "you know", "i mean", "sort of", "kind of"
-    ]
-    
-    # Compiled regex for generic fillers
-    _FILLER_REGEX = re.compile(
-        r"\b(" + "|".join(FILLER_WORDS) + r")\b", 
-        re.IGNORECASE
-    )
-
-    # 2. Smart Like Patterns
-    # Case A: Surrounded by commas (e.g., "It was, like, huge")
-    _LIKE_COMMA_REGEX = re.compile(r",\s*like\s*,", re.IGNORECASE)
-    
-    # Case B: Preceded by specific fillers (e.g., "um like") - Keep the preceding filler
-    _LIKE_AFTER_FILLER_REGEX = re.compile(r"\b(um|uh|erm|ah)\s+like\b", re.IGNORECASE)
-    
-    # Case C: Followed by specific fillers (e.g., "like um") - Keep the following filler
-    _LIKE_BEFORE_FILLER_REGEX = re.compile(r"\blike\s+(um|uh|erm|ah)\b", re.IGNORECASE)
-
     @staticmethod
-    def normalize_audio(audio_bytes: bytes) -> bytes:
+    async def normalize_audio(audio_bytes: bytes) -> bytes:
         """
         Converts arbitrary input audio (WebM, MP4, AAC, etc.) to 
-        Standard 16kHz Mono WAV (PCM S16LE).
+        Standard 16kHz Mono WAV (PCM S16LE) asynchronously.
         """
         if not audio_bytes:
             return b""
@@ -55,81 +61,78 @@ class Preprocessor:
                 "pipe:1"
             ]
             
-            process = subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
             
-            out_bytes, err_bytes = process.communicate(input=audio_bytes)
+            out_bytes, err_bytes = await process.communicate(input=audio_bytes)
             
             if process.returncode != 0:
-                logger.warning(f"⚠️ Audio normalization warning (FFmpeg): {err_bytes.decode().strip()}")
-                return audio_bytes
+                err_msg = err_bytes.decode().strip()
+                logger.error(f"❌ FFmpeg Error: {err_msg}")
+                raise PreprocessingError(f"Audio normalization failed: {err_msg}")
                 
             return out_bytes
             
+        except PreprocessingError:
+            raise
         except Exception as e:
             logger.error(f"❌ Preprocessor Critical Error: {e}")
-            return audio_bytes
+            raise PreprocessingError(f"Unexpected error during audio normalization: {str(e)}")
 
     @classmethod
     def process_text(cls, raw_text: str) -> Tuple[str, str, int]:
         """
         Centralized text cleaning pipeline with Smart 'Like' detection 
         and punctuation cleanup.
-        
-        Returns:
-            (raw_normalized, clean_text, filler_count)
         """
         if not raw_text:
             return "", "", 0
 
         # 1. Basic Normalization (Whitespace)
-        text = re.sub(r'\s+', ' ', raw_text).strip()
+        text = _WHITESPACE_REGEX.sub(' ', raw_text).strip()
         raw_normalized = text
         filler_count = 0
 
         # 2. Smart Like Removal
-        # Handle ", like," -> replace with space (removes the clause)
-        matches = cls._LIKE_COMMA_REGEX.findall(text)
+        matches = _LIKE_COMMA_REGEX.findall(text)
         filler_count += len(matches)
-        text = cls._LIKE_COMMA_REGEX.sub(" ", text)
+        text = _LIKE_COMMA_REGEX.sub(" ", text)
 
-        # Handle "um like" -> replace with "um" (remove like)
-        matches = cls._LIKE_AFTER_FILLER_REGEX.findall(text)
+        matches = _LIKE_AFTER_FILLER_REGEX.findall(text)
         filler_count += len(matches)
-        text = cls._LIKE_AFTER_FILLER_REGEX.sub(r"\1", text) # Keep the filler (\1)
+        text = _LIKE_AFTER_FILLER_REGEX.sub(r"\1", text)
 
-        # Handle "like um" -> replace with "um" (remove like)
-        matches = cls._LIKE_BEFORE_FILLER_REGEX.findall(text)
+        matches = _LIKE_BEFORE_FILLER_REGEX.findall(text)
         filler_count += len(matches)
-        text = cls._LIKE_BEFORE_FILLER_REGEX.sub(r"\1", text) # Keep the filler (\1)
+        text = _LIKE_BEFORE_FILLER_REGEX.sub(r"\1", text)
 
         # 3. Generic Filler Removal
-        fillers = cls._FILLER_REGEX.findall(text)
+        fillers = _FILLER_REGEX.findall(text)
         filler_count += len(fillers)
-        text = cls._FILLER_REGEX.sub("", text)
+        text = _FILLER_REGEX.sub("", text)
 
         # 4. Punctuation & Artifact Cleanup
-        # Remove double spaces created by removals
-        text = re.sub(r'\s+', ' ', text).strip()
+        # Collapse spaces first
+        text = _WHITESPACE_REGEX.sub(' ', text)
         
-        # Replace double commas ",," with ","
-        text = re.sub(r',+', ',', text)
+        # Aggressive comma/period cleanup (handles ", ," or ", , ,")
+        text = re.sub(r'([,.])(?:\s*[,.])+', r'\1', text)
         
-        # Remove leading punctuation (comma/period/space at start)
-        # e.g. "Um, hello" -> ", hello" -> "hello"
-        text = re.sub(r'^[\s,.]+', '', text)
-        
-        # Remove trailing punctuation artifacts (orphan commas)
-        text = re.sub(r'[\s,]+$', '', text)
+        # Remove leading/trailing artifacts
+        text = _LEADING_PUNCT_REGEX.sub('', text)
+        text = _TRAILING_PUNCT_REGEX.sub('', text)
         
         # Fix glue punctuation "word ." -> "word."
-        text = re.sub(r'\s+([?.!,])', r'\1', text)
+        text = _GLUE_PUNCT_REGEX.sub(r'\1', text)
+        
+        # Final trim of any leftover edge characters
+        text = text.strip(' ,')
 
-        # 5. Capitalization Fix (Optional but good for quality)
+        # 5. Capitalization Fix
         if text and text[0].islower():
             text = text[0].upper() + text[1:]
 

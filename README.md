@@ -1,121 +1,103 @@
-# SoftSkill v2: AI-Driven Social Skills Training Platform
+# SoftSkill AI: Production-Grade Social Simulation Pipeline
 
-**SoftSkill v2** is an advanced, real-time simulation platform designed to help individuals with High-Functioning Autism Spectrum Disorder (HFASD) practice social interactions. It leverages a modern Full-Stack architecture, containerized AI services, and a responsive 3D avatar to create a safe, adaptive learning environment.
+![Python 3.11](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react&logoColor=black)
+![Docker](https://img.shields.io/badge/Docker-Orchestration-2496ED?logo=docker&logoColor=white)
+![LLaMA 3.2](https://img.shields.io/badge/LLM-LLaMA%203.2-blueviolet?logo=meta&logoColor=white)
+
+## Overview
+**SoftSkill AI** is an advanced AI-powered social skills training platform designed specifically for individuals with **High-Functioning Autism Spectrum Disorder (HFASD)**. By utilizing real-time AI agents, the platform provides a safe, repeatable environment for users to practice complex social interactions, professional interviews, and daily conversational nuances.
+
+The system focuses on reducing social anxiety through **Video Modeling + Immediate Feedback**, providing users with quantitative data on their performance during simulated interactions.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Engineering Architecture
 
-*   [Docker](https://www.docker.com/) and Docker Compose.
-*   Node.js and npm (for local development without Docker).
+The platform's core is built on a high-performance **AsyncIO Event-Driven Pipeline**. Unlike traditional synchronous pipelines, SoftSkill AI ensures zero-block concurrency, allowing for ultra-low latency during real-time speech-to-text (STT) and large language model (LLM) inference.
 
-### Installation & Running
+### Data Flow Pipeline
+The following diagram illustrates the lifecycle of a single user interaction, from raw audio ingestion to behavioral metric persistence.
 
-1.  **Environment Setup:**
-    Ensure you have a `.env` file in the root.
+```mermaid
+flowchart TD
+    Input[Raw Audio Stream] -->|FFmpeg Async| Norm[Signal Normalization 16kHz]
+    Norm -->|Thread Pool| Whisper[ASR Inference]
+    Whisper --> RawText[Raw Text]
+    
+    subgraph Logic [Context-Aware Logic]
+        RawText --> Filter{Smart Filter}
+        Filter -->|Remove Fillers| Clean[Clean Text for LLM]
+        Filter -->|Count Metrics| Stats[Behavioral Metrics]
+    end
+    
+    Clean -->|Async Stream| LLaMA[LLM Context]
+    Stats --> DB[(Analytics DB)]
+```
 
-2.  **Install Dependencies:**
+### Architectural Key Pillars:
+*   **Non-Blocking I/O:** Every stage of the pipeline—from FFmpeg subprocesses to Ollama API calls—utilizes Python's `asyncio` framework. This prevents "Event Loop Starvation" and ensures high throughput.
+*   **Hybrid Concurrency:** The system intelligently splits workloads:
+    *   **I/O Bound (Networking/Subprocesses):** Handled via `async/await` and `AsyncOpenAI`.
+    *   **CPU Bound (Inference):** Whisper inference is offloaded to managed thread pools using `asyncio.to_thread` to maintain UI responsiveness.
+
+---
+
+## Key Features
+
+### 1. Low-Latency Pipeline
+Integrated **FFmpeg Normalization** enforces a strict 16kHz Mono WAV standard before audio reaches the Perception Model. This reduces Whisper's internal resampling overhead and ensures deterministic transcription quality.
+
+### 2. Context-Aware Cleaning ("Smart Like")
+A proprietary preprocessing engine that distinguishes between:
+*   **Verbs:** "I **like** pizza" (Preserved for semantic integrity).
+*   **Fillers:** "It was, **like**, huge" (Extracted for metrics, stripped from LLM context).
+
+### 3. Real-Time Feedback (SSE)
+Utilizes **Server-Sent Events (SSE)** to stream AI responses token-by-token. This mimics natural human speech patterns and reduces perceived latency for the end-user.
+
+### 4. Psychological & Behavioral Metrics
+The system autonomously extracts clinical-grade metrics for social skill assessment:
+*   **Filler Word Frequency:** Tracking 'um', 'uh', and contextual 'like'.
+*   **Speech Rate (WPM):** Measuring conversational pacing.
+*   **Sentiment Analysis:** Evaluating the emotional valence of the user's response.
+*   **Response Latency:** Analyzing cognitive processing time.
+
+---
+
+## Tech Stack
+
+*   **Core Backend:** Python 3.11, FastAPI, Pydantic v2.
+*   **AI/ML Core:** Faster-Whisper (ASR), LLaMA 3.2 via Ollama (LLM), gTTS (TTS).
+*   **DSP:** FFmpeg (Subprocess Stream Processing).
+*   **Frontend:** Next.js 14, React, Tailwind CSS, MediaPipe (Planned).
+*   **Infrastructure:** Docker Compose, PostgreSQL 16.
+
+---
+
+## Installation & Usage
+
+### Prerequisites
+*   Docker & Docker Compose.
+*   NVIDIA GPU (Optional, for accelerated inference).
+
+### Quick Start
+1.  **Clone the Repository:**
     ```bash
-    cd frontend && npm install
-    cd ../backend && npm install
+    git clone https://github.com/YourRepo/SoftSkill-v2.git
+    cd SoftSkill-v2
     ```
 
-3.  **Build and Run:**
+2.  **Environment Setup:**
+    Create a `.env` file in the root directory (refer to `.env.example`).
+
+3.  **Launch the Pipeline:**
     ```bash
     docker-compose up --build
     ```
 
-3.  **Access:**
-    *   **Frontend:** [http://localhost:3000](http://localhost:3000)
-    *   **Backend API:** [http://localhost:5001](http://localhost:5001)
-
----
-
-## 🧠 AI Architecture
-
-SoftSkill v2 uses a containerized microservices approach for its AI capabilities.
-
-*   **LLM (Brain):** **Llama 3.2 (3B)** running via **Ollama**.
-    *   Hosted in a dedicated Docker container.
-    *   Provides low-latency, conversational intelligence.
-*   **STT (Ears):** **Faster-Whisper** (running locally in `ai_service`).
-    *   Converts user speech to text with high accuracy.
-*   **TTS (Voice):** **gTTS (Google Text-to-Speech)**.
-    *   Synthesizes natural-sounding speech for the avatar.
-    *   *Note: Switched from Edge-TTS to gTTS for robust container connectivity.*
-
----
-
-## 🏗 System Architecture
-
-The project follows a modular **Microservices** pattern orchestrated via Docker Compose.
-
-### 1. Frontend (`/frontend`)
-*   **Tech:** Next.js 16 (React), TypeScript, Tailwind CSS.
-*   **Features:**
-    *   **Authentication:** Secure Login/Register with JWT & HTTP-Only Cookies.
-    *   **Dashboard:** Personalized user home with session history.
-    *   **Real-Time Audio:** WebSocket-based full-duplex audio streaming.
-    *   **3D Avatar:** Interactive avatar (React Three Fiber) that lipsyncs to AI speech.
-
-### 2. Backend API (`/backend`)
-*   **Tech:** Node.js, Express, TypeScript.
-*   **Database:** PostgreSQL 16.
-*   **Role:**
-    *   User Management (Auth, Profiles).
-    *   Session Tracking (History, Analytics).
-    *   Secure API endpoints.
-
-### 3. AI Service (`/ai_service`)
-*   **Tech:** Python (FastAPI).
-*   **Role:** The Central Intelligence Hub.
-*   **Pipeline:**
-    1.  **WebSocket** receives raw audio chunks.
-    2.  **VAD (Voice Activity Detection)** filters silence.
-    3.  **STT** transcribes speech.
-    4.  **LLM** (Ollama) generates a context-aware response.
-    5.  **TTS** converts text to audio.
-    6.  **Response** sent back to Frontend (Text + Audio) in real-time.
-
-### 4. Infrastructure
-*   **Docker Compose:** Manages all services (`frontend`, `backend`, `ai_service`, `db`, `ollama`) and their networking.
-*   **Hot-Reloading:** All services (Frontend, Backend, AI) are configured with volume mounts for active local development.
-
----
-
-## 🛠 Development
-
-### Active Development
-The project is configured for **Hot-Reloading**.
-*   **Frontend:** Edit files in `/frontend` -> Next.js updates instantly.
-*   **Backend:** Edit files in `/backend` -> Server restarts automatically.
-*   **AI Service:** Edit files in `/ai_service` -> FastAPI reloads.
-
-### Database
-*   **ORM:** None (Raw SQL via `pg` driver for performance/control).
-*   **Migrations:** `backend/db/init.sql` initializes the schema on first run.
-
----
-
-## 🧪 Testing
-*   **Frontend:** Jest + React Testing Library.
-    ```bash
-    cd frontend
-    npm test
-    ```
-*   **Backend:** Jest.
-    ```bash
-    cd backend
-    npm test
-    ```
-*   **AI Service:** Pytest.
-    ```bash
-    docker-compose exec ai_service pytest
-    ```
-
----
-
-## 👥 Credits
-**Students:** Dor Israeli, Or Yona
-**Advisor:** Dr. Hadas Hasidim
-**College:** SCE - Sami Shamoon College of Engineering
+The services will be available at:
+*   **Frontend:** `http://localhost:3000`
+*   **AI Service:** `http://localhost:8000`
+*   **Backend API:** `http://localhost:5001`
