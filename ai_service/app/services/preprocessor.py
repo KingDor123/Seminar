@@ -12,49 +12,49 @@ class Preprocessor:
     before reaching AI models (Whisper/LLM).
     """
 
-    # Expanded list of filler words for robust filtering
+    # 1. Generic Filler Words (REMOVED 'like' to handle it contextually)
     FILLER_WORDS = [
         "um", "uh", "erm", "ah", "umm", "uhh", 
-        "like", "you know", "i mean", "sort of", "kind of"
+        "you know", "i mean", "sort of", "kind of"
     ]
     
-    # Compiled regex for performance
+    # Compiled regex for generic fillers
     _FILLER_REGEX = re.compile(
         r"\b(" + "|".join(FILLER_WORDS) + r")\b", 
         re.IGNORECASE
     )
+
+    # 2. Smart Like Patterns
+    # Case A: Surrounded by commas (e.g., "It was, like, huge")
+    _LIKE_COMMA_REGEX = re.compile(r",\s*like\s*,", re.IGNORECASE)
+    
+    # Case B: Preceded by specific fillers (e.g., "um like") - Keep the preceding filler
+    _LIKE_AFTER_FILLER_REGEX = re.compile(r"\b(um|uh|erm|ah)\s+like\b", re.IGNORECASE)
+    
+    # Case C: Followed by specific fillers (e.g., "like um") - Keep the following filler
+    _LIKE_BEFORE_FILLER_REGEX = re.compile(r"\blike\s+(um|uh|erm|ah)\b", re.IGNORECASE)
 
     @staticmethod
     def normalize_audio(audio_bytes: bytes) -> bytes:
         """
         Converts arbitrary input audio (WebM, MP4, AAC, etc.) to 
         Standard 16kHz Mono WAV (PCM S16LE).
-        
-        Why?
-        1. Whisper expects 16kHz mono. Providing it directly skips internal resampling.
-        2. WebM/Ogg containers from browsers can have variable frame rates.
-        3. Standardizes loudness/gain implicitly via clean decoding (further normalization can be added).
-        
-        Returns:
-            bytes: The normalized WAV file content.
         """
         if not audio_bytes:
             return b""
 
         try:
-            # ffmpeg command: Pipe Input -> Convert -> Pipe Output
             command = [
                 "ffmpeg",
-                "-hide_banner", "-loglevel", "error", # Quiet mode
-                "-i", "pipe:0",           # Input from stdin
-                "-vn",                    # Discard video
-                "-ac", "1",               # Audio Channels: 1 (Mono)
-                "-ar", "16000",           # Sample Rate: 16000Hz (Whisper Native)
-                "-f", "wav",              # Output Container: WAV
-                "pipe:1"                  # Output to stdout
+                "-hide_banner", "-loglevel", "error",
+                "-i", "pipe:0",
+                "-vn",
+                "-ac", "1",
+                "-ar", "16000",
+                "-f", "wav",
+                "pipe:1"
             ]
             
-            # Execute FFmpeg as a subprocess
             process = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
@@ -66,7 +66,6 @@ class Preprocessor:
             
             if process.returncode != 0:
                 logger.warning(f"⚠️ Audio normalization warning (FFmpeg): {err_bytes.decode().strip()}")
-                # If conversion fails, fallback to original bytes (Whisper might still handle it)
                 return audio_bytes
                 
             return out_bytes
@@ -78,7 +77,8 @@ class Preprocessor:
     @classmethod
     def process_text(cls, raw_text: str) -> Tuple[str, str, int]:
         """
-        Centralized text cleaning pipeline.
+        Centralized text cleaning pipeline with Smart 'Like' detection 
+        and punctuation cleanup.
         
         Returns:
             (raw_normalized, clean_text, filler_count)
@@ -87,19 +87,50 @@ class Preprocessor:
             return "", "", 0
 
         # 1. Basic Normalization (Whitespace)
-        raw_normalized = re.sub(r'\s+', ' ', raw_text).strip()
-        
-        # 2. Filler Detection
-        fillers = cls._FILLER_REGEX.findall(raw_normalized)
-        filler_count = len(fillers)
-        
-        # 3. Filler Removal
-        clean_text = cls._FILLER_REGEX.sub("", raw_normalized)
-        
-        # 4. Clean up artifacts from removal (double spaces)
-        clean_text = re.sub(r'\s+', ' ', clean_text).strip()
-        
-        # 5. Punctuation Normalization (fix "word ." -> "word.")
-        clean_text = re.sub(r'\s+([?.!,])', r'\1', clean_text)
+        text = re.sub(r'\s+', ' ', raw_text).strip()
+        raw_normalized = text
+        filler_count = 0
 
-        return raw_normalized, clean_text, filler_count
+        # 2. Smart Like Removal
+        # Handle ", like," -> replace with space (removes the clause)
+        matches = cls._LIKE_COMMA_REGEX.findall(text)
+        filler_count += len(matches)
+        text = cls._LIKE_COMMA_REGEX.sub(" ", text)
+
+        # Handle "um like" -> replace with "um" (remove like)
+        matches = cls._LIKE_AFTER_FILLER_REGEX.findall(text)
+        filler_count += len(matches)
+        text = cls._LIKE_AFTER_FILLER_REGEX.sub(r"\1", text) # Keep the filler (\1)
+
+        # Handle "like um" -> replace with "um" (remove like)
+        matches = cls._LIKE_BEFORE_FILLER_REGEX.findall(text)
+        filler_count += len(matches)
+        text = cls._LIKE_BEFORE_FILLER_REGEX.sub(r"\1", text) # Keep the filler (\1)
+
+        # 3. Generic Filler Removal
+        fillers = cls._FILLER_REGEX.findall(text)
+        filler_count += len(fillers)
+        text = cls._FILLER_REGEX.sub("", text)
+
+        # 4. Punctuation & Artifact Cleanup
+        # Remove double spaces created by removals
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Replace double commas ",," with ","
+        text = re.sub(r',+', ',', text)
+        
+        # Remove leading punctuation (comma/period/space at start)
+        # e.g. "Um, hello" -> ", hello" -> "hello"
+        text = re.sub(r'^[\s,.]+', '', text)
+        
+        # Remove trailing punctuation artifacts (orphan commas)
+        text = re.sub(r'[\s,]+$', '', text)
+        
+        # Fix glue punctuation "word ." -> "word."
+        text = re.sub(r'\s+([?.!,])', r'\1', text)
+
+        # 5. Capitalization Fix (Optional but good for quality)
+        if text and text[0].islower():
+            text = text[0].upper() + text[1:]
+
+        return raw_normalized, text, filler_count
