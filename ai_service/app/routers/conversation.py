@@ -154,13 +154,20 @@ async def interact(
             # Append current user message to history for LLM
             history.append({"role": "user", "content": user_text})
 
+            # 3. Prepare Metadata for Behavioral Injection
+            metadata = {
+                "wpm": stt_result.get("speech_rate_wpm", 0.0),
+                "filler_count": stt_result.get("filler_word_count", 0),
+                "latency": 0.0 # Placeholder: requires timestamp tracking
+            }
+
             # 4. Generate AI Response (Streaming)
             yield _sse_event("status", "thinking")
             
             full_ai_response = ""
             current_sentence = ""
 
-            async for token in llm_service.chat_stream(history):
+            async for token in llm_service.chat_stream(history, metadata):
                 full_ai_response += token
                 current_sentence += token
                 

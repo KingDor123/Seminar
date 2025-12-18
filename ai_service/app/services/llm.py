@@ -17,12 +17,39 @@ class LLMService:
         # Initialize AsyncOpenAI client pointing to our local Ollama instance
         self.client = AsyncOpenAI(base_url=self.host, api_key="ollama")
 
-    async def chat_stream(self, messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
+    async def chat_stream(self, messages: List[Dict[str, str]], metadata: Dict[str, Any] = None) -> AsyncGenerator[str, None]:
         """
         Streams the LLM response token by token asynchronously.
+        Injects behavioral context if the user is struggling.
         """
         try:
             logger.info(f"🧠 Thinking with {self.model_name}...")
+            
+            # --- Behavioral Injection Logic ---
+            if metadata and messages and messages[-1]["role"] == "user":
+                wpm = metadata.get("wpm", 0.0)
+                latency = metadata.get("latency", 0.0)
+                fillers = metadata.get("filler_count", 0)
+                
+                # Thresholds
+                notes = []
+                if wpm > 160:
+                    notes.append(f"speaking very fast ({int(wpm)} WPM)")
+                elif wpm < 100 and wpm > 0:
+                    notes.append(f"speaking slowly ({int(wpm)} WPM)")
+                
+                if latency > 5.0: # Seconds
+                    notes.append(f"took a long time to respond ({int(latency)}s)")
+                
+                if fillers > 2:
+                    notes.append(f"is using many filler words ({fillers})")
+
+                if notes:
+                    observation = f"[SYSTEM OBSERVER: User is {', '.join(notes)}. Acknowledge this gently/implicitly.]"
+                    # Prepend to the last user message
+                    last_content = messages[-1]["content"]
+                    messages[-1]["content"] = f"{observation}\nUser: {last_content}"
+                    logger.info(f"💉 Injected Context: {observation}")
 
             stream = await self.client.chat.completions.create(
                 model=self.model_name,

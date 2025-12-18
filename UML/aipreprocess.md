@@ -5,7 +5,7 @@
     classDef data fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000;
     classDef config fill:#fff9c4,stroke:#fbc02d,stroke-width:1px,stroke-dasharray: 5 5,color:#000;
 
-    %% --- Phase 1: Signal Normalization ---
+    %% --- Phase 1: Signal Normalization ----
     subgraph Phase1 ["Phase 1: Signal Normalization"]
         direction TB
         Input_Data[/"Input: raw_audio_bytes"/]:::data
