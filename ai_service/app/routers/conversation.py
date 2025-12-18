@@ -13,6 +13,7 @@ from typing import List, Dict, Optional, AsyncGenerator, Any
 from app.services.stt import STTService
 from app.services.llm import LLMService
 from app.services.tts import TTSService
+from app.services.preprocessor import Preprocessor
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ async def interact(
             stt_service, llm_service, tts_service = get_services()
             
             # 1. Process Input (STT if Audio)
-            user_text = text or ""
+            user_text = ""
             stt_result = {}
             
             if audio:
@@ -115,6 +116,17 @@ async def interact(
                     logger.error(f"STT Error: {e}")
                     yield _sse_event("error", f"STT Failed: {str(e)}")
                     return
+
+            # If no audio (or audio failed/empty but didn't return), check text
+            if not user_text and text:
+                raw_input = text
+                _, user_text, filler_count = Preprocessor.process_text(raw_input)
+                # Mock stt_result for consistent metrics downstream
+                stt_result = {
+                    "clean_text": user_text,
+                    "raw_text": raw_input,
+                    "filler_word_count": filler_count
+                }
 
             if not user_text:
                 yield _sse_event("error", "No input provided (text or audio).")

@@ -1,10 +1,10 @@
 import logging
 import io
-import re
 from typing import Dict, Any, List
 from faster_whisper import WhisperModel
 import numpy as np
 from app.core.config import settings
+from app.services.preprocessor import Preprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +62,9 @@ class STTService:
             - filler_word_count: Count of 'um', 'uh', etc.
         """
         try:
+            # 0. Normalize Audio (Ensure 16kHz WAV)
+            audio_bytes = Preprocessor.normalize_audio(audio_bytes)
+
             # Wrap bytes in BytesIO to let faster-whisper handle decoding (via ffmpeg)
             audio_file = io.BytesIO(audio_bytes)
             
@@ -87,17 +90,10 @@ class STTService:
             # 1. Raw Text
             raw_text = " ".join([s.text.strip() for s in segments_list]).strip()
             
-            # 2. Filler Word Detection
-            # Common fillers: um, uh, erm, ah, like, you know (simplified list)
-            filler_pattern = r"\b(um|uh|erm|ah|umm|uhh)\b"
-            fillers = re.findall(filler_pattern, raw_text, re.IGNORECASE)
-            filler_word_count = len(fillers)
-            
-            # 3. Clean Text
-            clean_text = re.sub(filler_pattern, "", raw_text, flags=re.IGNORECASE).strip()
-            clean_text = re.sub(r"\s+", " ", clean_text) # Normalize spaces
+            # 2. Process Text (Cleaning & Filler Detection via Preprocessor)
+            _, clean_text, filler_word_count = Preprocessor.process_text(raw_text)
 
-            # 4. Timing & Pauses
+            # 3. Timing & Pauses
             total_speech_duration_sec = 0.0
             pauses = []
             
