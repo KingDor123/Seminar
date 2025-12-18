@@ -53,7 +53,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     # Run server in background, pull model, then wait for server
-    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5; ollama pull llama3.2; wait"]
+    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5; ollama pull llama3.1:8b; wait"]
     networks:
       - web
 
