@@ -8,5 +8,9 @@ export const analyticsApi = {
     getReportForSession: async (sessionId: number) => {
         const response = await axios.get(`/analytics/sessions/${sessionId}/report`);
         return response.data;
+    },
+    generateSessionReport: async (sessionId: number) => {
+        const response = await axios.post(`/report/generate/${sessionId}`);
+        return response.data;
     }
 };

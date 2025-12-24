@@ -62,22 +62,28 @@ export const useUserCamera = (isInCall: boolean) => {
             } else {
               console.error("Camera/Mic Access Error:", err);
             }
-
-            // Attempt Fallback: Video Only
-            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            
+            // Fallback 1: Try Audio Only (User might have no camera)
+            navigator.mediaDevices.getUserMedia({ video: false, audio: true })
                 .then(stream => {
-                    if (!isActive) {
-                        stream.getTracks().forEach(track => track.stop());
-                        return;
-                    }
-                    if (userVideoRef.current) userVideoRef.current.srcObject = stream;
+                    console.log("Fallback to Audio-only stream");
                     localStreamRef.current = stream;
                     setMediaStream(stream);
                     setError(null); 
                 })
                 .catch(() => {
-                    if (isActive) setError(errorMsg);
-                }); 
+                     // Fallback 2: Try Video Only (User might have no mic)
+                     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                        .then(stream => {
+                            if (userVideoRef.current) userVideoRef.current.srcObject = stream;
+                            localStreamRef.current = stream;
+                            setMediaStream(stream);
+                        })
+                        .catch(() => {
+                            console.warn("No media devices available.");
+                            setError(errorMsg);
+                        });
+                });
         });
     } else {
       stopLocalStream();

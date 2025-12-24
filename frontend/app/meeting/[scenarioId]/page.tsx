@@ -6,9 +6,12 @@ import FaceTimeView from '../../../components/FaceTimeView';
 import { ChatMessage } from '../../../types/chat';
 import { useUserCamera } from '../../../hooks/useUserCamera';
 import { useChatSession } from '../../../hooks/useChatSession';
-import { useAudioRecorder } from "../../../hooks/useAudioRecorder";
-import { useRealTimeConversation } from "../../../hooks/useRealTimeConversation";
 import { useAuth } from "../../../context/AuthContext";
+import { useStreamingConversation } from "../../../hooks/useStreamingConversation";
+import { AudioQueue } from "../../../utils/audioQueue";
+
+// Global set to track pending session creations across component remounts (Strict Mode fix)
+const pendingSessions = new Set<string>();
 
 export default function MeetingPage() {
   const { user, isLoading } = useAuth();
@@ -17,13 +20,13 @@ export default function MeetingPage() {
   const scenarioId = params.scenarioId as string;
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const messagesRef = useRef<ChatMessage[]>([]);
-  
+  const messagesRef = useRef<ChatMessage[]>([]); // Ref for latest messages if needed
+
   useEffect(() => {
     messagesRef.current = messages;
     console.log("[MeetingPage] Messages updated:", messages.length);
   }, [messages]);
-
+  
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -37,10 +40,12 @@ export default function MeetingPage() {
   // Only enable camera if user is authenticated
   const { userVideoRef, mediaStream, error: cameraError } = useUserCamera(!!user);
 
-  // Audio Context & Queue
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioQueue = useRef<ArrayBuffer[]>([]);
-  const isPlayingRef = useRef(false);
+  // Audio Queue
+  const audioQueueRef = useRef<AudioQueue | null>(null);
+
+  useEffect(() => {
+    audioQueueRef.current = new AudioQueue();
+  }, []);
 
   // --- Session Start Logic ---
   useEffect(() => {
@@ -49,14 +54,28 @@ export default function MeetingPage() {
 
     const initiateSession = async () => {
         console.log(`[MeetingPage initiateSession] Trying to initiate session. isMounted=${isMounted}, sessionStatus=${sessionStatus}`);
+        
+        // Check global pending set to prevent double-fire in Strict Mode
+        const sessionKey = `${user?.id}-${scenarioId}`;
+        if (pendingSessions.has(sessionKey)) {
+             console.log(`[MeetingPage] Session creation already pending for ${sessionKey}. Skipping.`);
+             return;
+        }
+
         if (!isMounted || sessionStatus !== 'idle') {
             console.log(`[MeetingPage initiateSession] Aborting: !isMounted (${!isMounted}) or sessionStatus (${sessionStatus}) is not 'idle'.`);
             return;
         }
         
         try {
+            pendingSessions.add(sessionKey);
             console.log(`[MeetingPage initiateSession] Calling startSession for scenario ${scenarioId}...`);
             const id = await startSession(scenarioId); // startSession is now idempotent
+            
+            // Clean up global set after a short delay to allow for eventual re-creation if needed, 
+            // but keep it long enough to cover the Strict Mode remount cycle.
+            setTimeout(() => pendingSessions.delete(sessionKey), 2000);
+
             if (!isMounted) { console.log("[MeetingPage initiateSession] Aborting after startSession: component unmounted."); return; }
             
             console.log(`[MeetingPage initiateSession] Session started: ${id} for scenario: ${scenarioId}. Now loading messages...`);
@@ -74,6 +93,7 @@ export default function MeetingPage() {
                 console.log(`[MeetingPage initiateSession] Messages loaded and set (${formattedMsgs.length} messages).`);
             }
         } catch (err) {
+            pendingSessions.delete(sessionKey); // Clean up on error
             if (!isMounted) { console.log("[MeetingPage initiateSession] Aborting on error: component unmounted."); return; }
             console.error("[MeetingPage initiateSession] Failed to start session or load messages:", err);
             router.push('/home'); // Redirect on error
@@ -95,204 +115,198 @@ export default function MeetingPage() {
     };
   }, [scenarioId, startSession, loadMessages, user, sessionStatus, router, setMessages]);
 
-  // --- Audio Playback Logic ---
-  const processQueueRef = useRef<() => Promise<void>>(null);
 
-  const playNextChunk = useCallback(async () => {
-    if (audioQueue.current.length === 0) {
-      isPlayingRef.current = false;
-      setIsAiSpeaking(false);
-      return;
-    }
-
-    isPlayingRef.current = true;
-    setIsAiSpeaking(true);
-
-    if (!audioContextRef.current) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-
-    const ctx = audioContextRef.current;
-
-    // Ensure context is running (Fix for Autoplay Policy)
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume();
-        console.log("Resumed AudioContext for playback");
-      } catch (e) {
-        console.error("Failed to resume AudioContext during playback:", e);
-      }
-    }
-
-    const chunk = audioQueue.current.shift();
-    
-    if (!chunk) return;
-
-    try {
-      const audioBuffer = await ctx.decodeAudioData(chunk);
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(ctx.destination);
-      
-      source.onended = () => {
-        if (processQueueRef.current) processQueueRef.current();
-      };
-      
-      source.start(0);
-    } catch (err) {
-      console.error("Error decoding audio chunk:", err);
-      if (processQueueRef.current) processQueueRef.current();
-    }
-  }, []);
-
-  useEffect(() => {
-      processQueueRef.current = playNextChunk;
-  }, [playNextChunk]);
-
-  const handleAudioData = useCallback((data: ArrayBuffer) => {
-    const bufferCopy = data.slice(0); 
-    audioQueue.current.push(bufferCopy);
-    
-    if (!isPlayingRef.current) {
-      playNextChunk();
-    }
-  }, [playNextChunk]);
-
-  // --- Real-Time Conversation Hook ---
-  const handleTranscript = useCallback((msg: { role: "user" | "assistant", text: string, partial?: boolean }) => {
+  // --- Streaming Conversation Hook ---
+  const handleNewMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
-      const lastMsg = prev[prev.length - 1];
-      const isAi = msg.role === "assistant";
-
-      // If it's a partial update (token streaming)
-      if (msg.partial) {
-        // If the last message belongs to the AI, append the token
-        if (lastMsg && lastMsg.role === "ai" && isAi) {
-             return [
-                ...prev.slice(0, -1),
-                { ...lastMsg, content: lastMsg.content + msg.text } 
-             ];
-        } 
-        // If it's the start of a new AI response (or previous was user)
-        else if (isAi) {
-             return [...prev, { role: "ai", content: msg.text }];
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.role === msg.role && msg.role === 'ai') {
+             return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + " " + msg.content }];
         }
-      } 
-      
-      // If it's a complete message (e.g. from user STT final result)
-      // or a "final" correction from AI (though we mostly use tokens now)
-      // For user messages, strictly add them.
-      if (!isAi) {
-          return [...prev, { role: "user", content: msg.text }];
-      }
-
-      return prev;
+        return [...prev, msg];
     });
   }, []);
 
-  const handleStatusChange = useCallback((newStatus: "idle" | "listening" | "processing" | "speaking") => {
-    setStatus(newStatus);
+  const handleAudioData = useCallback((base64: string) => {
+    setIsAiSpeaking(true);
+    // Queue the audio chunk. AudioQueue handles playing and "speaking" state internally if we hook it up right,
+    // but here we just push data.
+    audioQueueRef.current?.addChunk(base64);
   }, []);
 
-  // --- Sound Effects ---
-  const playListeningCue = useCallback(() => {
-     if (!audioContextRef.current) {
-         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-     }
-     const ctx = audioContextRef.current;
-     if (ctx.state === 'suspended') ctx.resume();
-
-     const oscillator = ctx.createOscillator();
-     const gainNode = ctx.createGain();
-
-     oscillator.connect(gainNode);
-     gainNode.connect(ctx.destination);
-
-     // Gentle "ping" sound (Sine wave, high pitch, quick decay)
-     oscillator.type = "sine";
-     oscillator.frequency.setValueAtTime(880, ctx.currentTime); // A5
-     gainNode.gain.setValueAtTime(0.05, ctx.currentTime); // Low volume
-     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-
-     oscillator.start();
-     oscillator.stop(ctx.currentTime + 0.3);
+  const handleError = useCallback((err: string) => {
+    console.error("Streaming Error:", err);
+    setStatus("idle");
   }, []);
 
-  useEffect(() => {
-      if (status === "listening") {
-          playListeningCue();
-      }
-  }, [status, playListeningCue]);
-
-  const { isConnected, sendAudioChunk, notifyAiFinishedSpeaking } = useRealTimeConversation({
+  const { sendMessage: sendStreamMessage, isProcessing } = useStreamingConversation({
+    sessionId,
     selectedScenario: scenarioId,
-    sessionId: sessionId,
-    onTranscript: handleTranscript,
+    onNewMessage: handleNewMessage,
+    onThinkingStateChange: (thinking) => setStatus(thinking ? "processing" : "idle"),
     onAudioData: handleAudioData,
-    onStatusChange: handleStatusChange
+    onError: handleError
   });
 
-  // --- Notify Backend when AI stops speaking ---
-  const wasAiSpeakingRef = useRef(false);
-  useEffect(() => {
-      if (wasAiSpeakingRef.current && !isAiSpeaking) {
-          notifyAiFinishedSpeaking();
-      }
-      wasAiSpeakingRef.current = isAiSpeaking;
-  }, [isAiSpeaking, notifyAiFinishedSpeaking]);
 
-  // --- Echo Cancellation Logic ---
-  // Prevent sending audio while AI is speaking to avoid feedback loops (Self-Answering)
-  const handleSendAudioChunk = useCallback((data: ArrayBuffer) => {
-    if (isAiSpeaking || isPlayingRef.current) {
-        return; 
-    }
-    sendAudioChunk(data);
-  }, [isAiSpeaking, sendAudioChunk]);
-
-  // --- Audio Recorder ---
-  // Now uses the shared mediaStream from useUserCamera to avoid race conditions
-  const { isRecording, startRecording, stopRecording } = useAudioRecorder({
-    onAudioData: handleSendAudioChunk,
-    onError: (err) => console.error("Recorder error:", err),
-    externalStream: mediaStream
+  // --- Recording & VAD State ---
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  
+  // VAD Refs to avoid re-renders
+  const vadContextRef = useRef<{
+      audioCtx: AudioContext | null;
+      source: MediaStreamAudioSourceNode | null;
+      analyser: AnalyserNode | null;
+      animationFrameId: number | null;
+      silenceStart: number | null;
+      hasSpoken: boolean;
+  }>({
+      audioCtx: null,
+      source: null,
+      analyser: null,
+      animationFrameId: null,
+      silenceStart: null,
+      hasSpoken: false
   });
 
-  // --- Auto-Stop Recording on Disconnect ---
-  useEffect(() => {
-    if (!isConnected && isRecording) {
-      console.warn("Connection lost. Stopping recording.");
-      stopRecording();
-    }
-  }, [isConnected, isRecording, stopRecording]);
-
-  // --- Cleanup Audio Context ---
-  useEffect(() => {
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
+  const stopVAD = useCallback(() => {
+      const vad = vadContextRef.current;
+      if (vad.animationFrameId) cancelAnimationFrame(vad.animationFrameId);
+      if (vad.source) {
+          vad.source.disconnect();
+          vad.source = null;
       }
-    };
+      if (vad.analyser) {
+          vad.analyser.disconnect();
+          vad.analyser = null;
+      }
+      if (vad.audioCtx && vad.audioCtx.state !== 'closed') {
+          vad.audioCtx.close().catch(e => console.error("VAD Close error:", e));
+          vad.audioCtx = null;
+      }
+      vad.animationFrameId = null;
+      vad.hasSpoken = false;
+      vad.silenceStart = null;
   }, []);
+
+  const stopRecording = useCallback(() => {
+    // Stop VAD first
+    stopVAD();
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  }, [stopVAD]);
+
+  const startVAD = useCallback((stream: MediaStream) => {
+      try {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 512;
+          analyser.smoothingTimeConstant = 0.1; // Respond quickly
+          source.connect(analyser);
+
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+
+          // Update Ref
+          vadContextRef.current = {
+              audioCtx,
+              source,
+              analyser,
+              animationFrameId: null,
+              silenceStart: null,
+              hasSpoken: false
+          };
+
+          const checkVolume = () => {
+              if (!vadContextRef.current.analyser) return;
+
+              vadContextRef.current.analyser.getByteFrequencyData(dataArray);
+              let sum = 0;
+              for(let i = 0; i < bufferLength; i++) sum += dataArray[i];
+              const average = sum / bufferLength;
+
+              // Thresholds
+              const SPEECH_THRESHOLD = 15; // Volume threshold (0-255)
+              const SILENCE_DURATION = 1500; // ms
+
+              if (average > SPEECH_THRESHOLD) {
+                  vadContextRef.current.hasSpoken = true;
+                  vadContextRef.current.silenceStart = null; // Reset silence
+              } else {
+                  // Silence detected
+                  if (vadContextRef.current.hasSpoken) {
+                      if (!vadContextRef.current.silenceStart) {
+                          vadContextRef.current.silenceStart = Date.now();
+                      } else {
+                          const silenceTime = Date.now() - vadContextRef.current.silenceStart;
+                          if (silenceTime > SILENCE_DURATION) {
+                              console.log("VAD: Auto-Stop Triggered (Silence > 1.5s)");
+                              stopRecording();
+                              return; // Stop loop
+                          }
+                      }
+                  }
+              }
+
+              vadContextRef.current.animationFrameId = requestAnimationFrame(checkVolume);
+          };
+
+          checkVolume();
+
+      } catch (e) {
+          console.error("VAD Init Error:", e);
+      }
+  }, [stopRecording]);
+
+  const startRecording = useCallback(async () => {
+    try {
+        let stream = mediaStream;
+        if (!stream) {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+        if (stream.getAudioTracks().length === 0) {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+
+        const recorder = new MediaRecorder(stream);
+        
+        recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                audioChunksRef.current.push(e.data);
+            }
+        };
+
+        recorder.onstop = () => {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+            console.log("Sending Audio Blob:", audioBlob.size);
+            if (audioBlob.size > 0) {
+                 sendStreamMessage(null, audioBlob);
+            }
+            audioChunksRef.current = [];
+        };
+
+        audioChunksRef.current = [];
+        recorder.start();
+        mediaRecorderRef.current = recorder;
+        setIsRecording(true);
+        setStatus("listening");
+        
+        // Start VAD monitoring on the same stream
+        startVAD(stream);
+
+    } catch (e) {
+      console.error("Failed to start recording:", e);
+    }
+  }, [mediaStream, sendStreamMessage, startVAD]);
 
   const toggleListening = async () => {
-    if (!isConnected) return; // Double check
-
-    // Resume AudioContext on user interaction to fix "no sound" issue
-    if (!audioContextRef.current) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (audioContextRef.current.state === 'suspended') {
-      try {
-        await audioContextRef.current.resume();
-      } catch (err) {
-        console.error("Failed to resume AudioContext:", err);
-      }
-    }
-
+    audioQueueRef.current?.resume();
     if (isRecording) {
       stopRecording();
     } else {
@@ -301,29 +315,25 @@ export default function MeetingPage() {
   };
 
   const sendMessage = (textOverride?: string) => {
-      // Use textOverride if provided, otherwise use input state
       const textToSend = textOverride || input;
-      console.warn("Text sending not yet implemented in new pipeline. Would send:", textToSend);
+      if (!textToSend.trim()) return;
+      setInput("");
+      sendStreamMessage(textToSend, null);
   };
 
   const handleEndCall = () => {
     router.push('/home');
   };
 
-  if (isLoading) {
-      return <div className="flex h-screen items-center justify-center bg-black text-white">Initializing Meeting...</div>;
-  }
-
-  if (!user) {
-      return null;
-  }
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-black text-white">Initializing Meeting...</div>;
+  if (!user) return null;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-black font-sans">
         <main className="flex flex-col items-center w-full max-w-6xl p-4">
             <FaceTimeView
             messages={messages}
-            isThinking={status === "processing"}
+            isThinking={isProcessing}
             audioElement={null}
             audioUrl={null}
             visemes={[]}

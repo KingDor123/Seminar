@@ -13,6 +13,7 @@
     *   `app/page.tsx`: Main entry point.
     *   `components/User.tsx`: Fetches and displays user data.
     *   **Vision Integration:** Planned integration with **MediaPipe Face Mesh** for real-time expression and eye contact analysis.
+    *   **Streaming Chat:** Uses HTTP SSE via `useStreamingConversation` hook.
 
 ### 2. Backend (`backend/`)
 *   **Framework:** Node.js with [Express](https://expressjs.com/).
@@ -54,10 +55,16 @@
     Ensure you have a `.env` file in the root (or respective service directories if configured differently, `docker-compose.yml` references a root `.env`).
     *   *Note: Check `docker-compose.yml` for required variables like `DB_USER`, `DB_PASSWORD`, `DB_NAME`.*
 
+    **Critical Configuration:**
+    *   **Frontend API URL:** You must set `NEXT_PUBLIC_BACKEND_URL=http://localhost:5001` in your environment (or `docker-compose.override.yml`) so the browser can reach the backend. Using internal Docker names (e.g., `http://backend:5000`) will cause "Network Error" in the browser.
+    *   **GPU Support:** If using an NVIDIA GPU, verify your `docker-compose.override.yml`.
+        *   **Pascal GPUs (GTX 1080):** Set `WHISPER_DEVICE=cpu` for stability (STT on CPU, LLM on GPU). `WHISPER_COMPUTE_TYPE=int8`.
+
 2.  **Build and Run:**
     ```bash
     docker-compose up --build
     ```
+    *   If you encounter stale dependencies (e.g. "Module not found"), run `docker-compose up --build -V` to renew anonymous volumes.
 
 3.  **Accessing Services:**
     *   **Frontend:** [http://localhost:3000](http://localhost:3000)
@@ -112,3 +119,8 @@
 *   **DSM-5:** Used for defining ASD characteristics.
 *   **Theory of Mind & Central Coherence:** The AI should challenge users to understand others' perspectives and see the "big picture."
 *   **SEL (Social-Emotional Learning):** Integrating emotional awareness into the training.
+
+## Gemini Added Memories
+- The user has an NVIDIA GeForce GTX 1080 GPU and runs Windows.
+- The project now uses HTTP Streaming (SSE) + Client-Side VAD for AI communication instead of WebSockets. The endpoint is /api/interact.
+- The user has no camera on this PC.

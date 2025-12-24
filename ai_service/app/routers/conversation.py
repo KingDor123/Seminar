@@ -2,17 +2,18 @@ import logging
 import json
 import asyncio
 import base64
-import numpy as np
 import httpx
-import time 
+import time
 import os
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, HTTPException, Form, File, UploadFile, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, AsyncGenerator, Any
 
 from app.services.stt import STTService
 from app.services.llm import LLMService
 from app.services.tts import TTSService
+from app.services.preprocessor import Preprocessor
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ def get_services():
 
 # --- Constants ---
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:5000/api")
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "supersecretkey")
 
 # --- Pydantic Models ---
 class TTSRequest(BaseModel):
@@ -75,152 +77,261 @@ async def generate_tts(request: TTSRequest):
         logger.error(f"TTS Generation Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- WebSocket Endpoint ---
-
-@router.websocket("/ai/stream")
-async def conversation_endpoint(websocket: WebSocket):
+@router.post("/interact")
+async def interact(
+    background_tasks: BackgroundTasks,
+    session_id: int = Form(...),
+    text: Optional[str] = Form(None),
+    audio: Optional[UploadFile] = File(None),
+    system_prompt: Optional[str] = Form("You are a helpful assistant."),
+    voice: Optional[str] = Form(None)
+):
     """
-    Real-time WebSocket for Voice/Text Chat.
+    SSE Endpoint for Chat/Voice Interaction.
+    Accepts Text OR Audio (Multipart).
+    Streams Server-Sent Events (Text + Audio).
     """
-    await websocket.accept()
-    logger.info("🔌 Client Connected")
-    
-    # Initialize services for this session
-    try:
-        stt_service, llm_service, tts_service = get_services()
-    except Exception as e:
-        logger.error(f"Failed to load AI services: {e}")
-        await websocket.close(code=1011)
-        return
+    logger.info(f"🗣️ Interaction Request: Session={session_id}, Text={bool(text)}, Audio={bool(audio)}")
 
-    # --- Config ---
-    system_prompt = (
-        "You are a supportive, patient soft skills trainer for people with HFASD. "
-        "Provide a safe environment. Be encouraging. "
-        "If a social mistake occurs, gently offer feedback."
-    )
-    
-    # State
-    history: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
-    session_id: Optional[int] = None
-    
-    # Latency Tracking (Client-Side Timestamps)
-    client_last_ai_end_ts: float = 0.0
-    client_user_start_ts: float = 0.0
-
-    # --- VAD Settings ---
-    speech_buffer = bytearray()
-    silence_counter = 0
-    SILENCE_THRESHOLD = 20
-    AMP_THRESHOLD = 0.002
-
-    try:
-        while True:
-            try:
-                msg = await websocket.receive()
-                
-                if msg["type"] == "websocket.disconnect":
-                    logger.info("🔌 Client Disconnected (Clean)")
-                    break
-
-            except WebSocketDisconnect:
-                logger.info("🔌 Client Disconnected (Socket Closed)")
-                break
-            except RuntimeError as re:
-                if "disconnect" in str(re).lower():
-                    logger.info("🔌 Client Disconnected (Runtime)")
-                    break
-                logger.error(f"🚨 Runtime Error: {re}")
-                break
-            except Exception as e:
-                logger.error(f"🚨 Error receiving WebSocket message: {e}")
-                break
-
-            # Process Message
-            if "text" in msg:
-                data = json.loads(msg["text"])
-                
-                # Handle Protocol Messages
-                if data.get("type") == "ai_stopped_speaking":
-                    client_last_ai_end_ts = data.get("timestamp", 0) / 1000.0
-                    logger.debug(f"⏱️ AI Stopped Speaking at (Client Time): {client_last_ai_end_ts}")
-                    continue
-                
-                if data.get("type") == "user_started_speaking":
-                    client_user_start_ts = data.get("timestamp", 0) / 1000.0
-                    logger.debug(f"⏱️ User Started Speaking at (Client Time): {client_user_start_ts}")
-                    continue
-
-                # Handle Init / Config
-                if "system_prompt" in data:
-                    system_prompt = data["system_prompt"]
-                    history[0]["content"] = system_prompt
-
-                if "session_id" in data:
-                    session_id = data["session_id"]
-                    logger.info(f"🔗 Associated with Session ID: {session_id}")
-                    await _load_history(session_id, history)
-
-                if "history" in data:
-                    for item in data["history"]:
-                        if not history or history[-1]["content"] != item["content"]:
-                             history.append(item)
-                    
-                    if data.get("mode") == "audio":
-                        await _gen_response(websocket, history, session_id, llm_service, tts_service)
-
-            elif "bytes" in msg:
-                data = msg["bytes"]
-                is_speech, _ = _vad(data, AMP_THRESHOLD)
-                
-                if is_speech:
-                    speech_buffer.extend(data)
-                    silence_counter = 0
-                elif len(speech_buffer) > 0:
-                    silence_counter += 1
-                
-                if len(speech_buffer) > 0 and silence_counter >= SILENCE_THRESHOLD:
-                    if len(speech_buffer) > 10000:
-                        # Calculate latency based on caught timestamps
-                        latency = 0.0
-                        if client_last_ai_end_ts > 0 and client_user_start_ts > 0:
-                            latency = max(0.0, client_user_start_ts - client_last_ai_end_ts)
+    async def event_generator() -> AsyncGenerator[str, None]:
+        try:
+            # Initialize services
+            stt_service, llm_service, tts_service = get_services()
+            
+            # 1. Process Input (STT if Audio)
+            user_text = ""
+            stt_result = {}
+            
+            if audio:
+                try:
+                    audio_bytes = await audio.read()
+                    if len(audio_bytes) > 0:
+                        stt_result = await stt_service.transcribe(audio_bytes)
+                        user_text = stt_result.get("clean_text", "").strip()
                         
-                        await _process_speech(
-                            websocket, 
-                            speech_buffer, 
-                            history, 
-                            session_id, 
-                            latency,
-                            stt_service,
-                            llm_service,
-                            tts_service
-                        )
-                    else:
-                        logger.debug(f"Ignored short noise ({len(speech_buffer)} bytes)")
+                        if not user_text:
+                            yield _sse_event("status", "processing_empty_audio")
+                            yield _sse_event("debug", "No speech detected in audio.")
+                            return
+                except Exception as e:
+                    logger.error(f"STT Error: {e}")
+                    yield _sse_event("error", f"STT Failed: {str(e)}")
+                    return
+
+            # If no audio (or audio failed/empty but didn't return), check text
+            if not user_text and text:
+                raw_input = text
+                _, user_text, filler_count = Preprocessor.process_text(raw_input)
+                # Mock stt_result for consistent metrics downstream
+                stt_result = {
+                    "clean_text": user_text,
+                    "raw_text": raw_input,
+                    "filler_word_count": filler_count
+                }
+
+            if not user_text:
+                yield _sse_event("error", "No input provided (text or audio).")
+                return
+
+            # Yield User Transcript
+            yield _sse_event("transcript", json.dumps({"role": "user", "text": user_text}))
+
+            # 2. Load History & Save User Message (Parallel)
+            history: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
+            
+            # Fetch History
+            prev_msgs = await _fetch_history(session_id)
+            history.extend(prev_msgs)
+            
+            # Determine last AI message for analysis context
+            last_ai_message = ""
+            if len(history) > 1 and history[-1]["role"] == "assistant":
+                last_ai_message = history[-1]["content"]
+
+            # Save User Message to DB (Background)
+            background_tasks.add_task(_save_message, session_id, "user", user_text)
+            
+            # Append current user message to history for LLM
+            history.append({"role": "user", "content": user_text})
+
+            # 3. Prepare Metadata for Behavioral Injection
+            metadata = {
+                "wpm": stt_result.get("speech_rate_wpm", 0.0),
+                "filler_count": stt_result.get("filler_word_count", 0),
+                "latency": 0.0 # Placeholder: requires timestamp tracking
+            }
+
+            # 4. Generate AI Response (Streaming)
+            yield _sse_event("status", "thinking")
+            
+            full_ai_response = ""
+            current_sentence = ""
+
+            async for token in llm_service.chat_stream(history, metadata):
+                full_ai_response += token
+                current_sentence += token
+                
+                # Check for sentence boundaries for TTS
+                if _is_sentence_complete(current_sentence):
+                    sentence_text = current_sentence.strip()
+                    if sentence_text:
+                        # Yield Text Chunk
+                        yield _sse_event("transcript", json.dumps({"role": "assistant", "text": sentence_text, "partial": True}))
+                        
+                        # Generate & Yield Audio Chunk
+                        try:
+                            audio_chunk = bytearray()
+                            async for chunk in tts_service.stream_audio(sentence_text, voice):
+                                audio_chunk.extend(chunk)
+                            
+                            if audio_chunk:
+                                b64_audio = base64.b64encode(audio_chunk).decode("utf-8")
+                                yield _sse_event("audio", b64_audio)
+                        except Exception as e:
+                             logger.error(f"TTS Stream Error: {e}")
                     
-                    speech_buffer = bytearray()
-                    silence_counter = 0
-                    # Reset user start time for next turn to ensure fresh capture
-                    client_user_start_ts = 0.0 
+                    current_sentence = ""
+
+            # Process remaining text
+            if current_sentence.strip():
+                sentence_text = current_sentence.strip()
+                yield _sse_event("transcript", json.dumps({"role": "assistant", "text": sentence_text, "partial": True}))
+                try:
+                    audio_chunk = bytearray()
+                    async for chunk in tts_service.stream_audio(sentence_text, voice):
+                        audio_chunk.extend(chunk)
+                    if audio_chunk:
+                        b64_audio = base64.b64encode(audio_chunk).decode("utf-8")
+                        yield _sse_event("audio", b64_audio)
+                except Exception as e:
+                    logger.error(f"TTS Stream Error: {e}")
+
+            # 5. Save AI Response
+            background_tasks.add_task(_save_message, session_id, "assistant", full_ai_response)
+
+            # 6. Save Fast Metrics (Background)
+            if last_ai_message:
+                background_tasks.add_task(
+                    _save_fast_metrics,
+                    session_id, 
+                    stt_result if stt_result else {"clean_text": user_text}, 
+                    0.0, 
+                    last_ai_message
+                )
+
+            yield _sse_event("status", "done")
+            yield _sse_event("done", "[DONE]")
+
+        except Exception as e:
+            logger.error(f"Interaction Error: {e}")
+            yield _sse_event("error", str(e))
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.post("/report/generate/{session_id}")
+async def generate_report(session_id: int):
+    """
+    Trigger a full retrospective analysis of the session.
+    Iterates through history and runs deep LLM analysis on user messages.
+    """
+    logger.info(f"📊 Generating Report for Session {session_id}...")
+    try:
+        _, llm_service, _ = get_services()
+        
+        # 1. Fetch Full History
+        history = await _fetch_history(session_id)
+        if not history:
+            return {"status": "empty", "message": "No history found for this session."}
+
+        analyzed_count = 0
+        
+        # 2. Iterate and Analyze
+        # We look for User messages and their preceding AI context
+        for i in range(len(history)):
+            msg = history[i]
+            if msg["role"] == "user":
+                user_text = msg["content"]
+                
+                # Find preceding AI message for context
+                context = ""
+                if i > 0 and history[i-1]["role"] == "assistant":
+                    context = history[i-1]["content"]
+                
+                # Skip if empty
+                if not user_text.strip(): continue
+
+                # Run Deep Analysis (Async)
+                behavior_context = {}
+                
+                analysis_results = await llm_service.analyze_behavior( 
+                    user_text, 
+                    context,
+                    behavior_context
+                )
+                
+                # Save Metrics
+                for metric_name, metric_value in analysis_results.items():
+                    if isinstance(metric_value, (int, float)):
+                        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
+                            await client.post(
+                                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
+                                json={"name": metric_name, "value": metric_value, "context": f"Retrospective: '{user_text[:20]}...'"}
+                            )
+                analyzed_count += 1
+
+        return {"status": "success", "analyzed_messages": analyzed_count}
 
     except Exception as e:
-        logger.error(f"🚨 Connection Error: {e}")
-    finally:
-        logger.info("👋 Connection handler cleanup")
+        logger.error(f"Report Generation Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # --- Helpers ---
 
-async def _analyze_and_save_metrics(
+def _sse_event(event_type: str, data: str) -> str:
+    return f"event: {event_type}\ndata: {data}\n\n"
+
+def _is_sentence_complete(text: str) -> bool:
+    text = text.strip()
+    if not text: return False
+    return text[-1] in [".", "?", "!", "\n"] and len(text) > 3
+
+async def _fetch_history(session_id: int) -> List[Dict[str, str]]:
+    history = []
+    try:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
+            resp = await client.get(f"{BACKEND_URL}/chat/sessions/{session_id}/messages")
+            if resp.status_code == 200:
+                messages = resp.json()
+                for m in messages:
+                    role = "assistant" if m["role"] == "ai" else m["role"]
+                    history.append({"role": role, "content": m["content"]})
+    except Exception as e:
+        logger.error(f"History Fetch Error: {e}")
+    return history
+
+async def _save_message(session_id: int, role: str, content: str):
+    if not session_id or not content: return
+    try:
+        db_role = "ai" if role == "assistant" else role
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
+            await client.post(
+                f"{BACKEND_URL}/chat/sessions/{session_id}/messages",
+                json={"role": db_role, "content": content}
+            )
+    except Exception as e:
+        logger.error(f"DB Save Error: {e}")
+
+async def _save_fast_metrics(
     session_id: int, 
     stt_result: Dict[str, Any], 
     latency: float, 
-    last_ai_message: str,
-    llm_service: LLMService
+    last_ai_message: str
 ):
     """
-    Analyzes user speech behavior and saves metrics.
+    Saves ONLY fast, STT-based metrics (WPM, Pauses, Fillers).
+    NO LLM calls here.
     """
     if not session_id: return
 
@@ -228,7 +339,7 @@ async def _analyze_and_save_metrics(
         user_text = stt_result.get("clean_text", "")
         
         # 1. Save Latency
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             await client.post(
                 f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
                 json={"name": "response_latency", "value": latency, "context": f"Response to: '{last_ai_message}'"}
@@ -236,7 +347,7 @@ async def _analyze_and_save_metrics(
         
         # 2. Save Speech Rate
         wpm = stt_result.get("speech_rate_wpm", 0.0)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             await client.post(
                 f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
                 json={"name": "speech_rate_wpm", "value": wpm, "context": user_text}
@@ -244,7 +355,7 @@ async def _analyze_and_save_metrics(
             
         # 3. Save Pauses
         pause_count = stt_result.get("pause_count", 0)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             await client.post(
                 f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
                 json={"name": "pause_count", "value": float(pause_count), "context": user_text}
@@ -252,163 +363,11 @@ async def _analyze_and_save_metrics(
 
         # 4. Save Fillers
         filler_count = stt_result.get("filler_word_count", 0)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             await client.post(
                 f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
                 json={"name": "filler_word_count", "value": float(filler_count), "context": user_text}
             )
 
-        # 5. Semantic Analysis (LLM) with Behavioral Context
-        behavior_context = {
-            "latency": latency,
-            "wpm": wpm,
-            "pauses": pause_count,
-            "fillers": filler_count
-        }
-        
-        analysis_results = await asyncio.to_thread(
-            llm_service.analyze_behavior, 
-            user_text, 
-            last_ai_message,
-            behavior_context
-        )
-        
-        for metric_name, metric_value in analysis_results.items():
-            if isinstance(metric_value, (int, float)):
-                async with httpx.AsyncClient() as client:
-                    await client.post(
-                        f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
-                        json={"name": metric_name, "value": metric_value, "context": f"Analysis of: '{user_text}'"}
-                    )
-
     except Exception as e:
-        logger.error(f"❌ Error during metric analysis: {e}")
-
-async def _load_history(session_id: int, history: List[dict]):
-    """Fetch previous chat messages from Backend API"""
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{BACKEND_URL}/chat/sessions/{session_id}/messages")
-            if resp.status_code == 200:
-                messages = resp.json()
-                logger.info(f"📜 Loaded {len(messages)} past messages from DB.")
-                for m in messages:
-                    role = "assistant" if m["role"] == "ai" else m["role"]
-                    history.append({"role": role, "content": m["content"]})
-    except Exception as e:
-        logger.error(f"❌ DB Load Error: {e}")
-
-async def _save_message(session_id: int, role: str, content: str):
-    """Save message to Backend API"""
-    if not session_id: return
-    try:
-        db_role = "ai" if role == "assistant" else role
-        async with httpx.AsyncClient() as client:
-            await client.post(
-                f"{BACKEND_URL}/chat/sessions/{session_id}/messages",
-                json={"role": db_role, "content": content}
-            )
-    except Exception as e:
-        logger.error(f"❌ DB Save Error: {e}")
-
-
-def _vad(audio: bytes, threshold: float) -> (bool, float):
-    chunk = np.frombuffer(audio, dtype=np.float32)
-    if len(chunk) == 0: return False, 0.0
-    rms = np.sqrt(np.mean(chunk**2))
-    return rms > threshold, rms
-
-
-async def _process_speech(
-    ws: WebSocket, 
-    buffer: bytearray, 
-    history: List[dict], 
-    session_id: Optional[int],
-    latency: float,
-    stt_service: STTService,
-    llm_service: LLMService,
-    tts_service: TTSService
-):
-    logger.info(f"🎙️  Processing {len(buffer)} bytes... Latency: {latency:.2f}s")
-    
-    # 1. Structured STT
-    stt_result = await asyncio.to_thread(stt_service.transcribe, bytes(buffer))
-    
-    raw_text = stt_result.get("raw_text", "")
-    clean_text = stt_result.get("clean_text", "")
-    
-    logger.info(f"STT: '{raw_text}' -> Clean: '{clean_text}'")
-    
-    if not clean_text or len(clean_text) < 2: 
-        return
-
-    # Send transcript to UI
-    await ws.send_json({"type": "transcript", "role": "user", "text": clean_text})
-    
-    # Update Memory with CLEAN text
-    history.append({"role": "user", "content": clean_text})
-    
-    # Save to DB
-    await _save_message(session_id, "user", clean_text)
-
-    # Trigger async analysis and save
-    if session_id and history and len(history) >= 2:
-        last_ai_message = history[-2]["content"] if history[-2]["role"] == "assistant" else ""
-        if last_ai_message:
-            # We can keep analysis async as it doesn't block conversation flow
-            asyncio.create_task(
-                _analyze_and_save_metrics(session_id, stt_result, latency, last_ai_message, llm_service)
-            )
-
-    # Generate Response (passing metrics implicitly via history context if needed, but for now standard chat)
-    await _gen_response(ws, history, session_id, llm_service, tts_service)
-
-
-async def _gen_response(
-    ws: WebSocket, 
-    msgs: List[dict], 
-    session_id: Optional[int],
-    llm_service: LLMService,
-    tts_service: TTSService
-):
-    await ws.send_json({"type": "status", "status": "processing"})
-    
-    full_resp = ""
-    curr_sent = ""
-    
-    try:
-        # Stream the response
-        for token in llm_service.chat_stream(msgs):
-            curr_sent += token
-            full_resp += token
-
-            is_punctuated = token in [".", "?", "!", "\n"]
-            is_phrase_break = token in [",", ";"] and len(curr_sent.strip()) > 15
-            
-            if (is_punctuated or is_phrase_break) and len(curr_sent.strip()) > 2:
-                sent = curr_sent.strip()
-                await ws.send_json({"type": "transcript", "role": "assistant", "text": sent, "partial": True})
-                await _stream_tts(ws, sent, tts_service)
-                curr_sent = ""
-
-        if curr_sent.strip():
-            sent = curr_sent.strip()
-            await ws.send_json({"type": "transcript", "role": "assistant", "text": sent, "partial": True})
-            await _stream_tts(ws, sent, tts_service)
-
-        msgs.append({"role": "assistant", "content": full_resp})
-        
-        if session_id:
-            asyncio.create_task(_save_message(session_id, "assistant", full_resp))
-
-        await ws.send_json({"type": "status", "status": "listening"})
-        
-    except Exception as e:
-        logger.error(f"🔥 Gen Error: {e}")
-        await ws.send_json({"type": "error", "message": "I lost my train of thought."})
-        await ws.send_json({"type": "status", "status": "listening"})
-
-
-async def _stream_tts(ws: WebSocket, text: str, tts_service: TTSService):
-    async for chunk in tts_service.stream_audio(text):
-        await ws.send_bytes(chunk)
+        logger.error(f"❌ Error during fast metric saving: {e}")

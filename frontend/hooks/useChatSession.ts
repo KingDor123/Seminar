@@ -46,6 +46,8 @@ export const useChatSession = () => {
         return sessionIdRef.current; // Return current sessionId if active/creating
     }
 
+    // IMMEDIATE UPDATE to prevent race conditions (e.g. double clicks)
+    sessionStatusRef.current = 'creating';
     setSessionStatus('creating'); // Update state, will trigger re-render
     setLoading(true); // Keep loading for external components
     setError(null);

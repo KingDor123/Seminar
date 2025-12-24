@@ -18,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(conversation.router)
+app.include_router(conversation.router, prefix="/ai")
 
 @app.get("/ai/health")
 def health_check():

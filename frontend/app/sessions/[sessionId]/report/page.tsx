@@ -22,6 +22,7 @@ export default function SessionReportPage() {
 
   const [metrics, setMetrics] = useState<RawMetric[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Process data immediately when metrics change
@@ -32,10 +33,43 @@ export default function SessionReportPage() {
 
   useEffect(() => {
     if (sessionId) {
-      const fetchMetrics = async () => {
+      const fetchAndAnalyze = async () => {
         try {
           setLoading(true);
-          const data = await analyticsApi.getMetricsForSession(sessionId);
+          let data = await analyticsApi.getMetricsForSession(sessionId);
+          
+          // Check if we have semantic metrics (e.g. sentiment)
+          // If not, trigger generation (Optimized Option C)
+          // We check for 'sentiment' which is produced by the Deep Analysis
+          const hasSentiment = data.some((m: any) => m.metric_name === 'sentiment');
+          
+          if (!hasSentiment && data.length > 0) { // Only generate if we have SOME data (audio metrics) but missing deep metrics
+              console.log("Missing semantic metrics. Triggering auto-generation...");
+              setGenerating(true);
+              try {
+                  await analyticsApi.generateSessionReport(sessionId);
+                  // Refetch after generation
+                  data = await analyticsApi.getMetricsForSession(sessionId);
+              } catch (genErr) {
+                  console.error("Auto-generation failed:", genErr);
+                  // We continue with partial data rather than crashing
+              } finally {
+                  setGenerating(false);
+              }
+          } else if (data.length === 0) {
+              // If completely empty, try generating anyway (maybe audio failed but we have text?)
+               console.log("No metrics found. Triggering auto-generation...");
+               setGenerating(true);
+               try {
+                   await analyticsApi.generateSessionReport(sessionId);
+                   data = await analyticsApi.getMetricsForSession(sessionId);
+               } catch (genErr) {
+                   console.error("Auto-generation failed:", genErr);
+               } finally {
+                   setGenerating(false);
+               }
+          }
+
           setMetrics(data);
         } catch (err: unknown) {
           console.error("Failed to fetch session metrics:", err);
@@ -47,7 +81,7 @@ export default function SessionReportPage() {
           setLoading(false);
         }
       };
-      fetchMetrics();
+      fetchAndAnalyze();
     }
   }, [sessionId]);
 
@@ -55,8 +89,16 @@ export default function SessionReportPage() {
     return <div className="text-center py-8">Invalid Session ID provided.</div>;
   }
 
-  if (loading) {
-    return <div className="text-center py-8">Loading session report...</div>;
+  if (loading || generating) {
+    return (
+        <div className="flex flex-col h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <p className="text-lg text-gray-700 dark:text-gray-300">
+                {generating ? "AI is analyzing your session conversation..." : "Loading session report..."}
+            </p>
+            {generating && <p className="text-sm text-gray-500">This may take a minute for long sessions.</p>}
+        </div>
+    );
   }
 
   if (error) {
