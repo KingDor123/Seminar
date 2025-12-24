@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     # --- AI ---
     OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://ollama:11434/v1")
-    OLLAMA_MODEL: str = os.getenv("MODEL_NAME", "llama3.1:8b")
+    OLLAMA_MODEL: str = os.getenv("MODEL_NAME", "llama3.2:3b")
 
     # --- Whisper (STT) ---
     WHISPER_MODEL_SIZE: str = "medium.en"
