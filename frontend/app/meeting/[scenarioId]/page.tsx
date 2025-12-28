@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import FaceTimeView from '../../../components/FaceTimeView';
 import { ChatMessage } from '../../../types/chat';
 import { useUserCamera } from '../../../hooks/useUserCamera';
@@ -17,7 +17,10 @@ export default function MeetingPage() {
   const { user, isLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const scenarioId = params.scenarioId as string;
+  const languageParam = searchParams.get("lang");
+  const language = languageParam === "he-IL" || languageParam === "en-US" ? languageParam : "he-IL";
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]); // Ref for latest messages if needed
@@ -142,6 +145,7 @@ export default function MeetingPage() {
   const { sendMessage: sendStreamMessage, isProcessing } = useStreamingConversation({
     sessionId,
     selectedScenario: scenarioId,
+    language,
     onNewMessage: handleNewMessage,
     onThinkingStateChange: (thinking) => setStatus(thinking ? "processing" : "idle"),
     onAudioData: handleAudioData,

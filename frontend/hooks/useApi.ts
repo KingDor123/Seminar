@@ -64,7 +64,7 @@ export const useTTS = () => {
       const res = await fetch(`${base}/api/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice })
+        body: JSON.stringify({ text, voice, language })
       });
 
       if (!res.ok) {

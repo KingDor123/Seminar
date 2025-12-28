@@ -35,8 +35,8 @@ services:
     env_file:
       - .env
     environment:
-      - MODEL_NAME=llama3.2:3b
-    
+      - MODEL_NAME=aya:8b
+
     ports:
       - "8000:8000"
     volumes:
@@ -55,7 +55,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     # Run server in background, pull model, then wait for server
-    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5; ollama pull llama3.2:3b; wait"]
+    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5; ollama pull aya:8b; wait"]
     networks:
       - web
 

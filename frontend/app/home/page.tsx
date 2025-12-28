@@ -29,7 +29,7 @@ export default function HomePage() {
   };
 
   const handleStartCall = () => {
-    router.push(`/meeting/${selectedScenario}`);
+    router.push(`/meeting/${selectedScenario}?lang=${language}`);
   };
 
   return (

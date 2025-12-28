@@ -19,6 +19,7 @@ export interface StreamMetrics {
 interface UseStreamingConversationProps {
     sessionId: number | null;
     selectedScenario: string;
+    language?: "en-US" | "he-IL";
     onNewMessage: (message: ChatMessage) => void;
     onThinkingStateChange: (isThinking: boolean) => void;
     onAudioData: (base64Audio: string) => void;
@@ -29,6 +30,7 @@ interface UseStreamingConversationProps {
 export const useStreamingConversation = ({
     sessionId,
     selectedScenario,
+    language,
     onNewMessage,
     onThinkingStateChange,
     onAudioData,
@@ -88,6 +90,7 @@ export const useStreamingConversation = ({
         
         if (text) formData.append("text", text);
         if (audioBlob) formData.append("audio", audioBlob, "input.wav");
+        if (language) formData.append("language", language);
 
         const scenario = SCENARIOS.find(s => s.id === selectedScenario);
         const systemPrompt = scenario?.prompt || "You are a helpful assistant.";
@@ -164,7 +167,7 @@ export const useStreamingConversation = ({
             setIsProcessing(false);
             onThinkingStateChange(false);
         }
-    }, [sessionId, selectedScenario, getApiUrl, onThinkingStateChange, onAudioData, onMetricsUpdate, onError]);
+    }, [sessionId, selectedScenario, language, getApiUrl, onThinkingStateChange, onAudioData, onMetricsUpdate, onError]);
 
     const cancel = useCallback(() => {
         if (abortControllerRef.current) {

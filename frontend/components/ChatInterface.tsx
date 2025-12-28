@@ -74,6 +74,7 @@ export default function ChatInterface() {
   const { sendMessage: sendStreamMessage, isProcessing } = useStreamingConversation({
     sessionId,
     selectedScenario,
+    language,
     onNewMessage: handleNewMessage,
     onThinkingStateChange: (thinking) => setStatus(thinking ? "processing" : "idle"), // naive status mapping
     onAudioData: handleAudioData,

@@ -47,6 +47,7 @@ INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "supersecretkey")
 class TTSRequest(BaseModel):
     text: str
     voice: Optional[str] = None
+    language: Optional[str] = None
 
 # --- HTTP Endpoints ---
 
@@ -63,7 +64,7 @@ async def generate_tts(request: TTSRequest):
             raise HTTPException(status_code=400, detail="Text cannot be empty")
 
         audio_content = bytearray()
-        async for chunk in tts_service.stream_audio(request.text, request.voice):
+        async for chunk in tts_service.stream_audio(request.text, request.voice, request.language):
             audio_content.extend(chunk)
 
         audio_base64 = base64.b64encode(audio_content).decode("utf-8")
@@ -84,7 +85,8 @@ async def interact(
     text: Optional[str] = Form(None),
     audio: Optional[UploadFile] = File(None),
     system_prompt: Optional[str] = Form("You are a helpful assistant."),
-    voice: Optional[str] = Form(None)
+    voice: Optional[str] = Form(None),
+    language: Optional[str] = Form(None)
 ):
     """
     SSE Endpoint for Chat/Voice Interaction.
@@ -101,12 +103,13 @@ async def interact(
             # 1. Process Input (STT if Audio)
             user_text = ""
             stt_result = {}
+            language_hint = _normalize_language_tag(language)
             
             if audio:
                 try:
                     audio_bytes = await audio.read()
                     if len(audio_bytes) > 0:
-                        stt_result = await stt_service.transcribe(audio_bytes)
+                        stt_result = await stt_service.transcribe(audio_bytes, language_hint)
                         user_text = stt_result.get("clean_text", "").strip()
                         
                         if not user_text:
@@ -138,6 +141,9 @@ async def interact(
 
             # 2. Load History & Save User Message (Parallel)
             history: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
+            language_directive = _language_system_prompt(language_hint)
+            if language_directive:
+                history.append({"role": "system", "content": language_directive})
             
             # Fetch History
             prev_msgs = await _fetch_history(session_id)
@@ -181,7 +187,7 @@ async def interact(
                         # Generate & Yield Audio Chunk
                         try:
                             audio_chunk = bytearray()
-                            async for chunk in tts_service.stream_audio(sentence_text, voice):
+                            async for chunk in tts_service.stream_audio(sentence_text, voice, language_hint):
                                 audio_chunk.extend(chunk)
                             
                             if audio_chunk:
@@ -198,7 +204,7 @@ async def interact(
                 yield _sse_event("transcript", json.dumps({"role": "assistant", "text": sentence_text, "partial": True}))
                 try:
                     audio_chunk = bytearray()
-                    async for chunk in tts_service.stream_audio(sentence_text, voice):
+                    async for chunk in tts_service.stream_audio(sentence_text, voice, language_hint):
                         audio_chunk.extend(chunk)
                     if audio_chunk:
                         b64_audio = base64.b64encode(audio_chunk).decode("utf-8")
@@ -296,6 +302,23 @@ def _is_sentence_complete(text: str) -> bool:
     text = text.strip()
     if not text: return False
     return text[-1] in [".", "?", "!", "\n"] and len(text) > 3
+
+def _normalize_language_tag(language: Optional[str]) -> Optional[str]:
+    if not language:
+        return None
+    lang = language.strip().lower()
+    if lang.startswith("he"):
+        return "he"
+    if lang.startswith("en"):
+        return "en"
+    return None
+
+def _language_system_prompt(language: Optional[str]) -> Optional[str]:
+    if language == "he":
+        return "Always respond in Hebrew. Do not translate to English unless explicitly asked."
+    if language == "en":
+        return "Always respond in English."
+    return None
 
 async def _fetch_history(session_id: int) -> List[Dict[str, str]]:
     history = []

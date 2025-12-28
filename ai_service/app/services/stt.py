@@ -1,7 +1,7 @@
 import logging
 import io
 import asyncio
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from faster_whisper import WhisperModel
 import numpy as np
 from app.core.config import settings
@@ -47,7 +47,7 @@ class STTService:
         
         logger.info(f"✅ Whisper Ready on {device}.")
 
-    async def transcribe(self, audio_bytes: bytes) -> Dict[str, Any]:
+    async def transcribe(self, audio_bytes: bytes, language: Optional[str] = None) -> Dict[str, Any]:
         """
         Transcribes audio file bytes (WAV/WebM) to structured behavioral data asynchronously.
         """
@@ -56,7 +56,7 @@ class STTService:
             audio_bytes = await Preprocessor.normalize_audio(audio_bytes)
 
             # 1. Run Whisper Inference - Moved to thread as it is CPU-bound and synchronous
-            return await asyncio.to_thread(self._run_inference, audio_bytes)
+            return await asyncio.to_thread(self._run_inference, audio_bytes, language)
 
         except Exception as e:
             logger.error(f"❌ STT Error: {e}")
@@ -67,7 +67,7 @@ class STTService:
                 "error": str(e)
             }
 
-    def _run_inference(self, audio_bytes: bytes) -> Dict[str, Any]:
+    def _run_inference(self, audio_bytes: bytes, language: Optional[str] = None) -> Dict[str, Any]:
         """
         Synchronous wrapper for Whisper inference to be run in a thread.
         """
@@ -75,7 +75,10 @@ class STTService:
         audio_file = io.BytesIO(audio_bytes)
         
         # Transcription (beam_size=5 for accuracy)
-        segments, info = self.model.transcribe(audio_file, beam_size=5)
+        transcribe_kwargs = {"beam_size": 5, "task": "transcribe"}
+        if language:
+            transcribe_kwargs["language"] = language
+        segments, info = self.model.transcribe(audio_file, **transcribe_kwargs)
         
         # Collect segments to list to iterate
         segments_list = list(segments)
