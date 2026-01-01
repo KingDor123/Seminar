@@ -4,6 +4,8 @@ export interface SessionStats {
   wpm: number;
   fillers: number;
   sentiment: number; // -1 to 1
+  sentimentConfidence?: number; // 0 to 1
+  fluencyScore?: number; // 0 to 10
   score: number; // 0 to 100
 }
 
@@ -43,6 +45,8 @@ export const getMockSessions = (): SessionData[] => {
     const wpm = Math.floor(Math.random() * (160 - 80) + 80);
     const fillers = Math.floor(Math.random() * 15);
     const sentiment = Math.random() * 2 - 1; // -1 to 1
+    const sentimentConfidence = Math.random();
+    const fluencyScore = Math.max(0, Math.min(10, 10 - (fillers / Math.max(1, wpm / 10))));
     const score = Math.floor(Math.random() * (98 - 60) + 60);
     
     return {
@@ -53,13 +57,15 @@ export const getMockSessions = (): SessionData[] => {
         wpm,
         fillers,
         sentiment,
+        sentimentConfidence,
+        fluencyScore,
         score
       },
       transcript: TRANSCRIPTS[i % TRANSCRIPTS.length],
       chartData: [
-        { subject: 'Fluency', A: wpm, fullMark: 160 },
+        { subject: 'Fluency', A: fluencyScore * 10, fullMark: 100 },
         { subject: 'Clarity', A: 100 - (fillers * 5), fullMark: 100 },
-        { subject: 'Confidence', A: (sentiment + 1) * 50, fullMark: 100 },
+        { subject: 'Confidence', A: (sentimentConfidence * 100), fullMark: 100 },
         { subject: 'Empathy', A: Math.random() * 100, fullMark: 100 },
         { subject: 'Relevance', A: Math.random() * 100, fullMark: 100 },
       ]

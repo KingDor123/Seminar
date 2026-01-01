@@ -5,17 +5,19 @@ interface TranscriptViewerProps {
   text: string;
 }
 
-const FILLERS = ['um', 'uh', 'like', 'you know', 'sort of'];
+const FILLERS = ['כאילו', 'כזה', 'אממ', 'אה', 'בעצם', 'סוג של', 'יעני'];
+const FILLERS_REGEX = new RegExp(`(${FILLERS.map(f => f.replace(/\s+/g, '\\s+')).join('|')})`, 'gi');
 
 export const TranscriptViewer: React.FC<TranscriptViewerProps> = ({ text }) => {
   // Simple regex-based highlighter
   const renderHighlighted = (content: string) => {
     // Split by space but preserve punctuation is tricky. 
     // Let's use a simpler split for visual demo or Regex replace with spans.
-    const parts = content.split(/(\b(?:um|uh|like|you know)\b)/gi);
+    const parts = content.split(FILLERS_REGEX);
     
     return parts.map((part, i) => {
-      if (FILLERS.includes(part.toLowerCase())) {
+      const normalized = part.replace(/\s+/g, ' ').trim().toLowerCase();
+      if (FILLERS.includes(normalized)) {
         return (
           <span key={i} className="bg-red-500/20 text-red-300 px-1 rounded mx-0.5 border border-red-500/30">
             {part}

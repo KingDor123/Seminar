@@ -1,6 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { SCENARIOS } from '../constants/appConstants';
 import { useApi } from './useApi';
 
 interface ChatMessage {
@@ -11,8 +9,11 @@ interface ChatMessage {
 
 export interface StreamMetrics {
     filler_count?: number;
-    wpm?: number;
+    word_count?: number;
+    fluency_score?: number;
     sentiment?: number;
+    sentiment_label?: "positive" | "neutral" | "negative";
+    sentiment_confidence?: number;
     latency?: number;
 }
 
@@ -29,8 +30,6 @@ interface UseStreamingConversationProps {
 
 export const useStreamingConversation = ({
     sessionId,
-    selectedScenario,
-    language,
     onNewMessage,
     onThinkingStateChange,
     onAudioData,
@@ -40,38 +39,14 @@ export const useStreamingConversation = ({
     const { getApiUrl } = useApi();
     const abortControllerRef = useRef<AbortController | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    
-    // --- Throttling Buffer ---
-    const tokenBuffer = useRef<{ role: "ai" | "user"; text: string }[]>([]);
-    const bufferInterval = useRef<NodeJS.Timeout | null>(null);
+    const lastOptimisticText = useRef<string | null>(null);
 
-    // Flush buffer to state every 100ms to prevent "Render Hell"
-    useEffect(() => {
-        bufferInterval.current = setInterval(() => {
-            if (tokenBuffer.current.length > 0) {
-                // Process buffering: In a real chat app, you might want to debounce or 
-                // accumulate text. Here we flush all pending tokens in sequence.
-                // Optimally, we could merge consecutive AI tokens.
-                
-                const queue = [...tokenBuffer.current];
-                tokenBuffer.current = [];
-
-                queue.forEach(item => {
-                    onNewMessage({
-                        role: item.role,
-                        content: item.text,
-                        partial: true // Assume streaming content is partial until 'done'
-                    });
-                });
-            }
-        }, 100);
-
-        return () => {
-            if (bufferInterval.current) clearInterval(bufferInterval.current);
-        };
-    }, [onNewMessage]);
-
-    const sendMessage = useCallback(async (text: string | null, audioBlob: Blob | null) => {
+    const sendMessage = useCallback(async (
+        text: string | null, 
+        audioBlob: Blob | null,
+        baseSystemPrompt: string,
+        difficulty: string = "normal"
+    ) => {
         if (!sessionId) {
             onError("No active session.");
             return;
@@ -82,6 +57,16 @@ export const useStreamingConversation = ({
         }
         abortControllerRef.current = new AbortController();
 
+        // --- OPTIMISTIC UI UPDATE ---
+        if (text) {
+            lastOptimisticText.current = text;
+            onNewMessage({
+                role: "user",
+                content: text,
+                partial: false
+            });
+        }
+
         setIsProcessing(true);
         onThinkingStateChange(true);
 
@@ -90,76 +75,96 @@ export const useStreamingConversation = ({
         
         if (text) formData.append("text", text);
         if (audioBlob) formData.append("audio", audioBlob, "input.wav");
-        if (language) formData.append("language", language);
-
-        const scenario = SCENARIOS.find(s => s.id === selectedScenario);
-        const systemPrompt = scenario?.prompt || "You are a helpful assistant.";
-        formData.append("system_prompt", systemPrompt);
+        formData.append("system_prompt", baseSystemPrompt);
+        formData.append("difficulty", difficulty);
 
         const url = `${getApiUrl()}/api/interact`; 
 
         try {
-            await fetchEventSource(url, {
+            const response = await fetch(url, {
                 method: "POST",
                 body: formData,
                 signal: abortControllerRef.current.signal,
-                openWhenHidden: true,
-                async onopen(response) {
-                    if (response.ok) {
-                        return; 
-                    } else {
-                        if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-                             throw new Error(`Client Error: ${response.status}`);
-                        }
-                        throw new Error(`Server Error: ${response.status}`);
-                    }
-                },
-                onmessage(msg) {
-                    if (msg.event === "transcript") {
-                        try {
-                            const data = JSON.parse(msg.data);
-                            
-                            // Push to buffer instead of immediate state update
-                            if (data.text) {
-                                tokenBuffer.current.push({
-                                    role: data.role === "assistant" ? "ai" : "user",
-                                    text: data.text
-                                });
-                            }
+            });
 
-                            // Capture Metrics if available
-                            if (data.metrics && onMetricsUpdate) {
-                                onMetricsUpdate(data.metrics);
-                            }
+            if (!response.ok) {
+                throw new Error(`Server Error: ${response.status}`);
+            }
 
-                        } catch (e) {
-                            console.error("Failed to parse transcript:", e);
-                        }
-                    } else if (msg.event === "audio") {
-                        onAudioData(msg.data); 
-                    } else if (msg.event === "status") {
-                        if (msg.data === "thinking") {
-                            onThinkingStateChange(true);
-                        } else if (msg.data === "done") {
+            if (!response.body) {
+                throw new Error("Response body is empty");
+            }
+
+            const reader = response.body.getReader();
+            // CRITICAL: Instantiate decoder OUTSIDE the loop for correct state handling
+            const decoder = new TextDecoder("utf-8");
+            
+            let done = false;
+            let currentEvent = "";
+            let buffer = "";
+
+            while (!done) {
+                const { value, done: doneReading } = await reader.read();
+                done = doneReading;
+                
+                // CRITICAL: Use { stream: true } to handle partial Hebrew characters across chunks
+                const chunk = decoder.decode(value, { stream: !done });
+                buffer += chunk;
+
+                const lines = buffer.split("\n");
+                // Keep the last partial line in the buffer
+                buffer = lines.pop() || "";
+
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine) continue;
+
+                    if (trimmedLine.startsWith("event: ")) {
+                        currentEvent = trimmedLine.replace("event: ", "");
+                    } else if (trimmedLine.startsWith("data: ")) {
+                        const dataStr = trimmedLine.replace("data: ", "");
+                        
+                        if (currentEvent === "transcript") {
+                            try {
+                                const data = JSON.parse(dataStr);
+                                
+                                // De-duplication for optimistic update
+                                if (data.role === "user" && data.text === lastOptimisticText.current) {
+                                    continue;
+                                }
+
+                                if (data.text) {
+                                    onNewMessage({
+                                        role: data.role === "assistant" ? "ai" : "user",
+                                        content: data.text,
+                                        partial: true 
+                                    });
+                                }
+
+                                if (data.metrics && onMetricsUpdate) {
+                                    onMetricsUpdate(data.metrics);
+                                }
+                            } catch (e) {
+                                console.error("Failed to parse transcript JSON", e);
+                            }
+                        } else if (currentEvent === "audio") {
+                            onAudioData(dataStr); 
+                        } else if (currentEvent === "status") {
+                            if (dataStr === "thinking") {
+                                onThinkingStateChange(true);
+                            } else if (dataStr === "done") {
+                                onThinkingStateChange(false);
+                                setIsProcessing(false);
+                                lastOptimisticText.current = null;
+                            }
+                        } else if (currentEvent === "error") {
+                            onError(dataStr);
                             onThinkingStateChange(false);
                             setIsProcessing(false);
                         }
-                    } else if (msg.event === "error") {
-                        onError(msg.data);
-                        onThinkingStateChange(false);
-                        setIsProcessing(false);
                     }
-                },
-                onclose() {
-                    setIsProcessing(false);
-                    onThinkingStateChange(false);
-                },
-                onerror(err) {
-                    console.error("SSE Error:", err);
-                    // Do not retry on fatal errors
-                    throw err; 
                 }
-            });
+            }
         } catch (err: any) {
             if (err.name !== 'AbortError') {
                 onError(err.message || "Failed to send message.");
@@ -167,7 +172,7 @@ export const useStreamingConversation = ({
             setIsProcessing(false);
             onThinkingStateChange(false);
         }
-    }, [sessionId, selectedScenario, language, getApiUrl, onThinkingStateChange, onAudioData, onMetricsUpdate, onError]);
+    }, [sessionId, getApiUrl, onThinkingStateChange, onAudioData, onMetricsUpdate, onError, onNewMessage]);
 
     const cancel = useCallback(() => {
         if (abortControllerRef.current) {

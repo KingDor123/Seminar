@@ -13,5 +13,9 @@ pytest-asyncio
 httpx
 pydantic-settings
 gTTS
+transformers
+torch
+torchvision
+asyncpg
 nvidia-cudnn-cu12
 nvidia-cublas-cu12

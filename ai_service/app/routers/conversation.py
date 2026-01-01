@@ -1,396 +1,161 @@
 import logging
-import json
 import asyncio
-import base64
+import json
 import httpx
-import time
 import os
-from fastapi import APIRouter, HTTPException, Form, File, UploadFile, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Form, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Optional, AsyncGenerator, Any
+from typing import Optional, AsyncGenerator, List, Dict, Any
 
-from app.services.stt import STTService
-from app.services.llm import LLMService
-from app.services.tts import TTSService
-from app.services.preprocessor import Preprocessor
+import sys
+
+# Robust import to handle both Docker (/app root) and Local (parent root) paths
+try:
+    from ai_service.pipeline import HybridPipeline
+except ImportError:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    pipeline_dir = os.path.abspath(os.path.join(current_dir, '../..'))
+    if pipeline_dir not in sys.path:
+        sys.path.append(pipeline_dir)
+    from pipeline import HybridPipeline
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-# --- Global AI Services (Lazy Loaded) ---
-_services = {
-    "stt": None,
-    "llm": None,
-    "tts": None
-}
-
-def get_services():
-    """Lazy load services to avoid heavy initialization at import time."""
-    global _services
-    if _services["stt"] is None:
-        try:
-            logger.info("lazy loading AI services...")
-            _services["stt"] = STTService()
-            _services["llm"] = LLMService()
-            _services["tts"] = TTSService()
-        except Exception as e:
-            logger.critical(f"🔥 Critical AI Failure during lazy load: {e}")
-            raise e
-    return _services["stt"], _services["llm"], _services["tts"]
 
 # --- Constants ---
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:5000/api")
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "supersecretkey")
 
-# --- Pydantic Models ---
-class TTSRequest(BaseModel):
-    text: str
-    voice: Optional[str] = None
-    language: Optional[str] = None
+# --- Singleton Pipeline Initialization ---
+_pipeline: Optional[HybridPipeline] = None
+
+def get_pipeline() -> HybridPipeline:
+    global _pipeline
+    if _pipeline is None:
+        try:
+            logger.info("⚙️ Initializing HybridPipeline Singleton...")
+            _pipeline = HybridPipeline() 
+            logger.info("✅ HybridPipeline Ready.")
+        except Exception as e:
+            logger.critical(f"🔥 Pipeline Initialization Failed: {e}")
+            raise e
+    return _pipeline
+
+# --- Helper Functions ---
+def _sse_event(event: str, data: str) -> str:
+    return f"event: {event}\ndata: {data}\n\n"
+
+async def _fetch_history(session_id: int) -> List[Dict[str, str]]:
+    """
+    Fetches the last 10 messages for context window.
+    """
+    history = []
+    try:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
+            resp = await client.get(f"{BACKEND_URL}/chat/sessions/{session_id}/messages?limit=10")
+            if resp.status_code == 200:
+                messages = resp.json()
+                for m in messages:
+                    role = "assistant" if m["role"] == "ai" else "user"
+                    history.append({"role": role, "content": m["content"]})
+    except Exception as e:
+        logger.error(f"⚠️ History Fetch Error: {e} (Continuing without history)")
+    return history
+
+async def _save_message(session_id: int, role: str, content: str, sentiment: Optional[str] = None):
+    """
+    Saves a message to the database asynchronously.
+    """
+    if not session_id or not content: return
+    try:
+        db_role = "ai" if role == "assistant" else role
+        payload = {"role": db_role, "content": content}
+        
+        # Add sentiment if provided (Backend Message model should support this)
+        if sentiment:
+            payload["sentiment"] = sentiment
+
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
+            await client.post(
+                f"{BACKEND_URL}/chat/sessions/{session_id}/messages",
+                json=payload
+            )
+    except Exception as e:
+        logger.error(f"❌ DB Save Error: {e}")
 
 # --- HTTP Endpoints ---
-
-@router.post("/tts")
-async def generate_tts(request: TTSRequest):
-    """
-    HTTP Endpoint for generating TTS audio.
-    Returns JSON with base64 encoded audio.
-    """
-    try:
-        _, _, tts_service = get_services()
-        
-        if not request.text.strip():
-            raise HTTPException(status_code=400, detail="Text cannot be empty")
-
-        audio_content = bytearray()
-        async for chunk in tts_service.stream_audio(request.text, request.voice, request.language):
-            audio_content.extend(chunk)
-
-        audio_base64 = base64.b64encode(audio_content).decode("utf-8")
-
-        return {
-            "audio": audio_base64,
-            "visemes": []
-        }
-
-    except Exception as e:
-        logger.error(f"TTS Generation Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/interact")
 async def interact(
     background_tasks: BackgroundTasks,
     session_id: int = Form(...),
-    text: Optional[str] = Form(None),
-    audio: Optional[UploadFile] = File(None),
-    system_prompt: Optional[str] = Form("You are a helpful assistant."),
-    voice: Optional[str] = Form(None),
-    language: Optional[str] = Form(None)
+    text: str = Form(...),
+    system_prompt: str = Form(...),
+    difficulty: str = Form("normal")
 ):
     """
-    SSE Endpoint for Chat/Voice Interaction.
-    Accepts Text OR Audio (Multipart).
-    Streams Server-Sent Events (Text + Audio).
+    Main Interaction Endpoint (Streaming SSE) with History Injection.
     """
-    logger.info(f"🗣️ Interaction Request: Session={session_id}, Text={bool(text)}, Audio={bool(audio)}")
+    logger.info(f"🗣️ Interaction Request: Session={session_id}, Difficulty={difficulty}")
+    
+    # 1. Fetch History
+    history = await _fetch_history(session_id)
+    
+    # 2. Save User Message
+    background_tasks.add_task(_save_message, session_id, "user", text)
 
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
-            # Initialize services
-            stt_service, llm_service, tts_service = get_services()
+            pipeline = get_pipeline()
             
-            # 1. Process Input (STT if Audio)
-            user_text = ""
-            stt_result = {}
-            language_hint = _normalize_language_tag(language)
-            
-            if audio:
-                try:
-                    audio_bytes = await audio.read()
-                    if len(audio_bytes) > 0:
-                        stt_result = await stt_service.transcribe(audio_bytes, language_hint)
-                        user_text = stt_result.get("clean_text", "").strip()
-                        
-                        if not user_text:
-                            yield _sse_event("status", "processing_empty_audio")
-                            yield _sse_event("debug", "No speech detected in audio.")
-                            return
-                except Exception as e:
-                    logger.error(f"STT Error: {e}")
-                    yield _sse_event("error", f"STT Failed: {str(e)}")
-                    return
-
-            # If no audio (or audio failed/empty but didn't return), check text
-            if not user_text and text:
-                raw_input = text
-                _, user_text, filler_count = Preprocessor.process_text(raw_input)
-                # Mock stt_result for consistent metrics downstream
-                stt_result = {
-                    "clean_text": user_text,
-                    "raw_text": raw_input,
-                    "filler_word_count": filler_count
-                }
-
-            if not user_text:
-                yield _sse_event("error", "No input provided (text or audio).")
-                return
-
-            # Yield User Transcript
-            yield _sse_event("transcript", json.dumps({"role": "user", "text": user_text}))
-
-            # 2. Load History & Save User Message (Parallel)
-            history: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
-            language_directive = _language_system_prompt(language_hint)
-            if language_directive:
-                history.append({"role": "system", "content": language_directive})
-            
-            # Fetch History
-            prev_msgs = await _fetch_history(session_id)
-            history.extend(prev_msgs)
-            
-            # Determine last AI message for analysis context
-            last_ai_message = ""
-            if len(history) > 1 and history[-1]["role"] == "assistant":
-                last_ai_message = history[-1]["content"]
-
-            # Save User Message to DB (Background)
-            background_tasks.add_task(_save_message, session_id, "user", user_text)
-            
-            # Append current user message to history for LLM
-            history.append({"role": "user", "content": user_text})
-
-            # 3. Prepare Metadata for Behavioral Injection
-            metadata = {
-                "wpm": stt_result.get("speech_rate_wpm", 0.0),
-                "filler_count": stt_result.get("filler_word_count", 0),
-                "latency": 0.0 # Placeholder: requires timestamp tracking
-            }
-
-            # 4. Generate AI Response (Streaming)
+            yield _sse_event("transcript", json.dumps({"role": "user", "text": text}))
             yield _sse_event("status", "thinking")
             
-            full_ai_response = ""
-            current_sentence = ""
+            full_content = ""
+            detected_sentiment = "neutral" # Default fallback
 
-            async for token in llm_service.chat_stream(history, metadata):
-                full_ai_response += token
-                current_sentence += token
-                
-                # Check for sentence boundaries for TTS
-                if _is_sentence_complete(current_sentence):
-                    sentence_text = current_sentence.strip()
-                    if sentence_text:
-                        # Yield Text Chunk
-                        yield _sse_event("transcript", json.dumps({"role": "assistant", "text": sentence_text, "partial": True}))
-                        
-                        # Generate & Yield Audio Chunk
-                        try:
-                            audio_chunk = bytearray()
-                            async for chunk in tts_service.stream_audio(sentence_text, voice, language_hint):
-                                audio_chunk.extend(chunk)
-                            
-                            if audio_chunk:
-                                b64_audio = base64.b64encode(audio_chunk).decode("utf-8")
-                                yield _sse_event("audio", b64_audio)
-                        except Exception as e:
-                             logger.error(f"TTS Stream Error: {e}")
-                    
-                    current_sentence = ""
-
-            # Process remaining text
-            if current_sentence.strip():
-                sentence_text = current_sentence.strip()
-                yield _sse_event("transcript", json.dumps({"role": "assistant", "text": sentence_text, "partial": True}))
-                try:
-                    audio_chunk = bytearray()
-                    async for chunk in tts_service.stream_audio(sentence_text, voice, language_hint):
-                        audio_chunk.extend(chunk)
-                    if audio_chunk:
-                        b64_audio = base64.b64encode(audio_chunk).decode("utf-8")
-                        yield _sse_event("audio", b64_audio)
-                except Exception as e:
-                    logger.error(f"TTS Stream Error: {e}")
-
-            # 5. Save AI Response
-            background_tasks.add_task(_save_message, session_id, "assistant", full_ai_response)
-
-            # 6. Save Fast Metrics (Background)
-            if last_ai_message:
-                background_tasks.add_task(
-                    _save_fast_metrics,
-                    session_id, 
-                    stt_result if stt_result else {"clean_text": user_text}, 
-                    0.0, 
-                    last_ai_message
-                )
-
+            # 3. Stream AI Response
+            async for chunk in pipeline.process_user_message_stream(
+                text=text,
+                base_system_prompt=system_prompt,
+                difficulty_level=difficulty,
+                history=history
+            ):
+                # TYPE CHECK: Separate Metadata from Text
+                if isinstance(chunk, dict):
+                    # It's metadata (e.g., sentiment)
+                    if "sentiment" in chunk:
+                        detected_sentiment = chunk["sentiment"]
+                        # Optional: Stream metrics to frontend
+                        yield _sse_event("metrics", json.dumps(chunk))
+                elif isinstance(chunk, str):
+                    # It's a text token
+                    full_content += chunk
+                    yield _sse_event("transcript", json.dumps({"role": "assistant", "text": chunk, "partial": True}))
+            
+            # 4. Save AI Response with Sentiment
+            await _save_message(session_id, "assistant", full_content, sentiment=detected_sentiment)
+            
+            # 5. Finalize
             yield _sse_event("status", "done")
             yield _sse_event("done", "[DONE]")
 
         except Exception as e:
-            logger.error(f"Interaction Error: {e}")
+            logger.error(f"❌ SSE Stream Error: {e}")
             yield _sse_event("error", str(e))
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-@router.post("/report/generate/{session_id}")
-async def generate_report(session_id: int):
-    """
-    Trigger a full retrospective analysis of the session.
-    Iterates through history and runs deep LLM analysis on user messages.
-    """
-    logger.info(f"📊 Generating Report for Session {session_id}...")
-    try:
-        _, llm_service, _ = get_services()
-        
-        # 1. Fetch Full History
-        history = await _fetch_history(session_id)
-        if not history:
-            return {"status": "empty", "message": "No history found for this session."}
-
-        analyzed_count = 0
-        
-        # 2. Iterate and Analyze
-        # We look for User messages and their preceding AI context
-        for i in range(len(history)):
-            msg = history[i]
-            if msg["role"] == "user":
-                user_text = msg["content"]
-                
-                # Find preceding AI message for context
-                context = ""
-                if i > 0 and history[i-1]["role"] == "assistant":
-                    context = history[i-1]["content"]
-                
-                # Skip if empty
-                if not user_text.strip(): continue
-
-                # Run Deep Analysis (Async)
-                behavior_context = {}
-                
-                analysis_results = await llm_service.analyze_behavior( 
-                    user_text, 
-                    context,
-                    behavior_context
-                )
-                
-                # Save Metrics
-                for metric_name, metric_value in analysis_results.items():
-                    if isinstance(metric_value, (int, float)):
-                        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
-                            await client.post(
-                                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
-                                json={"name": metric_name, "value": metric_value, "context": f"Retrospective: '{user_text[:20]}...'"}
-                            )
-                analyzed_count += 1
-
-        return {"status": "success", "analyzed_messages": analyzed_count}
-
-    except Exception as e:
-        logger.error(f"Report Generation Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# --- Helpers ---
-
-def _sse_event(event_type: str, data: str) -> str:
-    return f"event: {event_type}\ndata: {data}\n\n"
-
-def _is_sentence_complete(text: str) -> bool:
-    text = text.strip()
-    if not text: return False
-    return text[-1] in [".", "?", "!", "\n"] and len(text) > 3
-
-def _normalize_language_tag(language: Optional[str]) -> Optional[str]:
-    if not language:
-        return None
-    lang = language.strip().lower()
-    if lang.startswith("he"):
-        return "he"
-    if lang.startswith("en"):
-        return "en"
-    return None
-
-def _language_system_prompt(language: Optional[str]) -> Optional[str]:
-    if language == "he":
-        return "Always respond in Hebrew. Do not translate to English unless explicitly asked."
-    if language == "en":
-        return "Always respond in English."
-    return None
-
-async def _fetch_history(session_id: int) -> List[Dict[str, str]]:
-    history = []
-    try:
-        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
-            resp = await client.get(f"{BACKEND_URL}/chat/sessions/{session_id}/messages")
-            if resp.status_code == 200:
-                messages = resp.json()
-                for m in messages:
-                    role = "assistant" if m["role"] == "ai" else m["role"]
-                    history.append({"role": role, "content": m["content"]})
-    except Exception as e:
-        logger.error(f"History Fetch Error: {e}")
-    return history
-
-async def _save_message(session_id: int, role: str, content: str):
-    if not session_id or not content: return
-    try:
-        db_role = "ai" if role == "assistant" else role
-        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
-            await client.post(
-                f"{BACKEND_URL}/chat/sessions/{session_id}/messages",
-                json={"role": db_role, "content": content}
-            )
-    except Exception as e:
-        logger.error(f"DB Save Error: {e}")
-
-async def _save_fast_metrics(
-    session_id: int, 
-    stt_result: Dict[str, Any], 
-    latency: float, 
-    last_ai_message: str
-):
-    """
-    Saves ONLY fast, STT-based metrics (WPM, Pauses, Fillers).
-    NO LLM calls here.
-    """
-    if not session_id: return
-
-    try:
-        user_text = stt_result.get("clean_text", "")
-        
-        # 1. Save Latency
-        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
-            await client.post(
-                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
-                json={"name": "response_latency", "value": latency, "context": f"Response to: '{last_ai_message}'"}
-            )
-        
-        # 2. Save Speech Rate
-        wpm = stt_result.get("speech_rate_wpm", 0.0)
-        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
-            await client.post(
-                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
-                json={"name": "speech_rate_wpm", "value": wpm, "context": user_text}
-            )
-            
-        # 3. Save Pauses
-        pause_count = stt_result.get("pause_count", 0)
-        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
-            await client.post(
-                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
-                json={"name": "pause_count", "value": float(pause_count), "context": user_text}
-            )
-
-        # 4. Save Fillers
-        filler_count = stt_result.get("filler_word_count", 0)
-        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
-            await client.post(
-                f"{BACKEND_URL}/analytics/sessions/{session_id}/metrics",
-                json={"name": "filler_word_count", "value": float(filler_count), "context": user_text}
-            )
-
-    except Exception as e:
-        logger.error(f"❌ Error during fast metric saving: {e}")
+@router.get("/health")
+async def health_check():
+    pipeline = get_pipeline()
+    return {
+        "status": "online",
+        "device": pipeline.device,
+        "models": {
+            "hebert": "loaded",
+            "aya": "connected"
+        }
+    }
