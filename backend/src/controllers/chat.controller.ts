@@ -12,14 +12,19 @@ export const startSession = async (req: Request, res: Response) => {
         res.status(201).json(session);
     } catch (error: any) {
         console.error('Start Session Error:', error);
-        res.status(500).json({ error: error.message });
+        const message = error?.message || 'Unknown error';
+        if (message === 'Valid Scenario ID is required' || message === 'Scenario not found' || message === 'User ID is required') {
+            res.status(400).json({ error: message });
+            return;
+        }
+        res.status(500).json({ error: message });
     }
 };
 
 export const saveMessage = async (req: Request, res: Response) => {
     try {
         const { sessionId } = req.params;
-        const { role, content } = req.body;
+        const { role, content, sentiment, analysis } = req.body;
         
         const sId = parseInt(sessionId);
         if (isNaN(sId)) {
@@ -28,11 +33,22 @@ export const saveMessage = async (req: Request, res: Response) => {
         }
 
         // Ensure sessionId is parsed to a number if your DB expects it, or keep as string if UUID
-        const message = await chatService.saveMessage(sId, role, content);
+        const message = await chatService.saveMessage(sId, role, content, sentiment, analysis);
         res.status(201).json(message);
     } catch (error: any) {
         console.error('Save Message Error:', error);
-        res.status(500).json({ error: error.message });
+        const message = error?.message || 'Unknown error';
+        const badRequestErrors = new Set([
+            'Valid Session ID is required',
+            'Valid role (user/ai) is required',
+            'Message content cannot be empty',
+            'Invalid analysis payload'
+        ]);
+        if (badRequestErrors.has(message)) {
+            res.status(400).json({ error: message });
+            return;
+        }
+        res.status(500).json({ error: message });
     }
 };
 
@@ -55,12 +71,13 @@ export const getUserSessions = async (req: Request, res: Response) => {
 export const getSessionHistory = async (req: Request, res: Response) => {
     try {
         const { sessionId } = req.params;
+        const includeAnalysis = req.query.include_analysis === 'true';
         const sId = parseInt(sessionId);
         if (isNaN(sId)) {
             res.status(400).json({ error: 'Valid Session ID is required' });
             return;
         }
-        const messages = await chatService.getSessionHistory(sId);
+        const messages = await chatService.getSessionHistory(sId, includeAnalysis);
         res.json(messages);
     } catch (error: any) {
         console.error('Get Session History Error:', error);

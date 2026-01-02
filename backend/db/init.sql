@@ -31,7 +31,22 @@ CREATE TABLE IF NOT EXISTS messages (
     session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
     role VARCHAR(10) NOT NULL CHECK (role IN ('user', 'ai', 'system')),
     content TEXT NOT NULL,
+    sentiment TEXT,
     created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- טבלת ניתוחי תור (Turn Analysis)
+CREATE TABLE IF NOT EXISTS turn_analyses (
+    id SERIAL PRIMARY KEY,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+    message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
+    sentiment VARCHAR(20) NOT NULL,
+    confidence DOUBLE PRECISION NOT NULL,
+    detected_intent TEXT,
+    social_impact TEXT,
+    reasoning TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE (message_id)
 );
 
 -- טבלת מדדים (Metrics)

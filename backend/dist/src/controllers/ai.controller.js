@@ -1,3 +1,5 @@
+import http from 'http';
+import { URL } from 'url';
 import { AI_SERVICE_BASE_URL, REQUEST_TIMEOUT_MS } from '../config/appConfig.js';
 const validateMediaPayload = (body) => {
     if (!body || typeof body !== "object") {
@@ -52,6 +54,69 @@ class AiController {
             const status = error.name === "AbortError" ? 504 : 502;
             console.error("TTS Proxy Error:", error);
             res.status(status).json({ error: "TTS Generation Failed", details: error.message });
+        }
+    }
+    async interact(req, res) {
+        try {
+            const targetUrl = new URL(`${AI_SERVICE_BASE_URL}/interact`);
+            const options = {
+                hostname: targetUrl.hostname,
+                port: targetUrl.port,
+                path: targetUrl.pathname,
+                method: 'POST',
+                headers: req.headers, // Forward headers (Content-Type, Content-Length, etc.)
+            };
+            // Remove host header to avoid confusion
+            delete options.headers['host'];
+            const proxyReq = http.request(options, (proxyRes) => {
+                // Forward status and headers
+                res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
+                // Pipe response stream (SSE)
+                proxyRes.pipe(res);
+            });
+            proxyReq.on('error', (err) => {
+                console.error("Interact Proxy Error:", err);
+                if (!res.headersSent) {
+                    res.status(502).json({ error: "AI Service Unavailable", details: err.message });
+                }
+            });
+            // Set timeout
+            proxyReq.setTimeout(REQUEST_TIMEOUT_MS || 60000, () => {
+                proxyReq.destroy();
+                if (!res.headersSent) {
+                    res.status(504).json({ error: "Gateway Timeout" });
+                }
+            });
+            // Pipe incoming request (Multipart) to proxy request
+            req.pipe(proxyReq);
+        }
+        catch (error) {
+            console.error("Interact Error:", error);
+            res.status(500).json({ error: "Internal Proxy Error" });
+        }
+    }
+    async generateReport(req, res) {
+        const sessionId = req.params.sessionId;
+        try {
+            console.log(`[AiController] Proxying Report Generation for Session ${sessionId}...`);
+            const controller = new AbortController();
+            // Long timeout for analysis (e.g. 5 minutes)
+            const timeout = setTimeout(() => controller.abort(), 300000);
+            const response = await fetch(`${AI_SERVICE_BASE_URL}/report/generate/${sessionId}`, {
+                method: "POST",
+                signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`AI Service returned ${response.status}: ${err}`);
+            }
+            const data = await response.json();
+            res.json(data);
+        }
+        catch (error) {
+            console.error("Report Generation Proxy Error:", error);
+            res.status(502).json({ error: "Report Generation Failed", details: error.message });
         }
     }
 }

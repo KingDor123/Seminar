@@ -3,6 +3,7 @@
 export interface ChatMessage {
   role: "user" | "ai";
   content: string;
+  sentiment?: string | null;
 }
 
 export interface Viseme {

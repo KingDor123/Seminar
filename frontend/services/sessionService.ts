@@ -13,6 +13,7 @@ interface ChatMessage {
     session_id: number;
     role: 'user' | 'ai';
     content: string;
+    sentiment?: string | null;
     created_at: string;
 }
 

@@ -43,7 +43,38 @@ export const runMigrations = async (): Promise<void> => {
                 session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
                 role VARCHAR(10) NOT NULL CHECK (role IN ('user', 'ai', 'system')),
                 content TEXT NOT NULL,
+                sentiment TEXT,
                 created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
+        // Add sentiment column if it doesn't exist
+        await db.execute(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_name='messages' AND column_name='sentiment'
+                ) THEN
+                    ALTER TABLE messages ADD COLUMN sentiment TEXT;
+                END IF;
+            END $$;
+        `);
+
+        // Create turn_analyses table
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS turn_analyses (
+                id SERIAL PRIMARY KEY,
+                session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+                message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
+                sentiment VARCHAR(20) NOT NULL,
+                confidence DOUBLE PRECISION NOT NULL,
+                detected_intent TEXT,
+                social_impact TEXT,
+                reasoning TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE (message_id)
             );
         `);
 

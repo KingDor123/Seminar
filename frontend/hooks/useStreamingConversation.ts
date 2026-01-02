@@ -30,6 +30,7 @@ interface UseStreamingConversationProps {
 
 export const useStreamingConversation = ({
     sessionId,
+    selectedScenario,
     onNewMessage,
     onThinkingStateChange,
     onAudioData,
@@ -43,12 +44,14 @@ export const useStreamingConversation = ({
 
     const sendMessage = useCallback(async (
         text: string | null, 
-        audioBlob: Blob | null,
-        baseSystemPrompt: string,
-        difficulty: string = "normal"
+        audioBlob: Blob | null
     ) => {
         if (!sessionId) {
             onError("No active session.");
+            return;
+        }
+        if (!selectedScenario) {
+            onError("No scenario selected.");
             return;
         }
 
@@ -75,8 +78,7 @@ export const useStreamingConversation = ({
         
         if (text) formData.append("text", text);
         if (audioBlob) formData.append("audio", audioBlob, "input.wav");
-        formData.append("system_prompt", baseSystemPrompt);
-        formData.append("difficulty", difficulty);
+        formData.append("scenario_id", selectedScenario);
 
         const url = `${getApiUrl()}/api/interact`; 
 
@@ -172,7 +174,7 @@ export const useStreamingConversation = ({
             setIsProcessing(false);
             onThinkingStateChange(false);
         }
-    }, [sessionId, getApiUrl, onThinkingStateChange, onAudioData, onMetricsUpdate, onError, onNewMessage]);
+    }, [sessionId, selectedScenario, getApiUrl, onThinkingStateChange, onAudioData, onMetricsUpdate, onError, onNewMessage]);
 
     const cancel = useCallback(() => {
         if (abortControllerRef.current) {

@@ -12,6 +12,7 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 SoftSkill AI Service Online")
     logger.info(f"   - LLM: {settings.OLLAMA_MODEL} @ {settings.OLLAMA_HOST}")
     logger.info(f"   - STT: {settings.WHISPER_MODEL_SIZE}")
+    logger.info(f"   - HeBERT fallback: {'enabled' if settings.ENABLE_HEBERT else 'disabled'}")
 
     # Initialize HybridPipeline Singleton on startup to pre-load models
     try:

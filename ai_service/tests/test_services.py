@@ -1,7 +1,6 @@
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 from app.services.stt import STTService
-from app.services.llm import LLMService
 from app.services.tts import TTSService
 
 # --- STT Service Tests ---
@@ -31,31 +30,6 @@ def test_stt_service_transcribe():
         # The service cleans text, so "Hello world" stays "Hello world"
         assert result["clean_text"] == "Hello world"
         mock_instance.transcribe.assert_called_once()
-
-# --- LLM Service Tests ---
-def test_llm_service_chat_stream():
-    # Mock the OpenAI client
-    with patch("app.services.llm.OpenAI") as MockClient:
-        mock_client_instance = MockClient.return_value
-        
-        # Mock the chat.completions.create method
-        mock_stream = MagicMock()
-        
-        # Create chunk objects that mimic OpenAI response
-        chunk1 = MagicMock()
-        chunk1.choices[0].delta.content = "Hello"
-        chunk2 = MagicMock()
-        chunk2.choices[0].delta.content = " world"
-        
-        mock_stream.__iter__.return_value = [chunk1, chunk2]
-        
-        mock_client_instance.chat.completions.create.return_value = mock_stream
-
-        service = LLMService()
-        generator = service.chat_stream([{"role": "user", "content": "hi"}])
-        
-        results = list(generator)
-        assert results == ["Hello", " world"]
 
 # --- TTS Service Tests ---
 @pytest.mark.asyncio

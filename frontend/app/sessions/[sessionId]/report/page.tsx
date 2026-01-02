@@ -4,9 +4,12 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { analyticsApi } from '../../../../lib/analyticsApi';
+import { sessionService } from '../../../../services/sessionService';
+import { TranscriptViewer } from '../../../../components/dashboard/TranscriptViewer';
 import AICoachSummary from './AICoachSummary';
 import { processMetricsToChartData } from '../../../../utils/chartHelpers';
 import { RawMetric } from './EmotionalArcChart';
+import type { ChatMessage } from '../../../../types/chat';
 
 const EmotionalArcChart = dynamic(
   () => import('./EmotionalArcChart'),
@@ -21,6 +24,7 @@ export default function SessionReportPage() {
   const sessionId = params.sessionId ? parseInt(params.sessionId as string) : null;
 
   const [metrics, setMetrics] = useState<RawMetric[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +40,12 @@ export default function SessionReportPage() {
       const fetchAndAnalyze = async () => {
         try {
           setLoading(true);
-          let data = await analyticsApi.getMetricsForSession(sessionId);
+          const [metricsData, sessionMessages] = await Promise.all([
+            analyticsApi.getMetricsForSession(sessionId),
+            sessionService.getSessionMessages(Number(sessionId))
+          ]);
+          let data = metricsData;
+          setMessages(sessionMessages);
           
           // Check if we have semantic metrics (e.g. sentiment)
           // If not, trigger generation (Optimized Option C)
@@ -144,6 +153,15 @@ export default function SessionReportPage() {
             </div>
           </div>
         )}
+
+        <div className="bg-white shadow overflow-hidden sm:rounded-lg dark:bg-gray-800">
+          <div className="px-4 py-5 sm:px-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Transcript</h3>
+          </div>
+          <div className="border-t border-gray-200 dark:border-gray-700">
+            <TranscriptViewer text="" messages={messages} />
+          </div>
+        </div>
       </div>
     </div>
   );

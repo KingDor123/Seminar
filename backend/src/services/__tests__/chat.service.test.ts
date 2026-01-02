@@ -1,5 +1,6 @@
 
 import { ChatRepo } from '../../repositories/chat.repo';
+import { fetchScenarioById } from '../scenario.service';
 
 // Mock the ChatRepo class
 jest.mock('../../repositories/chat.repo', () => {
@@ -7,8 +8,11 @@ jest.mock('../../repositories/chat.repo', () => {
         ChatRepo: jest.fn().mockImplementation(() => ({
             createSession: jest.fn(),
             addMessage: jest.fn(),
+            addMessageWithAnalysis: jest.fn(),
+            updateLatestUserSentiment: jest.fn(),
             getSessionsByUserId: jest.fn(),
             getMessagesBySessionId: jest.fn(),
+            getMessagesBySessionIdWithAnalysis: jest.fn(),
         }))
     };
 });
@@ -16,6 +20,10 @@ jest.mock('../../repositories/chat.repo', () => {
 // Mock the database config to avoid connection attempts
 jest.mock('../../config/databaseConfig', () => ({
     db: {}
+}));
+
+jest.mock('../scenario.service', () => ({
+    fetchScenarioById: jest.fn(),
 }));
 
 describe('Chat Service', () => {
@@ -39,6 +47,8 @@ describe('Chat Service', () => {
             const userId = 1;
             const scenarioId = 'interview';
             const mockSession = { id: 100, user_id: userId, scenario_id: scenarioId };
+
+            (fetchScenarioById as jest.Mock).mockReturnValue({ scenario_id: scenarioId });
             
             mockChatRepo.createSession.mockResolvedValue(mockSession);
 
@@ -55,6 +65,11 @@ describe('Chat Service', () => {
         it('should throw error if scenarioId is missing', async () => {
             await expect(chatService.startSession(1, '')).rejects.toThrow('Valid Scenario ID is required');
         });
+
+        it('should throw error if scenarioId is invalid', async () => {
+            (fetchScenarioById as jest.Mock).mockReturnValue(null);
+            await expect(chatService.startSession(1, 'unknown')).rejects.toThrow('Scenario not found');
+        });
     });
 
     describe('saveMessage', () => {
@@ -68,7 +83,7 @@ describe('Chat Service', () => {
 
             const result = await chatService.saveMessage(sessionId, role, content);
 
-            expect(mockChatRepo.addMessage).toHaveBeenCalledWith(sessionId, role, content);
+            expect(mockChatRepo.addMessage).toHaveBeenCalledWith(sessionId, role, content, undefined);
             expect(result).toEqual(mockMessage);
         });
 

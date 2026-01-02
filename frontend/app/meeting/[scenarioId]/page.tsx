@@ -9,7 +9,6 @@ import { useChatSession } from '../../../hooks/useChatSession';
 import { useAuth } from "../../../context/AuthContext";
 import { useStreamingConversation } from "../../../hooks/useStreamingConversation";
 import { AudioQueue } from "../../../utils/audioQueue";
-import { SCENARIOS } from "../../../constants/appConstants";
 
 // Global set to track pending session creations across component remounts (Strict Mode fix)
 const pendingSessions = new Set<string>();
@@ -23,9 +22,6 @@ export default function MeetingPage() {
   const languageParam = searchParams.get("lang");
   const language = languageParam === "he-IL" || languageParam === "en-US" ? languageParam : "he-IL";
   
-  // Difficulty State (Could be expanded to a UI selector later)
-  const [difficulty, setDifficulty] = useState<string>("normal");
-
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]); // Ref for latest messages if needed
 
@@ -295,10 +291,7 @@ export default function MeetingPage() {
             const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
             console.log("Sending Audio Blob:", audioBlob.size);
             if (audioBlob.size > 0) {
-                 // --- LOGIC UPDATE: Pass prompts and difficulty ---
-                 const scenario = SCENARIOS.find(s => s.id === scenarioId);
-                 const systemPrompt = scenario?.prompt || "You are a helpful assistant.";
-                 sendStreamMessage(null, audioBlob, systemPrompt, difficulty);
+                 sendStreamMessage(null, audioBlob);
             }
             audioChunksRef.current = [];
         };
@@ -315,7 +308,7 @@ export default function MeetingPage() {
     } catch (e) {
       console.error("Failed to start recording:", e);
     }
-  }, [mediaStream, sendStreamMessage, startVAD, scenarioId, difficulty]);
+  }, [mediaStream, sendStreamMessage, startVAD]);
 
   const toggleListening = async () => {
     audioQueueRef.current?.resume();
@@ -331,10 +324,7 @@ export default function MeetingPage() {
       if (!textToSend.trim()) return;
       setInput("");
       
-      // --- LOGIC UPDATE: Pass prompts and difficulty ---
-      const scenario = SCENARIOS.find(s => s.id === scenarioId);
-      const systemPrompt = scenario?.prompt || "You are a helpful assistant.";
-      sendStreamMessage(textToSend, null, systemPrompt, difficulty);
+      sendStreamMessage(textToSend, null);
   };
 
   const handleEndCall = () => {

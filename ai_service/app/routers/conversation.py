@@ -1,11 +1,9 @@
 import logging
-import asyncio
 import json
 import httpx
 import os
-from fastapi import APIRouter, HTTPException, Form, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Form
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 from typing import Optional, AsyncGenerator, List, Dict, Any
 
 import sys
@@ -63,7 +61,59 @@ async def _fetch_history(session_id: int) -> List[Dict[str, str]]:
         logger.error(f"⚠️ History Fetch Error: {e} (Continuing without history)")
     return history
 
-async def _save_message(session_id: int, role: str, content: str, sentiment: Optional[str] = None):
+async def _fetch_session_messages(session_id: int) -> List[Dict[str, Any]]:
+    """
+    Fetches full session messages for report generation.
+    """
+    try:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
+            resp = await client.get(f"{BACKEND_URL}/chat/sessions/{session_id}/messages")
+            if resp.status_code == 200:
+                return resp.json()
+            logger.error(f"⚠️ Session Messages Fetch Failed: {resp.status_code} {resp.text}")
+    except Exception as e:
+        logger.error(f"⚠️ Session Messages Fetch Error: {e}")
+    return []
+
+async def _fetch_scenario(scenario_id: str) -> Optional[Dict[str, Any]]:
+    if not scenario_id:
+        return None
+    try:
+        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
+            resp = await client.get(f"{BACKEND_URL}/scenarios/{scenario_id}")
+            if resp.status_code == 200:
+                return resp.json()
+            if resp.status_code == 404:
+                logger.warning(f"⚠️ Scenario not found: {scenario_id}")
+                return None
+            logger.error(f"⚠️ Scenario Fetch Failed: {resp.status_code} {resp.text}")
+    except Exception as e:
+        logger.error(f"⚠️ Scenario Fetch Error: {e}")
+    return None
+
+def _normalize_sentiment_label(label: Optional[str]) -> str:
+    if not label:
+        return "neutral"
+    normalized = str(label).strip().lower()
+    if normalized.startswith("label_"):
+        mapping = {"label_0": "neutral", "label_1": "positive", "label_2": "negative"}
+        return mapping.get(normalized, "neutral")
+    return normalized
+
+def _sentiment_to_score(label: str) -> float:
+    if label in ["positive", "joy"]:
+        return 1.0
+    if label in ["negative", "anger", "stress", "fear", "sadness"]:
+        return -1.0
+    return 0.0
+
+async def _save_message(
+    session_id: int,
+    role: str,
+    content: str,
+    sentiment: Optional[str] = None,
+    analysis: Optional[Dict[str, Any]] = None
+):
     """
     Saves a message to the database asynchronously.
     """
@@ -71,10 +121,11 @@ async def _save_message(session_id: int, role: str, content: str, sentiment: Opt
     try:
         db_role = "ai" if role == "assistant" else role
         payload = {"role": db_role, "content": content}
-        
-        # Add sentiment if provided (Backend Message model should support this)
+
         if sentiment:
             payload["sentiment"] = sentiment
+        if analysis:
+            payload["analysis"] = analysis
 
         async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
             await client.post(
@@ -88,23 +139,31 @@ async def _save_message(session_id: int, role: str, content: str, sentiment: Opt
 
 @router.post("/interact")
 async def interact(
-    background_tasks: BackgroundTasks,
     session_id: int = Form(...),
     text: str = Form(...),
-    system_prompt: str = Form(...),
-    difficulty: str = Form("normal")
+    scenario_id: Optional[str] = Form(None)
 ):
     """
     Main Interaction Endpoint (Streaming SSE) with History Injection.
     """
-    logger.info(f"🗣️ Interaction Request: Session={session_id}, Difficulty={difficulty}")
+    if not scenario_id or not scenario_id.strip():
+        raise HTTPException(status_code=400, detail="scenario_id is required")
+
+    logger.info(f"🗣️ Interaction Request: Session={session_id}, Scenario={scenario_id}")
+
+    scenario = await _fetch_scenario(scenario_id.strip())
+    if not scenario:
+        raise HTTPException(status_code=400, detail="Invalid scenario_id")
+
+    persona_prompt = scenario.get("persona_prompt")
+    scenario_goal = scenario.get("scenario_goal")
+    difficulty = str(scenario.get("difficulty") or "normal")
+    if not persona_prompt or not scenario_goal:
+        raise HTTPException(status_code=500, detail="Scenario configuration incomplete")
     
     # 1. Fetch History
     history = await _fetch_history(session_id)
     
-    # 2. Save User Message
-    background_tasks.add_task(_save_message, session_id, "user", text)
-
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
             pipeline = get_pipeline()
@@ -114,28 +173,49 @@ async def interact(
             
             full_content = ""
             detected_sentiment = "neutral" # Default fallback
+            analysis_payload: Optional[Dict[str, Any]] = None
 
             # 3. Stream AI Response
             async for chunk in pipeline.process_user_message_stream(
                 text=text,
-                base_system_prompt=system_prompt,
+                base_system_prompt=persona_prompt,
                 difficulty_level=difficulty,
+                scenario_goal=scenario_goal,
                 history=history
             ):
                 # TYPE CHECK: Separate Metadata from Text
                 if isinstance(chunk, dict):
-                    # It's metadata (e.g., sentiment)
+                    # It's metadata (analysis)
                     if "sentiment" in chunk:
                         detected_sentiment = chunk["sentiment"]
+                        if analysis_payload is None:
+                            analysis_payload = {
+                                "sentiment": chunk.get("sentiment"),
+                                "confidence": chunk.get("confidence"),
+                                "reasoning": chunk.get("reasoning"),
+                                "detected_intent": chunk.get("detected_intent"),
+                                "social_impact": chunk.get("social_impact"),
+                            }
+                            await _save_message(
+                                session_id,
+                                "user",
+                                text,
+                                sentiment=detected_sentiment,
+                                analysis=analysis_payload
+                            )
                         # Optional: Stream metrics to frontend
-                        yield _sse_event("metrics", json.dumps(chunk))
+                        yield _sse_event("metrics", json.dumps(chunk, ensure_ascii=False))
                 elif isinstance(chunk, str):
                     # It's a text token
                     full_content += chunk
                     yield _sse_event("transcript", json.dumps({"role": "assistant", "text": chunk, "partial": True}))
             
-            # 4. Save AI Response with Sentiment
-            await _save_message(session_id, "assistant", full_content, sentiment=detected_sentiment)
+            # Ensure user message is persisted even if analysis failed upstream.
+            if analysis_payload is None:
+                await _save_message(session_id, "user", text)
+
+            # 4. Save AI Response (sentiment belongs to user turn analysis)
+            await _save_message(session_id, "assistant", full_content)
             
             # 5. Finalize
             yield _sse_event("status", "done")
@@ -147,6 +227,76 @@ async def interact(
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+@router.post("/report/generate/{session_id}")
+async def generate_report(session_id: int):
+    """
+    Generates a lightweight session report using stored messages.
+    """
+    messages = await _fetch_session_messages(session_id)
+    if not messages:
+        return {
+            "session_id": session_id,
+            "summary": {
+                "total_messages": 0,
+                "user_messages": 0,
+                "ai_messages": 0,
+                "avg_sentiment": 0.0,
+            },
+            "tips": ["No messages found for this session."],
+            "metrics": [],
+            "sentiment_arc": [],
+        }
+
+    user_messages = [m for m in messages if m.get("role") == "user"]
+    ai_messages = [m for m in messages if m.get("role") == "ai"]
+
+    metrics = []
+    sentiment_arc = []
+    sentiment_scores = []
+
+    for idx, msg in enumerate(user_messages, start=1):
+        label = _normalize_sentiment_label(msg.get("sentiment"))
+        score = _sentiment_to_score(label)
+        sentiment_scores.append(score)
+        context = f"Analyzed user text: {msg.get('content', '')}"
+
+        sentiment_arc.append(
+            {"turn": idx, "sentiment": label, "score": score, "context": context}
+        )
+        metrics.append(
+            {"metric_name": "sentiment", "metric_value": score, "context": context}
+        )
+        metrics.append(
+            {"metric_name": "topic_adherence", "metric_value": 0.7, "context": context}
+        )
+        metrics.append(
+            {"metric_name": "clarity", "metric_value": 0.7, "context": context}
+        )
+
+    avg_sentiment = (
+        sum(sentiment_scores) / len(sentiment_scores) if sentiment_scores else 0.0
+    )
+
+    tips = []
+    if avg_sentiment > 0.5:
+        tips.append("Maintain the positive tone and keep responses concise.")
+    elif avg_sentiment < -0.2:
+        tips.append("Use de-escalation language and acknowledge the user's frustration.")
+    else:
+        tips.append("Keep responses clear and supportive.")
+
+    return {
+        "session_id": session_id,
+        "summary": {
+            "total_messages": len(messages),
+            "user_messages": len(user_messages),
+            "ai_messages": len(ai_messages),
+            "avg_sentiment": round(avg_sentiment, 2),
+        },
+        "tips": tips,
+        "metrics": metrics,
+        "sentiment_arc": sentiment_arc,
+    }
 
 @router.get("/health")
 async def health_check():

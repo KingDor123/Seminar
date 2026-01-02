@@ -3,14 +3,12 @@ import cors from "cors";
 import dotenv from "dotenv";
 import http from 'http';
 import cookieParser from 'cookie-parser';
-import { WebSocketServer, WebSocket } from 'ws';
 import router from './src/routes/user.route.js';
 import authRouter from './src/routes/auth.route.js';
 import aiRouter from './src/routes/ai.route.js';
 import chatRouter from './src/routes/chat.route.js'; // Import chat router
 import analyticsRouter from './src/routes/analytics.route.js';
-
-import { REQUEST_TIMEOUT_MS, MAX_QUEUE_LENGTH, HEARTBEAT_INTERVAL_MS, AI_SERVICE_WS_BASE_URL } from './src/config/appConfig.js';
+import scenarioRouter from './src/routes/scenario.route.js';
 
 dotenv.config();
 
@@ -34,15 +32,14 @@ app.use('/api', router);
 app.use('/api', aiRouter);
 app.use('/api/chat', chatRouter); // Register chat routes (e.g. /api/chat/sessions)
 app.use('/api/analytics', analyticsRouter);
+app.use('/api', scenarioRouter);
 
-import { attachWebSocketHandlers } from './src/websocket/ws.handler.js';
 import { runMigrations } from './src/db/migrate.js';
 
 // Create HTTP server combining Express
 const server = http.createServer(app);
 
-// Attach WebSocket handlers
-attachWebSocketHandlers(server);
+// WebSocket proxy removed (no active /ai/stream endpoint in ai_service).
 
 // Pick port from environment (Docker injects PORT)
 const port = process.env.PORT || 5000;
@@ -52,7 +49,6 @@ if (process.env.NODE_ENV !== 'test') {
   runMigrations().then(() => {
     server.listen(port, () => {
       console.log(`🚀 Backend server running inside Docker on port ${port}`);
-      console.log(`🔌 WebSocket proxy listening on /api/chat and /api/avatar`);
     });
   });
 }
