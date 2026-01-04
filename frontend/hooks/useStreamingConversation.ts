@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useApi } from './useApi';
 
 interface ChatMessage {
@@ -167,9 +167,15 @@ export const useStreamingConversation = ({
                     }
                 }
             }
-        } catch (err: any) {
-            if (err.name !== 'AbortError') {
-                onError(err.message || "Failed to send message.");
+        } catch (err: unknown) {
+            const isAbort =
+                !!err &&
+                typeof err === "object" &&
+                "name" in err &&
+                (err as { name?: string }).name === "AbortError";
+            if (!isAbort) {
+                const message = err instanceof Error ? err.message : "Failed to send message.";
+                onError(message);
             }
             setIsProcessing(false);
             onThinkingStateChange(false);

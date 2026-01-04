@@ -6,7 +6,13 @@ export class AudioQueue {
 
     constructor() {
         // Initialize AudioContext lazily or immediately
-        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const AudioContextCtor =
+            window.AudioContext ||
+            (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextCtor) {
+            throw new Error("AudioContext is not supported in this browser.");
+        }
+        this.audioContext = new AudioContextCtor();
     }
 
     public async addChunk(base64Data: string) {
