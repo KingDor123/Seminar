@@ -44,3 +44,4 @@ class AgentOutput(BaseModel):
     reasoning: str
     feedback: Optional[str] = None
     next_state_id: Optional[str] = None
+    sentiment: str = "neutral"

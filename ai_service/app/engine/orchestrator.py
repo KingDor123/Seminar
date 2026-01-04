@@ -48,7 +48,7 @@ class ScenarioOrchestrator:
         # Yield metadata about the evaluation
         yield {
             "type": "analysis",
-            "sentiment": "neutral", # Legacy field for frontend compatibility
+            "sentiment": eval_result.sentiment, 
             "confidence": 1.0 if eval_result.passed else 0.5,
             "detected_intent": "next_step" if eval_result.passed else "retry",
             "social_impact": "progress" if eval_result.passed else "stagnation",
