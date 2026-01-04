@@ -11,12 +11,16 @@ import sys
 # Robust import to handle both Docker (/app root) and Local (parent root) paths
 try:
     from ai_service.pipeline import HybridPipeline
+    from ai_service.app.engine.orchestrator import orchestrator
+    from ai_service.app.engine.scenarios import SCENARIO_REGISTRY
 except ImportError:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     pipeline_dir = os.path.abspath(os.path.join(current_dir, '../..'))
     if pipeline_dir not in sys.path:
         sys.path.append(pipeline_dir)
     from pipeline import HybridPipeline
+    from app.engine.orchestrator import orchestrator
+    from app.engine.scenarios import SCENARIO_REGISTRY
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -151,31 +155,64 @@ async def interact(
 
     logger.info(f"🗣️ Interaction Request: Session={session_id}, Scenario={scenario_id}")
 
-    scenario = await _fetch_scenario(scenario_id.strip())
-    if not scenario:
-        raise HTTPException(status_code=400, detail="Invalid scenario_id")
-
-    persona_prompt = scenario.get("persona_prompt")
-    scenario_goal = scenario.get("scenario_goal")
-    difficulty = str(scenario.get("difficulty") or "normal")
-    if not persona_prompt or not scenario_goal:
-        raise HTTPException(status_code=500, detail="Scenario configuration incomplete")
-    
     # 1. Fetch History
     history = await _fetch_history(session_id)
-    
+
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
-            pipeline = get_pipeline()
-            
             yield _sse_event("transcript", json.dumps({"role": "user", "text": text}))
             yield _sse_event("status", "thinking")
-            
-            full_content = ""
-            detected_sentiment = "neutral" # Default fallback
-            analysis_payload: Optional[Dict[str, Any]] = None
 
-            # 3. Stream AI Response
+            # --- BRANCH: NEW ENGINE ---
+            if scenario_id in SCENARIO_REGISTRY:
+                logger.info(f"🚀 Using Engine Orchestrator for {scenario_id}")
+                full_content = ""
+                analysis_payload: Optional[Dict[str, Any]] = None
+                
+                async for chunk in orchestrator.process_turn(str(session_id), scenario_id, text, history):
+                     if isinstance(chunk, dict):
+                         # Metadata / Analysis
+                         if "type" in chunk and chunk["type"] == "analysis":
+                             analysis_payload = chunk
+                             # Map new engine fields to legacy schema for frontend
+                             await _save_message(
+                                session_id,
+                                "user",
+                                text,
+                                sentiment=chunk.get("sentiment", "neutral"),
+                                analysis=chunk
+                            )
+                             yield _sse_event("metrics", json.dumps(chunk, ensure_ascii=False))
+                     elif isinstance(chunk, str):
+                         # Tokens
+                         full_content += chunk
+                         yield _sse_event("transcript", json.dumps({"role": "assistant", "text": chunk, "partial": True}))
+                
+                if analysis_payload is None:
+                    # Fallback save if analysis failed
+                    await _save_message(session_id, "user", text)
+                
+                await _save_message(session_id, "assistant", full_content)
+                yield _sse_event("status", "done")
+                yield _sse_event("done", "[DONE]")
+                return
+
+            # --- BRANCH: LEGACY PIPELINE ---
+            logger.info(f"🐢 Using Legacy HybridPipeline for {scenario_id}")
+            scenario = await _fetch_scenario(scenario_id.strip())
+            if not scenario:
+                yield _sse_event("error", "Invalid scenario_id")
+                return
+
+            persona_prompt = scenario.get("persona_prompt")
+            scenario_goal = scenario.get("scenario_goal")
+            difficulty = str(scenario.get("difficulty") or "normal")
+            
+            pipeline = get_pipeline()
+            full_content = ""
+            detected_sentiment = "neutral" 
+            analysis_payload = None
+
             async for chunk in pipeline.process_user_message_stream(
                 text=text,
                 base_system_prompt=persona_prompt,
@@ -183,19 +220,11 @@ async def interact(
                 scenario_goal=scenario_goal,
                 history=history
             ):
-                # TYPE CHECK: Separate Metadata from Text
                 if isinstance(chunk, dict):
-                    # It's metadata (analysis)
                     if "sentiment" in chunk:
                         detected_sentiment = chunk["sentiment"]
                         if analysis_payload is None:
-                            analysis_payload = {
-                                "sentiment": chunk.get("sentiment"),
-                                "confidence": chunk.get("confidence"),
-                                "reasoning": chunk.get("reasoning"),
-                                "detected_intent": chunk.get("detected_intent"),
-                                "social_impact": chunk.get("social_impact"),
-                            }
+                            analysis_payload = chunk
                             await _save_message(
                                 session_id,
                                 "user",
@@ -203,21 +232,16 @@ async def interact(
                                 sentiment=detected_sentiment,
                                 analysis=analysis_payload
                             )
-                        # Optional: Stream metrics to frontend
                         yield _sse_event("metrics", json.dumps(chunk, ensure_ascii=False))
                 elif isinstance(chunk, str):
-                    # It's a text token
                     full_content += chunk
                     yield _sse_event("transcript", json.dumps({"role": "assistant", "text": chunk, "partial": True}))
             
-            # Ensure user message is persisted even if analysis failed upstream.
             if analysis_payload is None:
                 await _save_message(session_id, "user", text)
 
-            # 4. Save AI Response (sentiment belongs to user turn analysis)
             await _save_message(session_id, "assistant", full_content)
             
-            # 5. Finalize
             yield _sse_event("status", "done")
             yield _sse_event("done", "[DONE]")
 

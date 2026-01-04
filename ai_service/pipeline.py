@@ -3,10 +3,7 @@ import logging
 import re
 from typing import Dict, Any, Optional, List, Tuple, AsyncGenerator
 
-import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from openai import AsyncOpenAI
-import torch.nn.functional as F
 
 from app.core.config import settings
 from app.schemas import AyaAnalysis
@@ -25,7 +22,7 @@ class HybridPipeline:
     
     Architecture:
     1. Text Normalization (Unicode/Whitespace only, preserving Hebraic morphology).
-    2. Contextual Analysis (Aya LLM as primary reasoning engine; HeBERT optional fallback).
+    2. Contextual Analysis (Aya LLM as primary reasoning engine).
     3. Context Injection (Dynamic Prompt Enrichment & Persona Mixer).
     4. Generative Response (Aya LLM via Ollama API).
     """
@@ -33,31 +30,9 @@ class HybridPipeline:
     def __init__(self, device: Optional[str] = None):
         """
         Initialize the pipeline models.
-        
-        Args:
-            device (str, optional): Computation device ('cuda' or 'cpu'). 
-                                    Defaults to auto-detection.
         """
-        self.device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"🚀 Initializing HybridPipeline on device: {self.device}")
-
-        # --- Optional HeBERT (Fallback Sentiment) ---
-        self.enable_hebert = settings.ENABLE_HEBERT
-        self.hebert_model_name = "avichr/heBERT_sentiment_analysis"
-        self.tokenizer = None
-        self.sentiment_model = None
-        if self.enable_hebert:
-            try:
-                logger.info(f"Loading HeBERT model: {self.hebert_model_name}...")
-                self.tokenizer = AutoTokenizer.from_pretrained(self.hebert_model_name)
-                self.sentiment_model = AutoModelForSequenceClassification.from_pretrained(self.hebert_model_name)
-                self.sentiment_model.to(self.device)
-                self.sentiment_model.eval() # Set to evaluation mode
-                logger.info("✅ HeBERT loaded successfully.")
-            except Exception as e:
-                logger.error(f"❌ Failed to load HeBERT: {e}")
-                self.tokenizer = None
-                self.sentiment_model = None
+        # We don't need torch/cuda check here anymore as we rely purely on external Ollama
+        logger.info(f"🚀 Initializing HybridPipeline (Pure LLM Mode)")
 
         # --- Initialize Aya LLM Client (via Ollama) ---
         # Using AsyncOpenAI client as established in the project's LLM service
@@ -224,57 +199,7 @@ class HybridPipeline:
         except Exception as e:
             logger.error(f"⚠️ Aya analysis failed: {e}")
 
-        if self.enable_hebert:
-            fallback = self._analyze_sentiment_hebert(last_user_message)
-            return self._coerce_analysis(
-                {
-                    "sentiment": fallback.get("sentiment", "neutral"),
-                    "confidence": fallback.get("confidence", 0.0),
-                    "reasoning": "Fallback sentiment from HeBERT on user text.",
-                    "detected_intent": "unknown",
-                    "social_impact": "unknown",
-                }
-            )
-
         return self._fallback_analysis()
-
-    def _analyze_sentiment_hebert(self, text: str) -> Dict[str, Any]:
-        """
-        Optional fallback: HeBERT sentiment inference (not the primary reasoning engine).
-        """
-        if not self.sentiment_model or not self.tokenizer:
-            return {"sentiment": "unknown", "confidence": 0.0}
-        try:
-            inputs = self.tokenizer(
-                text,
-                return_tensors="pt",
-                truncation=True,
-                max_length=512,
-                padding=True
-            ).to(self.device)
-
-            with torch.no_grad():
-                outputs = self.sentiment_model(**inputs)
-
-            probs = F.softmax(outputs.logits, dim=-1)
-            confidence, predicted_class_idx = torch.max(probs, dim=-1)
-
-            labels = self.sentiment_model.config.id2label
-            if not labels:
-                labels = {0: "neutral", 1: "positive", 2: "negative"}
-
-            sentiment_label = labels.get(predicted_class_idx.item(), "unknown")
-            score = confidence.item()
-
-            return {
-                "sentiment": sentiment_label,
-                "confidence": score,
-                "logits": outputs.logits.cpu().numpy().tolist()
-            }
-
-        except Exception as e:
-            logger.error(f"⚠️ HeBERT Inference Failed: {e}")
-            return {"sentiment": "unknown", "confidence": 0.0}
 
     def _get_contextual_instruction(self, sentiment: str, difficulty: str) -> str:
         """
