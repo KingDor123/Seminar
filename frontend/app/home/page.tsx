@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import LobbyView from '../../components/LobbyView';
 import { SCENARIOS } from '../../constants/appConstants';
 import { PageShell } from '../../components/layout/PageShell';
+import { he } from '../../constants/he';
 
 export default function HomePage() {
   const { user, isLoading } = useAuth();
@@ -18,7 +19,7 @@ export default function HomePage() {
       <PageShell className="flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <div className="h-16 w-16 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
-          <span className="text-sm">Loading your workspace...</span>
+          <span className="text-sm">{he.home.loadingWorkspace}</span>
         </div>
       </PageShell>
     );

@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { he } from '../constants/he';
 
 export const profileSchema = z.object({
-  full_name: z.string().min(2, "Full name must be at least 2 characters"),
-  email: z.string().email("Invalid email format"),
+  full_name: z.string().min(2, he.validation.fullNameMin),
+  email: z.string().email(he.validation.invalidEmail),
   password: z.string().optional().or(z.literal('')), // Optional, allow empty string to ignore
   confirmPassword: z.string().optional().or(z.literal(''))
 }).refine((data) => {
@@ -11,10 +12,10 @@ export const profileSchema = z.object({
   }
   return true;
 }, {
-  message: "Password must be at least 6 characters if provided",
+  message: he.validation.passwordMinOptional,
   path: ["password"]
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
+  message: he.validation.passwordsDontMatch,
   path: ["confirmPassword"],
 });
 

@@ -10,6 +10,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { useStreamingConversation } from "../../../hooks/useStreamingConversation";
 import { AudioQueue } from "../../../utils/audioQueue";
 import { PageShell } from "../../../components/layout/PageShell";
+import { he } from "../../../constants/he";
 
 // Global set to track pending session creations across component remounts (Strict Mode fix)
 const pendingSessions = new Set<string>();
@@ -342,7 +343,7 @@ export default function MeetingPage() {
   if (isLoading) {
     return (
       <PageShell className="flex items-center justify-center">
-        <div className="text-sm text-muted-foreground">Initializing Meeting...</div>
+        <div className="text-sm text-muted-foreground">{he.meeting.initializing}</div>
       </PageShell>
     );
   }

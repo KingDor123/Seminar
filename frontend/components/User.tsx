@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { he } from "../constants/he";
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -13,7 +14,7 @@ export default function UsersPage() {
 
   return (
     <div>
-      <h1>Users:</h1>
+      <h1>{he.labels.usersHeading}:</h1>
       <pre>{JSON.stringify(users, null, 2)}</pre>
     </div>
   );

@@ -8,6 +8,7 @@ import { WelcomeHeader } from './home/WelcomeHeader';
 import { ScenarioCard } from './home/ScenarioCard';
 import { MetricCard } from './dashboard/MetricCard';
 import { Button } from './ui/button';
+import { he } from '../constants/he';
 
 interface LobbyViewProps {
   selectedScenario: string;
@@ -37,14 +38,14 @@ const LobbyView: React.FC<LobbyViewProps> = ({
 
   const stats = [
     {
-      title: "Total Sessions",
+      title: he.lobby.stats.totalSessions,
       value: sessions.length,
       icon: Calendar,
       variant: "positive" as const,
     },
     {
-      title: "Status",
-      value: sessions.length > 0 ? "Active" : "New",
+      title: he.lobby.stats.status,
+      value: sessions.length > 0 ? he.lobby.stats.active : he.lobby.stats.new,
       icon: Sparkles,
       variant: "accent" as const,
     },
@@ -67,8 +68,8 @@ const LobbyView: React.FC<LobbyViewProps> = ({
       <section className="mb-10">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-2xl font-heading font-semibold text-foreground">Start a New Practice</h2>
-            <p className="text-sm text-muted-foreground">Choose a scenario that feels right for you.</p>
+            <h2 className="text-2xl font-heading font-semibold text-foreground">{he.lobby.startPractice}</h2>
+            <p className="text-sm text-muted-foreground">{he.lobby.chooseScenario}</p>
           </div>
           <Button
             type="button"
@@ -76,9 +77,9 @@ const LobbyView: React.FC<LobbyViewProps> = ({
             className="rounded-full px-4 py-2 text-sm"
             onClick={toggleLanguage}
           >
-            <span>Language:</span>
+            <span>{he.lobby.languageLabel}:</span>
             <span className="font-semibold">
-              {language === "he-IL" ? "Hebrew" : "English"}
+              {language === "he-IL" ? he.lobby.languageHebrew : he.lobby.languageEnglish}
             </span>
           </Button>
         </div>
@@ -107,30 +108,30 @@ const LobbyView: React.FC<LobbyViewProps> = ({
             className="h-14 rounded-full px-10 text-base font-semibold shadow-lg hover:shadow-xl"
             onClick={onStartCall}
           >
-            Start Simulation
+            {he.lobby.startSimulation}
             <ArrowRight className="h-5 w-5" />
           </Button>
         </div>
       </section>
 
       <section className="pb-12">
-        <h2 className="mb-4 text-xl font-heading font-semibold text-foreground">Recent Activity</h2>
+        <h2 className="mb-4 text-xl font-heading font-semibold text-foreground">{he.lobby.recentActivity}</h2>
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           {sessions.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
-              <div className="text-4xl font-heading font-semibold">No sessions yet</div>
+              <div className="text-4xl font-heading font-semibold">{he.lobby.noSessionsTitle}</div>
               <p className="mt-2 text-sm">
-                Complete your first simulation to see your history here.
+                {he.lobby.noSessionsSubtitle}
               </p>
             </div>
           ) : (
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="p-4">Scenario</th>
-                  <th className="p-4">Date</th>
-                  <th className="p-4">Duration</th>
-                  <th className="p-4 text-right">Action</th>
+                  <th className="p-4">{he.lobby.table.scenario}</th>
+                  <th className="p-4">{he.lobby.table.date}</th>
+                  <th className="p-4">{he.lobby.table.duration}</th>
+                  <th className="p-4 text-right">{he.lobby.table.action}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -139,20 +140,20 @@ const LobbyView: React.FC<LobbyViewProps> = ({
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-medium text-foreground">
-                          {SCENARIOS.find((s) => s.id === session.scenario_id)?.label || session.scenario_id}
+                          {SCENARIOS.find((s) => s.id === session.scenario_id)?.label || he.sessions.unknownScenario}
                         </span>
                       </div>
                     </td>
                     <td className="p-4 text-sm text-muted-foreground">
-                      {new Date(session.start_time).toLocaleDateString()}
+                      {new Date(session.start_time).toLocaleDateString("he-IL")}
                       <span className="ml-2 text-xs text-muted-foreground/80">
-                        {new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(session.start_time).toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </td>
-                    <td className="p-4 text-sm text-muted-foreground font-mono">--:--</td>
+                    <td className="p-4 text-sm text-muted-foreground font-mono">{he.lobby.durationPlaceholder}</td>
                     <td className="p-4 text-right">
                       <button className="text-sm font-medium text-primary hover:text-primary/80">
-                        View Details
+                        {he.lobby.table.viewDetails}
                       </button>
                     </td>
                   </tr>

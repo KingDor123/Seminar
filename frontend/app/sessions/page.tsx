@@ -18,6 +18,8 @@ import {
 import { MetricCard } from '../../components/dashboard/MetricCard';
 import { PageShell } from '../../components/layout/PageShell';
 import { cn } from '../../lib/utils';
+import { SCENARIOS } from '../../constants/appConstants';
+import { he } from '../../constants/he';
 
 // --- Interfaces ---
 
@@ -94,7 +96,7 @@ export default function SessionsPage() {
           setSessionList(Array.isArray(data) ? data : []);
         } else {
           setSessionList([]);
-          setSessionsError("Could not load sessions.");
+          setSessionsError(he.sessions.loadSessionsFailed);
         }
         setIsLoadingSessions(false);
 
@@ -104,18 +106,18 @@ export default function SessionsPage() {
             setDashboardStats(data);
           } else {
             setDashboardStats(null);
-            setDashboardError("Could not load stats.");
+            setDashboardError(he.sessions.loadStatsFailed);
           }
         } else {
           setDashboardStats(null);
-          setDashboardError("Could not load stats.");
+          setDashboardError(he.sessions.loadStatsFailed);
         }
         setIsLoadingDashboard(false);
       } catch (e) {
         console.error("Init Fetch Error:", e);
         if (!isActive) return;
-        setSessionsError("Could not load sessions.");
-        setDashboardError("Could not load stats.");
+        setSessionsError(he.sessions.loadSessionsFailed);
+        setDashboardError(he.sessions.loadStatsFailed);
         setSessionList([]);
         setDashboardStats(null);
         setIsLoadingSessions(false);
@@ -159,34 +161,34 @@ export default function SessionsPage() {
           return {
               color: "text-stat-positive bg-stat-positive/10 border-stat-positive/20",
               icon: <Smile className="w-3.5 h-3.5" />,
-              label: "Positive"
+              label: he.sentiments.positive
           };
       }
       if (s.includes("negative") || s.includes("stress") || s.includes("anger") || s.includes("fear")) {
           return {
               color: "text-destructive bg-destructive/10 border-destructive/20",
               icon: <Frown className="w-3.5 h-3.5" />,
-              label: s.charAt(0).toUpperCase() + s.slice(1)
+              label: he.sentiments.negative
           };
       }
       return {
           color: "text-muted-foreground bg-muted border-border",
           icon: <Meh className="w-3.5 h-3.5" />,
-          label: "Neutral"
+          label: he.sentiments.neutral
       };
   };
 
   if (isAuthLoading) {
     return (
       <PageShell className="flex items-center justify-center">
-        <div className="text-sm text-muted-foreground">Initializing...</div>
+        <div className="text-sm text-muted-foreground">{he.sessions.initializing}</div>
       </PageShell>
     );
   }
   if (!user) {
     return (
       <PageShell className="flex items-center justify-center">
-        <div className="text-sm text-muted-foreground">Please log in.</div>
+        <div className="text-sm text-muted-foreground">{he.sessions.pleaseLogin}</div>
       </PageShell>
     );
   }
@@ -195,9 +197,9 @@ export default function SessionsPage() {
   const showDashboardSkeleton = isLoadingDashboard && !dashboardStats && !dashboardError;
   const sentimentOrder: Array<keyof DashboardStats["sentiment"]> = ["positive", "neutral", "negative"];
   const sentimentLabels: Record<keyof DashboardStats["sentiment"], string> = {
-    positive: "Positive",
-    neutral: "Neutral",
-    negative: "Negative"
+    positive: he.sentiments.positive,
+    neutral: he.sentiments.neutral,
+    negative: he.sentiments.negative,
   };
   const sentimentTotal = dashboardStats
     ? sentimentOrder.reduce((sum, item) => sum + dashboardStats.sentiment[item], 0) || 1
@@ -207,9 +209,9 @@ export default function SessionsPage() {
     <PageShell>
       <div className="container mx-auto max-w-6xl px-4">
         <div className="mb-6 animate-fade-in">
-          <h1 className="text-3xl font-heading font-bold text-foreground">Your Journey</h1>
+          <h1 className="text-3xl font-heading font-bold text-foreground">{he.sessions.yourJourney}</h1>
           <p className="text-muted-foreground">
-            Track your progress and revisit your sessions.
+            {he.sessions.yourJourneySubtitle}
           </p>
         </div>
 
@@ -217,7 +219,7 @@ export default function SessionsPage() {
           <aside className="rounded-2xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-heading font-semibold text-foreground">
               <BrainCircuit className="h-4 w-4 text-primary" />
-              Explorer
+              {he.sessions.explorer}
             </div>
             <button
               onClick={() => setSelectedSessionId(null)}
@@ -230,7 +232,7 @@ export default function SessionsPage() {
             >
               <div className="flex items-center gap-3">
                 <LayoutDashboard className="h-5 w-5" />
-                <span className="font-medium">Overview</span>
+                <span className="font-medium">{he.sessions.overview}</span>
               </div>
             </button>
 
@@ -249,7 +251,7 @@ export default function SessionsPage() {
                 </div>
               )}
               {!isLoadingSessions && !sessionsError && sessionList.length === 0 && (
-                <div className="px-3 py-2 text-sm text-muted-foreground">No sessions yet.</div>
+                <div className="px-3 py-2 text-sm text-muted-foreground">{he.sessions.noSessionsYet}</div>
               )}
               {!showSessionsSkeleton && !sessionsError && sessionList.map((session) => (
                 <button
@@ -263,7 +265,9 @@ export default function SessionsPage() {
                   )}
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-sm font-semibold text-foreground capitalize">{session.scenario_id}</span>
+                    <span className="text-sm font-semibold text-foreground capitalize">
+                      {SCENARIOS.find((scenario) => scenario.id === session.scenario_id)?.label || he.sessions.unknownScenario}
+                    </span>
                     <div className={cn(
                       "h-2 w-2 rounded-full",
                       session.overall_sentiment === 'Positive'
@@ -276,7 +280,7 @@ export default function SessionsPage() {
                   <div className="flex justify-between text-[10px] text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {new Date(session.created_at).toLocaleDateString()}
+                      {new Date(session.created_at).toLocaleDateString("he-IL")}
                     </span>
                     <span className="flex items-center gap-1">
                       <MessageSquare className="w-3 h-3" />
@@ -304,22 +308,22 @@ export default function SessionsPage() {
                   </div>
                 )}
 
-                {dashboardError && (
-                  <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-center gap-3">
-                    <AlertCircle className="w-5 h-5" />
-                    <span>{dashboardError}</span>
-                  </div>
-                )}
+              {dashboardError && (
+                <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5" />
+                  <span>{dashboardError}</span>
+                </div>
+              )}
 
                 {dashboardStats && !showDashboardSkeleton && !dashboardError && (
                   <div className="space-y-6 animate-fade-in">
                     <header>
-                      <h2 className="text-2xl font-heading font-semibold text-foreground">Performance Overview</h2>
-                      <p className="text-sm text-muted-foreground">Aggregated insights from all simulations.</p>
+                      <h2 className="text-2xl font-heading font-semibold text-foreground">{he.sessions.performanceOverview}</h2>
+                      <p className="text-sm text-muted-foreground">{he.sessions.aggregatedInsights}</p>
                     </header>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <MetricCard
-                        title="Total Sessions"
+                        title={he.sessions.totalSessions}
                         value={dashboardStats.overview.total_sessions}
                         unit=""
                         icon={Activity}
@@ -327,7 +331,7 @@ export default function SessionsPage() {
                         delay={0}
                       />
                       <MetricCard
-                        title="Total Messages"
+                        title={he.sessions.totalMessages}
                         value={dashboardStats.overview.total_messages}
                         unit=""
                         icon={MessageSquare}
@@ -335,16 +339,16 @@ export default function SessionsPage() {
                         delay={100}
                       />
                       <MetricCard
-                        title="Impact Score"
+                        title={he.sessions.impactScore}
                         value={dashboardStats.overview.avg_score}
-                        unit="/ 100"
+                        unit={he.sessions.scoreUnit}
                         icon={Trophy}
                         variant="accent"
                         delay={200}
                       />
                     </div>
                     <div className="rounded-2xl border border-border bg-card p-6">
-                      <h3 className="text-lg font-heading font-semibold text-foreground mb-4">Sentiment Distribution</h3>
+                      <h3 className="text-lg font-heading font-semibold text-foreground mb-4">{he.sessions.sentimentDistribution}</h3>
                       <div className="space-y-4">
                         {sentimentOrder.map((key) => {
                           const count = dashboardStats.sentiment[key];
@@ -381,12 +385,12 @@ export default function SessionsPage() {
               <div className="rounded-2xl border border-border bg-card p-6 animate-fade-in">
                 <header className="mb-6 border-b border-border pb-4">
                   <h2 className="text-2xl font-heading font-semibold text-foreground">
-                    Session #{selectedSessionId} History
+                    {he.sessions.sessionHistoryPrefix}{selectedSessionId}
                   </h2>
                 </header>
 
                 {loadingChat ? (
-                  <div className="flex items-center justify-center text-muted-foreground">Loading transcript...</div>
+                  <div className="flex items-center justify-center text-muted-foreground">{he.sessions.loadingTranscript}</div>
                 ) : (
                   <div className="space-y-6">
                     {chatHistory.map((msg) => {
@@ -417,10 +421,10 @@ export default function SessionsPage() {
                               msg.role === 'user' ? 'justify-end' : 'justify-start',
                             )}>
                               <span className="font-mono uppercase tracking-widest">
-                                {msg.role === 'user' ? 'Patient' : 'Avatar'}
+                                {msg.role === 'user' ? he.sessions.participantUser : he.sessions.participantAvatar}
                               </span>
                               {msg.role === 'user' && !msg.sentiment && (
-                                <span title="No analysis available">
+                                <span title={he.sessions.noAnalysis}>
                                   <AlertCircle className="w-3 h-3 text-muted-foreground/60" />
                                 </span>
                               )}

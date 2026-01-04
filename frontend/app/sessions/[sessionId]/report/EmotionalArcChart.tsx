@@ -11,6 +11,7 @@ import {
   ReferenceLine,
   Brush
 } from 'recharts';
+import { he } from '../../../../constants/he';
 
 export interface RawMetric {
   id: number;
@@ -43,9 +44,9 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="h-[500px] flex flex-col items-center justify-center border-2 border-dashed border-border rounded-2xl bg-muted/30">
-        <div className="text-lg font-heading font-semibold text-foreground">No session data yet</div>
+        <div className="text-lg font-heading font-semibold text-foreground">{he.chart.noDataTitle}</div>
         <p className="text-sm text-muted-foreground mt-1">
-          Start a conversation to see your emotional arc.
+          {he.chart.noDataSubtitle}
         </p>
       </div>
     );
@@ -57,10 +58,10 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h3 className="text-2xl font-heading font-semibold text-foreground flex items-center gap-2">
-            Emotional Resonance Arc
+            {he.chart.emotionalArcTitle}
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Real-time analysis of sentiment, focus, and clarity throughout the session.
+            {he.chart.emotionalArcSubtitle}
           </p>
         </div>
         
@@ -68,15 +69,15 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
         <div className="flex flex-wrap gap-4 text-xs font-medium bg-muted/40 p-2 rounded-lg border border-border">
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-stat-positive shadow-sm"></span>
-            <span className="text-muted-foreground">Sentiment</span>
+            <span className="text-muted-foreground">{he.chart.legend.sentiment}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-primary shadow-sm"></span>
-            <span className="text-muted-foreground">Focus</span>
+            <span className="text-muted-foreground">{he.chart.legend.focus}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-accent-foreground shadow-sm"></span>
-            <span className="text-muted-foreground">Clarity</span>
+            <span className="text-muted-foreground">{he.chart.legend.clarity}</span>
           </div>
         </div>
       </div>
@@ -115,9 +116,9 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
               tickLine={false}
               tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
               tickFormatter={(val) => {
-                  if (val === 1) return 'Positive (+1)';
-                  if (val === -1) return 'Negative (-1)';
-                  if (val === 0) return 'Neutral (0)';
+                  if (val === 1) return `${he.chart.yAxis.positive} (+1)`;
+                  if (val === -1) return `${he.chart.yAxis.negative} (-1)`;
+                  if (val === 0) return `${he.chart.yAxis.neutral} (0)`;
                   return val.toFixed(1);
               }}
               width={80}
@@ -136,7 +137,7 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         {payload.map((p: any) => (
                           <div key={p.name} className="flex justify-between items-center text-sm">
-                            <span className="capitalize text-muted-foreground">{p.name === 'topic_adherence' ? 'Focus' : p.name}:</span>
+                            <span className="text-muted-foreground">{p.name}:</span>
                             <span className="font-mono font-bold" style={{ color: p.color }}>
                               {Number(p.value).toFixed(2)}
                             </span>
@@ -167,7 +168,7 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
             <Line
               type="monotone"
               dataKey="sentiment"
-              name="Sentiment"
+              name={he.chart.legend.sentiment}
               stroke="none" // No line
               dot={{ r: 8, strokeWidth: 2, fill: `url(#${gradientId})`, stroke: '#fff' }} 
               activeDot={{ r: 10, strokeWidth: 0, fill: 'hsl(var(--stat-positive))' }}
@@ -178,7 +179,7 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
             <Line
               type="monotone"
               dataKey="topic_adherence"
-              name="Focus"
+              name={he.chart.legend.focus}
               stroke="none" // No line
               dot={{ r: 6, fill: 'hsl(var(--primary))' }}
               activeDot={{ r: 8, fill: 'hsl(var(--primary))' }}
@@ -190,7 +191,7 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
             <Line
               type="monotone"
               dataKey="clarity"
-              name="Clarity"
+              name={he.chart.legend.clarity}
               stroke="none" // No line
               dot={{ r: 6, fill: 'hsl(var(--accent-foreground))' }}
               activeDot={{ r: 8, fill: 'hsl(var(--accent-foreground))' }}

@@ -10,6 +10,7 @@ import { AuthShell } from '../../components/auth/AuthShell';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
+import { ensureHebrew, he } from '../../constants/he';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -30,25 +31,25 @@ export default function LoginPage() {
       // Redirect is handled by AuthContext
     } catch (err: unknown) {
       console.error(err);
-      let errorMessage = 'Login failed';
+      let errorMessage = he.auth.errors.loginFailed;
       if (err && typeof err === 'object' && 'response' in err) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           errorMessage = (err as any).response?.data?.message || errorMessage;
       } else if (err instanceof Error) {
           errorMessage = err.message;
       }
-      setError(errorMessage);
+      setError(ensureHebrew(errorMessage, he.auth.errors.loginFailed));
     }
   };
 
   return (
     <AuthShell
-      title="Sign in to your account"
+      title={he.auth.signIn.title}
       subtitle={
         <>
-          Or{' '}
+          {he.auth.signIn.subtitlePrefix}{' '}
           <Link href="/register" className="font-medium text-primary hover:text-primary/80">
-            create a new account
+            {he.auth.signIn.subtitleLink}
           </Link>
         </>
       }
@@ -62,13 +63,13 @@ export default function LoginPage() {
       <form className="mt-6 space-y-4" onSubmit={handleSubmit(onSubmit)}>
         <div>
           <label htmlFor="email-address" className="text-sm font-medium text-muted-foreground">
-            Email address
+            {he.auth.fields.email}
           </label>
           <Input
             id="email-address"
             type="email"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder={he.auth.placeholders.email}
             className={cn("mt-2 rounded-xl", errors.email && "border-destructive")}
             {...register("email")}
           />
@@ -79,13 +80,13 @@ export default function LoginPage() {
 
         <div>
           <label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-            Password
+            {he.auth.fields.password}
           </label>
           <Input
             id="password"
             type="password"
             autoComplete="current-password"
-            placeholder="Enter your password"
+            placeholder={he.auth.placeholders.password}
             className={cn("mt-2 rounded-xl", errors.password && "border-destructive")}
             {...register("password")}
           />
@@ -102,10 +103,10 @@ export default function LoginPage() {
           {isSubmitting ? (
             <span className="flex items-center gap-2">
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-              Signing in...
+              {he.auth.signIn.loading}
             </span>
           ) : (
-            "Sign in"
+            he.auth.signIn.button
           )}
         </Button>
       </form>

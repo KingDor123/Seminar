@@ -10,6 +10,7 @@ import { AuthShell } from '../../components/auth/AuthShell';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
+import { ensureHebrew, he } from '../../constants/he';
 
 export default function RegisterPage() {
   const { register: registerUser } = useAuth();
@@ -30,25 +31,25 @@ export default function RegisterPage() {
       // Redirect handled by AuthContext
     } catch (err: unknown) {
       console.error(err);
-      let errorMessage = 'Registration failed';
+      let errorMessage = he.auth.errors.registrationFailed;
       if (err && typeof err === 'object' && 'response' in err) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           errorMessage = (err as any).response?.data?.message || errorMessage;
       } else if (err instanceof Error) {
           errorMessage = err.message;
       }
-      setError(errorMessage);
+      setError(ensureHebrew(errorMessage, he.auth.errors.registrationFailed));
     }
   };
 
   return (
     <AuthShell
-      title="Create an account"
+      title={he.auth.register.title}
       subtitle={
         <>
-          Or{' '}
+          {he.auth.register.subtitlePrefix}{' '}
           <Link href="/login" className="font-medium text-primary hover:text-primary/80">
-            sign in to your existing account
+            {he.auth.register.subtitleLink}
           </Link>
         </>
       }
@@ -62,12 +63,12 @@ export default function RegisterPage() {
       <form className="mt-6 space-y-4" onSubmit={handleSubmit(onSubmit)}>
         <div>
           <label htmlFor="full_name" className="text-sm font-medium text-muted-foreground">
-            Full Name
+            {he.auth.fields.fullName}
           </label>
           <Input
             id="full_name"
             type="text"
-            placeholder="Your name"
+            placeholder={he.auth.placeholders.fullName}
             className={cn("mt-2 rounded-xl", errors.full_name && "border-destructive")}
             {...register("full_name")}
           />
@@ -78,13 +79,13 @@ export default function RegisterPage() {
 
         <div>
           <label htmlFor="email-address" className="text-sm font-medium text-muted-foreground">
-            Email address
+            {he.auth.fields.email}
           </label>
           <Input
             id="email-address"
             type="email"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder={he.auth.placeholders.email}
             className={cn("mt-2 rounded-xl", errors.email && "border-destructive")}
             {...register("email")}
           />
@@ -95,13 +96,13 @@ export default function RegisterPage() {
 
         <div>
           <label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-            Password
+            {he.auth.fields.password}
           </label>
           <Input
             id="password"
             type="password"
             autoComplete="new-password"
-            placeholder="Create a password"
+            placeholder={he.auth.placeholders.newPassword}
             className={cn("mt-2 rounded-xl", errors.password && "border-destructive")}
             {...register("password")}
           />
@@ -112,13 +113,13 @@ export default function RegisterPage() {
 
         <div>
           <label htmlFor="confirmPassword" className="text-sm font-medium text-muted-foreground">
-            Confirm Password
+            {he.auth.fields.confirmPassword}
           </label>
           <Input
             id="confirmPassword"
             type="password"
             autoComplete="new-password"
-            placeholder="Repeat your password"
+            placeholder={he.auth.placeholders.confirmPassword}
             className={cn("mt-2 rounded-xl", errors.confirmPassword && "border-destructive")}
             {...register("confirmPassword")}
           />
@@ -131,10 +132,10 @@ export default function RegisterPage() {
           {isSubmitting ? (
             <span className="flex items-center gap-2">
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-              Creating account...
+              {he.auth.register.loading}
             </span>
           ) : (
-            "Sign up"
+            he.auth.register.button
           )}
         </Button>
       </form>

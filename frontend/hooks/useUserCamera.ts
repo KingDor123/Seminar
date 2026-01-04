@@ -1,5 +1,6 @@
 // frontend/hooks/useUserCamera.ts
 import { useState, useEffect, useRef } from 'react';
+import { he } from '../constants/he';
 
 export const useUserCamera = (isInCall: boolean) => {
   const userVideoRef = useRef<HTMLVideoElement>(null);
@@ -26,7 +27,7 @@ export const useUserCamera = (isInCall: boolean) => {
     if (isInCall) {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           console.warn("Media devices not supported in this browser.");
-          setTimeout(() => { if (isActive) setError("Media devices not supported"); }, 0);
+          setTimeout(() => { if (isActive) setError(he.errors.mediaDevicesUnsupported); }, 0);
           return;
       }
 
@@ -51,13 +52,13 @@ export const useUserCamera = (isInCall: boolean) => {
         .catch(err => {
             if (!isActive) return;
 
-            let errorMsg = "Failed to access camera/mic";
+            let errorMsg = he.errors.cameraMicFailed;
             
             if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-              errorMsg = "No camera/microphone found";
+              errorMsg = he.errors.noCameraMicFound;
               console.warn("No camera/microphone device found.");
             } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-              errorMsg = "Camera access denied";
+              errorMsg = he.errors.cameraAccessDenied;
               console.error("Camera/Mic Access Error:", err);
             } else {
               console.error("Camera/Mic Access Error:", err);

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { he } from '../constants/he';
 import { useApi } from './useApi';
 
 interface ChatMessage {
@@ -47,11 +48,11 @@ export const useStreamingConversation = ({
         audioBlob: Blob | null
     ) => {
         if (!sessionId) {
-            onError("No active session.");
+            onError(he.errors.noActiveSession);
             return;
         }
         if (!selectedScenario) {
-            onError("No scenario selected.");
+            onError(he.errors.noScenarioSelected);
             return;
         }
 
@@ -90,11 +91,11 @@ export const useStreamingConversation = ({
             });
 
             if (!response.ok) {
-                throw new Error(`Server Error: ${response.status}`);
+                throw new Error(`${he.errors.serverErrorPrefix}: ${response.status}`);
             }
 
             if (!response.body) {
-                throw new Error("Response body is empty");
+                throw new Error(he.errors.responseBodyEmpty);
             }
 
             const reader = response.body.getReader();
@@ -174,7 +175,7 @@ export const useStreamingConversation = ({
                 "name" in err &&
                 (err as { name?: string }).name === "AbortError";
             if (!isAbort) {
-                const message = err instanceof Error ? err.message : "Failed to send message.";
+                const message = err instanceof Error ? err.message : he.errors.sendMessageFailed;
                 onError(message);
             }
             setIsProcessing(false);

@@ -1,5 +1,6 @@
 // frontend/hooks/useSpeechRecognition.ts
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { he } from '../constants/he';
 
 // Augment window interface for SpeechRecognition
 declare global {
@@ -45,8 +46,8 @@ export const useSpeechRecognition = ({ language, onTranscript, onError }: UseSpe
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Your browser does not support speech recognition. Try Chrome.");
-      onError(new Error("Browser does not support SpeechRecognition"));
+      alert(he.errors.speechRecognitionAlert);
+      onError(new Error(he.errors.speechRecognitionUnsupported));
       return;
     }
 

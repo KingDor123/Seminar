@@ -1,3 +1,5 @@
+import { he } from "../constants/he";
+
 export class AudioQueue {
     private audioContext: AudioContext;
     private queue: AudioBuffer[] = [];
@@ -10,7 +12,7 @@ export class AudioQueue {
             window.AudioContext ||
             (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         if (!AudioContextCtor) {
-            throw new Error("AudioContext is not supported in this browser.");
+            throw new Error(he.errors.audioContextUnsupported);
         }
         this.audioContext = new AudioContextCtor();
     }

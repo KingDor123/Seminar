@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import { BarChart3, Home, LogIn, UserCircle, UserPlus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { he } from '../constants/he';
 
 type NavItem = {
   href: string;
@@ -15,14 +16,14 @@ type NavItem = {
 };
 
 const signedInNav: NavItem[] = [
-  { href: '/home', label: 'Home', icon: Home },
-  { href: '/sessions', label: 'Sessions', icon: BarChart3 },
-  { href: '/profile', label: 'Profile', icon: UserCircle, mobileOnly: true },
+  { href: '/home', label: he.nav.home, icon: Home },
+  { href: '/sessions', label: he.nav.sessions, icon: BarChart3 },
+  { href: '/profile', label: he.nav.profile, icon: UserCircle, mobileOnly: true },
 ];
 
 const signedOutNav: NavItem[] = [
-  { href: '/login', label: 'Sign in', icon: LogIn },
-  { href: '/register', label: 'Sign up', icon: UserPlus },
+  { href: '/login', label: he.nav.signIn, icon: LogIn },
+  { href: '/register', label: he.nav.signUp, icon: UserPlus },
 ];
 
 export default function Navbar() {
@@ -37,9 +38,9 @@ export default function Navbar() {
       <div className="container mx-auto flex items-center justify-between gap-2 px-4 py-3 md:py-4">
         <div className="hidden items-center gap-3 md:flex">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <span className="text-sm font-heading font-semibold">SS</span>
+            <span className="text-sm font-heading font-semibold">{he.app.shortName}</span>
           </div>
-          <span className="text-xl font-heading font-semibold text-foreground">SoftSkill AI</span>
+          <span className="text-xl font-heading font-semibold text-foreground">{he.app.name}</span>
         </div>
 
         <div className="flex flex-1 items-center justify-center gap-2 md:flex-none">
@@ -76,9 +77,9 @@ export default function Navbar() {
                 aria-haspopup="true"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
-                  {user.full_name?.charAt(0).toUpperCase() || 'U'}
+                  {user.full_name?.charAt(0).toUpperCase() || he.nav.accountInitial}
                 </div>
-                <span className="font-medium">{user.full_name?.split(' ')[0] || 'Account'}</span>
+                <span className="font-medium">{user.full_name?.split(' ')[0] || he.nav.account}</span>
               </button>
 
               {isProfileOpen && (
@@ -90,7 +91,7 @@ export default function Navbar() {
                   onMouseLeave={() => setIsProfileOpen(false)}
                 >
                   <div className="px-3 py-2 text-xs text-muted-foreground border-b border-border">
-                    Signed in as
+                    {he.nav.signedInAs}
                     <div className="truncate font-medium text-foreground">{user.email}</div>
                   </div>
                   <Link
@@ -98,14 +99,14 @@ export default function Navbar() {
                     className="block rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted"
                     role="menuitem"
                   >
-                    Your Profile
+                    {he.nav.yourProfile}
                   </Link>
                   <button
                     onClick={logout}
                     className="block w-full rounded-lg px-3 py-2 text-left text-sm text-destructive hover:bg-muted"
                     role="menuitem"
                   >
-                    Sign out
+                    {he.nav.signOut}
                   </button>
                 </div>
               )}

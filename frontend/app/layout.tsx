@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
+import { he } from "../constants/he";
 
 export const metadata: Metadata = {
-  title: "SoftSkill AI",
-  description: "AI-powered soft skills training",
+  title: he.app.name,
+  description: he.app.description,
 };
 
 export default function RootLayout({
@@ -14,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="he-IL" dir="rtl">
       <body className="font-body bg-background text-foreground antialiased">
         <AuthProvider>
           <Navbar />

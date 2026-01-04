@@ -8,6 +8,7 @@ import LobbyView from './LobbyView';
 import FaceTimeView from './FaceTimeView';
 import { useStreamingConversation } from "../hooks/useStreamingConversation";
 import { AudioQueue } from "../utils/audioQueue";
+import { he } from "../constants/he";
 
 export default function ChatInterface() {
   const [isInCall, setIsInCall] = useState(false);
@@ -168,7 +169,7 @@ export default function ChatInterface() {
       // Resume audio context just in case
       audioQueueRef.current?.resume();
     } else {
-      alert("Failed to start chat session. Check console/backend.");
+      alert(he.errors.startChatSessionFailed);
     }
   };
 

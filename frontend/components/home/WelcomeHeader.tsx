@@ -1,4 +1,5 @@
 import { Leaf } from "lucide-react";
+import { he } from "../../constants/he";
 
 interface WelcomeHeaderProps {
   name?: string;
@@ -7,7 +8,7 @@ interface WelcomeHeaderProps {
 export function WelcomeHeader({ name }: WelcomeHeaderProps) {
   const hour = new Date().getHours();
   const greeting =
-    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+    hour < 12 ? he.welcome.morning : hour < 17 ? he.welcome.afternoon : he.welcome.evening;
 
   return (
     <div className="mb-8 animate-fade-in text-center md:text-left">
@@ -16,7 +17,7 @@ export function WelcomeHeader({ name }: WelcomeHeaderProps) {
           <Leaf className="h-5 w-5" />
         </span>
         <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-          SoftSkill AI
+          {he.app.name}
         </span>
       </div>
       <h1 className="mb-3 text-3xl font-heading font-bold text-foreground md:text-4xl">
@@ -24,7 +25,7 @@ export function WelcomeHeader({ name }: WelcomeHeaderProps) {
         {name ? `, ${name}` : ""}
       </h1>
       <p className="text-lg text-muted-foreground">
-        What would you like to practice today?
+        {he.welcome.prompt}
       </p>
     </div>
   );

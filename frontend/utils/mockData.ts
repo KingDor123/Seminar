@@ -1,4 +1,5 @@
 import { subDays } from 'date-fns';
+import { he } from '../constants/he';
 
 export interface SessionStats {
   wpm: number;
@@ -24,21 +25,9 @@ export interface SessionData {
   chartData: RadarData[];
 }
 
-const SCENARIOS = [
-  "Job Interview",
-  "First Date",
-  "Grocery Store",
-  "Team Meeting",
-  "Conflict Resolution"
-];
-
-const TRANSCRIPTS = [
-  "So, um, I think that, like, we should probably go with option A. It's just, you know, better.",
-  "Hello! Uh, I am very excited to be here. I, like, really admire your company's work.",
-  "Can I get, uh, two pounds of apples? And maybe, um, some of those oranges too.",
-  "I feel that, like, my performance has been good. Uh, I hit all my targets.",
-  "Look, I understand your point, but, um, I just don't agree. It feels, like, rushed."
-];
+const SCENARIOS = he.mock.scenarios;
+const TRANSCRIPTS = he.mock.transcripts;
+const RADAR_SUBJECTS = he.mock.radarSubjects;
 
 export const getMockSessions = (): SessionData[] => {
   return Array.from({ length: 8 }).map((_, i) => {
@@ -63,11 +52,11 @@ export const getMockSessions = (): SessionData[] => {
       },
       transcript: TRANSCRIPTS[i % TRANSCRIPTS.length],
       chartData: [
-        { subject: 'Fluency', A: fluencyScore * 10, fullMark: 100 },
-        { subject: 'Clarity', A: 100 - (fillers * 5), fullMark: 100 },
-        { subject: 'Confidence', A: (sentimentConfidence * 100), fullMark: 100 },
-        { subject: 'Empathy', A: Math.random() * 100, fullMark: 100 },
-        { subject: 'Relevance', A: Math.random() * 100, fullMark: 100 },
+        { subject: RADAR_SUBJECTS[0], A: fluencyScore * 10, fullMark: 100 },
+        { subject: RADAR_SUBJECTS[1], A: 100 - (fillers * 5), fullMark: 100 },
+        { subject: RADAR_SUBJECTS[2], A: (sentimentConfidence * 100), fullMark: 100 },
+        { subject: RADAR_SUBJECTS[3], A: Math.random() * 100, fullMark: 100 },
+        { subject: RADAR_SUBJECTS[4], A: Math.random() * 100, fullMark: 100 },
       ]
     };
   });

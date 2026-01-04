@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { SessionData } from '../../utils/mockData';
 import { Activity, Calendar, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
+import { he } from '../../constants/he';
 
 interface SessionSidebarProps {
   sessions: SessionData[];
@@ -16,7 +17,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({ sessions, select
       <div className="p-4 border-b border-border">
         <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
           <Activity className="h-4 w-4 text-primary" />
-          History Log
+          {he.sessions.historyLog}
         </h2>
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
@@ -41,7 +42,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({ sessions, select
                 </h3>
                 <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
                   <Calendar className="h-3 w-3" />
-                  {format(new Date(session.date), 'MMM d, HH:mm')}
+                  {format(new Date(session.date), 'dd/MM HH:mm')}
                 </div>
               </div>
               {selectedId === session.id && (

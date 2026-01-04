@@ -9,6 +9,7 @@ import {
   Tooltip
 } from 'recharts';
 import { RadarData } from '../../utils/mockData';
+import { he } from '../../constants/he';
 
 interface RadarChartProps {
   data: RadarData[];
@@ -26,7 +27,7 @@ export const AnalysisRadar: React.FC<RadarChartProps> = ({ data }) => {
             />
             <PolarRadiusAxis angle={30} domain={[0, 150]} tick={false} axisLine={false} />
             <Radar
-                name="Performance"
+                name={he.chart.performanceLabel}
                 dataKey="A"
                 stroke="#06b6d4"
                 strokeWidth={2}

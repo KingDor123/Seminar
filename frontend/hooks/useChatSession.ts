@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
+import { ensureHebrew, he } from '../constants/he';
 
 interface ChatSession {
   id: number;
@@ -36,7 +37,7 @@ export const useChatSession = () => {
     if (!user) {
         console.warn("[useChatSession:startSession] Called without a user.");
         setSessionStatus('error');
-        setError("User not authenticated.");
+        setError(he.errors.userNotAuthenticated);
         return null;
     }
     
@@ -62,7 +63,7 @@ export const useChatSession = () => {
       setSessionStatus('active'); // Set status to active on success
       return res.data.id;
     } catch (err: unknown) {
-      let message = 'Failed to start session';
+      let message = he.errors.startSessionFailed;
       if (err && typeof err === 'object' && 'response' in err) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           message = (err as any).response?.data?.message || message;
@@ -70,7 +71,7 @@ export const useChatSession = () => {
           message = err.message;
       }
       console.error("[useChatSession:startSession] API call failed:", message);
-      setError(message);
+      setError(ensureHebrew(message, he.errors.startSessionFailed));
       setSessionStatus('error'); // Set status to error on failure
       return null;
     } finally {
@@ -103,7 +104,7 @@ export const useChatSession = () => {
       setSessions(res.data);
     } catch (err) {
       console.error('[useChatSession:loadSessions] Failed to load sessions', err);
-      setError("Failed to load past sessions.");
+      setError(he.errors.loadPastSessionsFailed);
     } finally {
       setLoading(false);
     }
@@ -117,7 +118,7 @@ export const useChatSession = () => {
         return res.data;
     } catch (err) {
         console.error("[useChatSession:loadMessages] Failed to load messages", err);
-        setError("Failed to load session messages.");
+        setError(he.errors.loadSessionMessagesFailed);
         return [];
     }
   }, []);

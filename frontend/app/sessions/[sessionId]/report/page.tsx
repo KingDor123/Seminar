@@ -11,6 +11,7 @@ import { processMetricsToChartData } from '../../../../utils/chartHelpers';
 import { RawMetric } from './EmotionalArcChart';
 import type { ChatMessage } from '../../../../types/chat';
 import { PageShell } from '../../../../components/layout/PageShell';
+import { ensureHebrew, he } from '../../../../constants/he';
 
 const EmotionalArcChart = dynamic(
   () => import('./EmotionalArcChart'),
@@ -35,6 +36,19 @@ export default function SessionReportPage() {
   const chartData = useMemo(() => {
       return processMetricsToChartData(metrics);
   }, [metrics]);
+
+  const formatMetricValue = (metric: RawMetric) => {
+    if (typeof metric.metric_value === "number") return metric.metric_value.toFixed(2);
+    if (typeof metric.metric_value === "string") {
+      const normalized = metric.metric_value.toLowerCase();
+      if (normalized.includes("positive") || normalized.includes("joy")) return he.sentiments.positive;
+      if (normalized.includes("negative") || normalized.includes("anger") || normalized.includes("fear")) return he.sentiments.negative;
+      if (normalized.includes("neutral")) return he.sentiments.neutral;
+      if (normalized.includes("sadness")) return he.sentiments.sadness;
+      return ensureHebrew(metric.metric_value, he.report.unknownMetric);
+    }
+    return String(metric.metric_value);
+  };
 
   useEffect(() => {
     if (sessionId) {
@@ -83,10 +97,10 @@ export default function SessionReportPage() {
           setMetrics(data);
         } catch (err: unknown) {
           console.error("Failed to fetch session metrics:", err);
-          const errorMessage = err instanceof Error ? err.message : "Failed to load metrics.";
+          const errorMessage = err instanceof Error ? err.message : he.errors.loadMetricsFailed;
           // @ts-expect-error - axios error structure
           const responseMessage = err?.response?.data?.message;
-          setError(responseMessage || errorMessage);
+          setError(ensureHebrew(responseMessage || errorMessage, he.errors.loadMetricsFailed));
         } finally {
           setLoading(false);
         }
@@ -98,7 +112,7 @@ export default function SessionReportPage() {
   if (!sessionId) {
     return (
       <PageShell className="flex items-center justify-center">
-        <div className="text-sm text-muted-foreground">Invalid Session ID provided.</div>
+        <div className="text-sm text-muted-foreground">{he.report.invalidId}</div>
       </PageShell>
     );
   }
@@ -109,9 +123,9 @@ export default function SessionReportPage() {
         <div className="flex flex-col items-center space-y-3 text-muted-foreground">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
           <p className="text-lg text-foreground">
-            {generating ? "AI is analyzing your session conversation..." : "Loading session report..."}
+            {generating ? he.report.analyzing : he.report.loading}
           </p>
-          {generating && <p className="text-sm text-muted-foreground">This may take a minute for long sessions.</p>}
+          {generating && <p className="text-sm text-muted-foreground">{he.report.longSessionNote}</p>}
         </div>
       </PageShell>
     );
@@ -120,7 +134,7 @@ export default function SessionReportPage() {
   if (error) {
     return (
       <PageShell className="flex items-center justify-center">
-        <div className="text-sm text-destructive">Error: {error}</div>
+        <div className="text-sm text-destructive">{he.report.errorPrefix}: {error}</div>
       </PageShell>
     );
   }
@@ -129,7 +143,7 @@ export default function SessionReportPage() {
     <PageShell>
       <div className="container mx-auto max-w-4xl px-4 space-y-8">
         <h2 className="text-3xl font-heading font-bold text-center text-foreground">
-          Session Report (ID: {sessionId})
+          {he.report.title} ({he.report.idLabel}: {sessionId})
         </h2>
         
         {/* AI Coach Summary Section */}
@@ -141,11 +155,11 @@ export default function SessionReportPage() {
         )}
 
         {metrics.length === 0 ? (
-          <p className="text-center text-muted-foreground">No metrics available for this session yet.</p>
+          <p className="text-center text-muted-foreground">{he.report.noMetrics}</p>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
             <div className="px-6 py-5">
-              <h3 className="text-lg font-heading font-semibold text-foreground">Detailed Metrics Log</h3>
+              <h3 className="text-lg font-heading font-semibold text-foreground">{he.report.detailedMetrics}</h3>
             </div>
             <div className="border-t border-border">
               <dl>
@@ -154,15 +168,24 @@ export default function SessionReportPage() {
                     key={metric.id}
                     className={`${index % 2 === 0 ? 'bg-muted/30' : 'bg-card'} px-6 py-5 sm:grid sm:grid-cols-3 sm:gap-4`}
                   >
-                    <dt className="text-sm font-medium text-muted-foreground">{metric.metric_name}</dt>
+                    <dt className="text-sm font-medium text-muted-foreground">
+                      {(() => {
+                        const normalized = metric.metric_name.toLowerCase();
+                        if (normalized === "sentiment") return he.metrics.sentiment;
+                        if (normalized === "topic_adherence" || normalized === "topic adherence") return he.metrics.topicAdherence;
+                        if (normalized === "clarity") return he.metrics.clarity;
+                        if (normalized === "response_latency" || normalized === "latency") return he.metrics.responseLatency;
+                        return he.report.unknownMetric;
+                      })()}
+                    </dt>
                     <dd className="mt-1 text-sm text-foreground sm:mt-0 sm:col-span-2">
-                      {typeof metric.metric_value === 'number' ? metric.metric_value.toFixed(2) : metric.metric_value}
-                      {metric.metric_name === 'response_latency' && ' seconds'}
+                      {formatMetricValue(metric)}
+                      {metric.metric_name === 'response_latency' && ` ${he.report.secondsLabel}`}
                       {metric.context && (
-                        <p className="text-xs text-muted-foreground mt-1">Context: {metric.context}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{he.report.contextLabel}: {metric.context}</p>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        Recorded at: {new Date(metric.created_at).toLocaleString()}
+                        {he.report.recordedAtLabel}: {new Date(metric.created_at).toLocaleString("he-IL")}
                       </p>
                     </dd>
                   </div>
@@ -174,7 +197,7 @@ export default function SessionReportPage() {
 
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <div className="px-6 py-5">
-            <h3 className="text-lg font-heading font-semibold text-foreground">Transcript</h3>
+            <h3 className="text-lg font-heading font-semibold text-foreground">{he.report.transcriptTitle}</h3>
           </div>
           <div className="border-t border-border">
             <TranscriptViewer text="" messages={messages} />

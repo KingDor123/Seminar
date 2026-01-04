@@ -11,6 +11,7 @@ import { PageShell } from '../../components/layout/PageShell';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
+import { ensureHebrew, he } from '../../constants/he';
 
 export default function ProfilePage() {
   const { user, checkAuth, isLoading } = useAuth();
@@ -58,7 +59,7 @@ export default function ProfilePage() {
 
       await authService.updateUser(user.id, updatePayload);
       
-      setSuccess('Profile updated successfully!');
+      setSuccess(he.profile.updatedSuccess);
       await checkAuth(); // Refresh global auth state
       
       // Clear password fields
@@ -67,21 +68,21 @@ export default function ProfilePage() {
 
     } catch (err: unknown) {
       console.error(err);
-      let errorMessage = 'Failed to update profile';
+      let errorMessage = he.profile.updateFailed;
       if (err && typeof err === 'object' && 'response' in err) {
          // eslint-disable-next-line @typescript-eslint/no-explicit-any
          errorMessage = (err as any).response?.data?.message || errorMessage;
       } else if (err instanceof Error) {
          errorMessage = err.message;
       }
-      setError(errorMessage);
+      setError(ensureHebrew(errorMessage, he.profile.updateFailed));
     }
   };
 
   if (isLoading) {
       return (
         <PageShell className="flex items-center justify-center">
-          <div className="text-sm text-muted-foreground">Loading user profile...</div>
+          <div className="text-sm text-muted-foreground">{he.profile.loading}</div>
         </PageShell>
       );
   }
@@ -94,9 +95,9 @@ export default function ProfilePage() {
     <PageShell>
       <div className="container mx-auto max-w-3xl px-4 space-y-8">
         <div className="text-center">
-          <h2 className="text-3xl font-heading font-bold text-foreground">Your Profile</h2>
+          <h2 className="text-3xl font-heading font-bold text-foreground">{he.profile.title}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Manage your personal information and security settings.
+            {he.profile.subtitle}
           </p>
         </div>
 
@@ -108,7 +109,7 @@ export default function ProfilePage() {
             <div>
               <h3 className="text-lg font-heading font-semibold text-foreground">{user.full_name}</h3>
               <p className="text-sm text-muted-foreground">
-                {user.role === 'admin' ? 'Administrator' : 'Standard User'}
+                {user.role === 'admin' ? he.profile.roleAdmin : he.profile.roleStandard}
               </p>
             </div>
           </div>
@@ -129,7 +130,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-6">
                 <div className="sm:col-span-4">
                   <label htmlFor="full_name" className="text-sm font-medium text-muted-foreground">
-                    Full Name
+                    {he.auth.fields.fullName}
                   </label>
                   <Input
                     id="full_name"
@@ -144,7 +145,7 @@ export default function ProfilePage() {
 
                 <div className="sm:col-span-4">
                   <label htmlFor="email" className="text-sm font-medium text-muted-foreground">
-                    Email Address
+                    {he.auth.fields.email}
                   </label>
                   <Input
                     id="email"
@@ -158,13 +159,13 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="sm:col-span-6 border-t border-border pt-6">
-                  <h4 className="text-base font-heading font-semibold text-foreground">Change Password</h4>
-                  <p className="text-sm text-muted-foreground">Optional, leave blank to keep current password.</p>
+                  <h4 className="text-base font-heading font-semibold text-foreground">{he.profile.changePasswordTitle}</h4>
+                  <p className="text-sm text-muted-foreground">{he.profile.changePasswordSubtitle}</p>
                 </div>
 
                 <div className="sm:col-span-3">
                   <label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-                    New Password
+                    {he.profile.newPasswordLabel}
                   </label>
                   <Input
                     id="password"
@@ -179,7 +180,7 @@ export default function ProfilePage() {
 
                 <div className="sm:col-span-3">
                   <label htmlFor="confirmPassword" className="text-sm font-medium text-muted-foreground">
-                    Confirm New Password
+                    {he.profile.confirmNewPasswordLabel}
                   </label>
                   <Input
                     id="confirmPassword"
@@ -200,10 +201,10 @@ export default function ProfilePage() {
                   className="rounded-xl"
                   onClick={() => router.back()}
                 >
-                  Cancel
+                  {he.profile.cancel}
                 </Button>
                 <Button type="submit" disabled={isSubmitting} className="rounded-xl">
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                  {isSubmitting ? he.profile.saving : he.profile.saveChanges}
                 </Button>
               </div>
             </form>

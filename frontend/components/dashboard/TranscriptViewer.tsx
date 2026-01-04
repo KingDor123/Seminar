@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollText } from 'lucide-react';
 import type { ChatMessage } from '../../types/chat';
+import { he } from '../../constants/he';
 
 interface TranscriptViewerProps {
   text: string;
@@ -40,11 +41,23 @@ export const TranscriptViewer: React.FC<TranscriptViewerProps> = ({ text, messag
     return null;
   };
 
+  const getSentimentLabel = (sentiment?: string | null) => {
+    if (!sentiment) return he.sentiments.neutral;
+    const normalized = sentiment.toLowerCase();
+    if (normalized.includes('joy') || normalized.includes('positive')) return he.sentiments.positive;
+    if (normalized.includes('anger') || normalized.includes('negative')) return he.sentiments.negative;
+    if (normalized.includes('sadness')) return he.sentiments.sadness;
+    if (normalized.includes('neutral')) return he.sentiments.neutral;
+    if (normalized.includes('stress')) return he.sentiments.stress;
+    if (normalized.includes('fear')) return he.sentiments.fear;
+    return he.sentiments.neutral;
+  };
+
   return (
     <div className="flex flex-col h-full bg-card rounded-2xl border border-border overflow-hidden">
       <div className="p-4 border-b border-border bg-card flex items-center gap-2">
         <ScrollText className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Transcript Analysis</h3>
+        <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{he.sessions.transcriptAnalysis}</h3>
       </div>
       <div className="p-6 font-mono text-sm leading-relaxed text-foreground overflow-y-auto custom-scrollbar">
         {messages && messages.length > 0 ? (
@@ -65,7 +78,7 @@ export const TranscriptViewer: React.FC<TranscriptViewerProps> = ({ text, messag
                     >
                     <div className="flex items-start gap-2">
                       {sentimentEmoji && (
-                        <span className="text-xs" title={message.sentiment || undefined}>
+                        <span className="text-xs" title={getSentimentLabel(message.sentiment)}>
                           {sentimentEmoji}
                         </span>
                       )}

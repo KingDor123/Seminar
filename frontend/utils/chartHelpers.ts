@@ -1,5 +1,6 @@
 
 import { RawMetric, ChartDataPoint } from '../app/sessions/[sessionId]/report/EmotionalArcChart';
+import { he } from '../constants/he';
 
 export const processMetricsToChartData = (metrics: RawMetric[]): ChartDataPoint[] => {
     if (!metrics || metrics.length === 0) return [];
@@ -22,8 +23,8 @@ export const processMetricsToChartData = (metrics: RawMetric[]): ChartDataPoint[
         turnsMap.set(key, {
           turnNum: turnCounter,
           context: m.context 
-            ? m.context.replace("Analyzed user text: ", "").replace("User responded after AI message:", "User Reply: ") 
-            : "Unknown"
+            ? m.context.replace("Analyzed user text: ", "").replace("User responded after AI message:", he.chart.userReplyPrefix) 
+            : he.chart.unknownContext
         });
       }
 
@@ -40,7 +41,7 @@ export const processMetricsToChartData = (metrics: RawMetric[]): ChartDataPoint[
 
     return Array.from(turnsMap.values())
         .map(entry => ({
-            turn: `Turn ${entry.turnNum || 0}`,
+            turn: `${he.chart.turnPrefix} ${entry.turnNum || 0}`,
             context: entry.context || "",
             sentiment: entry.sentiment ?? 0,
             topic_adherence: entry.topic_adherence ?? 0,

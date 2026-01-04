@@ -1,5 +1,6 @@
 // frontend/hooks/useApi.ts
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { he } from '../constants/he';
 
 // Centralize API base URL resolution
 const useApiBase = () => {
@@ -70,7 +71,7 @@ export const useTTS = () => {
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         console.error("TTS Error Details:", errData);
-        throw new Error("TTS Gen Error");
+        throw new Error(he.errors.ttsGenerationFailed);
       }
 
       const data = await res.json();

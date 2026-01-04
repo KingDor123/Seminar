@@ -3,6 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import Avatar3D from './Avatar3D';
 import { SCENARIOS } from '../constants/appConstants';
 import { ChatMessage, Viseme } from '../types/chat';
+import { he } from '../constants/he';
 
 interface FaceTimeViewProps {
   messages: ChatMessage[];
@@ -51,6 +52,11 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [showChat, setShowChat] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const statusLabel = isGeneratingAudio
+    ? he.meeting.status.generating
+    : isAiSpeaking
+      ? he.meeting.status.speaking
+      : he.meeting.status.connected;
 
   // Derived state
   const isMuted = !isSpeechRecognitionListening;
@@ -119,23 +125,23 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
         <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-10 bg-gradient-to-b from-card/80 to-transparent">
              <div className="flex items-center gap-3">
                  <div className="bg-background backdrop-blur-md p-2 rounded-lg border border-border">
-                     <span className="text-xs font-semibold text-primary">SS</span>
+                     <span className="text-xs font-semibold text-primary">{he.app.shortName}</span>
                  </div>
                  <div>
                      <h2 className="text-foreground font-bold text-lg leading-tight">
-                         {SCENARIOS.find(s => s.id === selectedScenario)?.label || "Meeting"}
+                         {SCENARIOS.find(s => s.id === selectedScenario)?.label || he.meeting.fallbackTitle}
                      </h2>
                      <div className="flex items-center gap-2">
                          <span className={`w-2 h-2 rounded-full ${isGeneratingAudio || isAiSpeaking ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`}></span>
                          <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium">
-                             {isGeneratingAudio ? "Generating..." : isAiSpeaking ? "Speaking" : "Connected"}
+                             {statusLabel}
                          </span>
                      </div>
                  </div>
              </div>
 
              <div className="bg-destructive/10 text-destructive px-3 py-1 rounded-full text-xs font-mono border border-destructive/20 flex items-center gap-2">
-                 <span>REC</span>
+                 <span>{he.meeting.rec}</span>
                  <span className={`w-2 h-2 bg-destructive rounded-full ${!isMuted ? 'animate-pulse' : 'opacity-20'}`}></span>
              </div>
         </div>
@@ -166,7 +172,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
       {/* --- Chat Sidebar (Collapsible) --- */}
       <div className={`absolute right-0 top-0 bottom-0 bg-card/95 backdrop-blur-xl border-l border-border transition-all duration-300 transform ${showChat ? 'translate-x-0 w-1/3' : 'translate-x-full w-0'} z-20 flex flex-col`}>
           <div className="p-4 border-b border-border flex justify-between items-center bg-card">
-              <h3 className="text-foreground font-bold">Meeting Chat</h3>
+              <h3 className="text-foreground font-bold">{he.meeting.chatTitle}</h3>
               <button onClick={() => setShowChat(false)} className="text-muted-foreground hover:text-foreground">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -191,7 +197,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                      placeholder="Type a message..."
+                      placeholder={he.meeting.messagePlaceholder}
                       className="w-full bg-background text-foreground rounded-full pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-ring border border-input"
                   />
                   <button onClick={() => sendMessage()} className="absolute right-2 top-1.5 text-primary hover:text-primary/80">
@@ -223,7 +229,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
                <video ref={userVideoRef} autoPlay muted playsInline className="w-full h-full object-cover transform scale-x-[-1]" />
            )}
            <div className="absolute bottom-2 left-2 bg-card/80 px-2 py-0.5 rounded text-[10px] text-foreground font-medium backdrop-blur-sm border border-border">
-               You
+               {he.meeting.youLabel}
            </div>
       </div>
 
@@ -235,7 +241,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
           <button
              onClick={toggleMic}
              className={`p-3 rounded-full transition-all ${isMuted ? 'bg-muted text-muted-foreground hover:bg-muted/80' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
-             title={isMuted ? "Unmute (Start Recording)" : "Mute (Stop Recording)"}
+             title={isMuted ? he.meeting.tooltips.unmute : he.meeting.tooltips.mute}
           >
               {isMuted ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -253,7 +259,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
           <button
              onClick={toggleCamera}
              className={`p-3 rounded-full transition-all ${cameraOff ? 'bg-muted text-muted-foreground hover:bg-muted/80' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}
-             title={cameraOff ? "Turn Video On" : "Turn Video Off"}
+             title={cameraOff ? he.meeting.tooltips.videoOn : he.meeting.tooltips.videoOff}
           >
               {cameraOff ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -271,7 +277,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
           <button
              onClick={() => setShowChat(!showChat)}
              className={`p-3 rounded-full transition-all ${showChat ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-             title="Toggle Chat"
+             title={he.meeting.tooltips.toggleChat}
           >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -282,12 +288,12 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
           <button
              onClick={onEndCall}
              className="px-6 py-3 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full font-bold flex items-center gap-2 shadow-lg transition-transform hover:scale-105"
-             title="End Meeting"
+             title={he.meeting.tooltips.endMeeting}
           >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6.666M19.333 12.889A2.25 2.25 0 0121.583 15v3.667a2.25 2.25 0 01-2.25 2.25H2.417A2.25 2.25 0 01.167 18.667V15a2.25 2.25 0 012.25-2.111" />
               </svg>
-              <span className="text-sm">Leave</span>
+              <span className="text-sm">{he.meeting.leave}</span>
           </button>
       </div>
 

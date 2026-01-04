@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { ChartDataPoint } from './EmotionalArcChart';
+import { he } from '../../../../constants/he';
 
 interface AICoachSummaryProps {
   data: ChartDataPoint[];
@@ -22,38 +23,38 @@ export default function AICoachSummary({ data }: AICoachSummaryProps) {
 
     // --- SENTIMENT ANALYSIS ---
     if (avgSentiment > 0.5) {
-      strengths.push("😊 Great Attitude: You maintained a positive and friendly tone.");
+      strengths.push(he.coach.strengths.greatAttitude);
     } else if (avgSentiment < -0.2) {
-      tips.push("😐 Tone Check: The conversation felt a bit negative. Try using more positive words.");
+      tips.push(he.coach.tips.toneCheck);
     }
 
     // --- FOCUS ANALYSIS ---
     const distractions = data.filter(d => d.topic_adherence < 0.5);
     if (distractions.length === 0 && avgFocus > 0.8) {
-      strengths.push("🎯 Laser Focus: You stayed on topic perfectly throughout the session.");
+      strengths.push(he.coach.strengths.laserFocus);
     } else if (distractions.length > 0) {
-      tips.push(`⚠️ Distractions: You drifted off-topic ${distractions.length} times. Try to stick to the scenario's goal.`);
+      tips.push(he.coach.tips.distractions(distractions.length));
     }
 
     // --- CLARITY ANALYSIS ---
     if (avgClarity > 0.8) {
-        strengths.push("🗣️ Clear Speaker: Your responses were easy to understand.");
+        strengths.push(he.coach.strengths.clearSpeaker);
     } else if (avgClarity < 0.5) {
-        tips.push("🤔 Clarity: Some responses were short or unclear. Don't be afraid to elaborate.");
+        tips.push(he.coach.tips.clarity);
     }
 
     // --- LATENCY (PACING) ANALYSIS ---
     if (avgLatency > 1.0 && avgLatency < 4.0) {
-        strengths.push("⏱️ Good Pacing: You responded in a natural rhythm.");
+        strengths.push(he.coach.strengths.goodPacing);
     } else if (avgLatency > 5.0) {
-        tips.push("🐢 Long Pauses: It took a while to respond. It's okay to use fillers like 'Let me think...'");
+        tips.push(he.coach.tips.longPauses);
     } else if (avgLatency < 0.5) {
-        tips.push("🐇 Too Fast: You responded very quickly. Make sure to listen fully before speaking.");
+        tips.push(he.coach.tips.tooFast);
     }
 
     // Fallback if empty
-    if (strengths.length === 0) strengths.push("👍 Good effort! Keep practicing to uncover more strengths.");
-    if (tips.length === 0) tips.push("🌟 You're doing great! Try a harder scenario next time.");
+    if (strengths.length === 0) strengths.push(he.coach.strengths.fallback);
+    if (tips.length === 0) tips.push(he.coach.tips.fallback);
 
     return { strengths, tips, avgSentiment, avgFocus };
   }, [data]);
@@ -65,7 +66,7 @@ export default function AICoachSummary({ data }: AICoachSummaryProps) {
       {/* Strengths Card */}
       <div className="rounded-2xl border border-stat-positive/20 bg-stat-positive/5 p-6 shadow-sm">
         <h3 className="text-xl font-heading font-semibold text-foreground mb-4 flex items-center">
-          <span className="mr-2">✅</span> What You Did Well
+          <span className="mr-2">✅</span> {he.coach.strengthsTitle}
         </h3>
         <ul className="space-y-3">
           {summary.strengths.map((s, i) => (
@@ -79,7 +80,7 @@ export default function AICoachSummary({ data }: AICoachSummaryProps) {
       {/* Tips Card */}
       <div className="rounded-2xl border border-stat-accent/20 bg-stat-accent/5 p-6 shadow-sm">
         <h3 className="text-xl font-heading font-semibold text-foreground mb-4 flex items-center">
-          <span className="mr-2">💡</span> Coaching Tips
+          <span className="mr-2">💡</span> {he.coach.tipsTitle}
         </h3>
         <ul className="space-y-3">
           {summary.tips.map((t, i) => (
