@@ -60,6 +60,14 @@ class RolePlayAgent:
     """
     Generates the in-character response.
     """
+    
+    # Heuristic constants
+    MAX_TOTAL_TOKENS = 2048
+    EST_CHARS_PER_TOKEN = 3.5 # Conservative estimate for Hebrew/English
+    
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
+        return int(len(text) / RolePlayAgent.EST_CHARS_PER_TOKEN) + 5
 
     @staticmethod
     async def generate_response(
@@ -69,7 +77,7 @@ class RolePlayAgent:
         history: List[Dict[str, str]],
         eval_result: Optional[AgentOutput] = None
     ):
-        # 1. Construct System Prompt
+        # 1. Construct System Prompt (The "Head" - Always Pinned)
         system_prompt = (
             "SYSTEM INSTRUCTIONS:\n"
             "1. Output Language: Hebrew.\n"
@@ -88,12 +96,37 @@ class RolePlayAgent:
                 f"Internal Reasoning: {eval_result.reasoning}"
             )
         
-        messages = [{"role": "system", "content": system_prompt}]
+        # 3. Smart Context Trimming (The "Middle")
+        # We need to fit: System Prompt + History + User Message <= MAX_TOTAL_TOKENS
         
-        # Add limited history (last 5 turns)
-        messages.extend(history[-5:])
+        sys_tokens = RolePlayAgent._estimate_tokens(system_prompt)
+        user_tokens = RolePlayAgent._estimate_tokens(user_text)
+        reserved_tokens = sys_tokens + user_tokens + 200 # +200 buffer for safety/output
+        
+        available_history_tokens = RolePlayAgent.MAX_TOTAL_TOKENS - reserved_tokens
+        
+        trimmed_history = []
+        current_history_tokens = 0
+        
+        # Iterate backwards (newest first) to keep the most relevant context
+        for msg in reversed(history):
+            msg_content = msg.get("content", "")
+            msg_tokens = RolePlayAgent._estimate_tokens(msg_content)
+            
+            if current_history_tokens + msg_tokens < available_history_tokens:
+                trimmed_history.append(msg)
+                current_history_tokens += msg_tokens
+            else:
+                break # Stop if we run out of space
+        
+        # Reverse back to chronological order
+        trimmed_history.reverse()
+        
+        # 4. Final Assembly
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(trimmed_history)
         messages.append({"role": "user", "content": user_text})
 
-        # 3. Stream Response
+        # 5. Stream Response
         async for token in llm_client.generate_stream(messages):
             yield token
