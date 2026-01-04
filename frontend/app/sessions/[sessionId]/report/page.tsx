@@ -10,12 +10,13 @@ import AICoachSummary from './AICoachSummary';
 import { processMetricsToChartData } from '../../../../utils/chartHelpers';
 import { RawMetric } from './EmotionalArcChart';
 import type { ChatMessage } from '../../../../types/chat';
+import { PageShell } from '../../../../components/layout/PageShell';
 
 const EmotionalArcChart = dynamic(
   () => import('./EmotionalArcChart'),
   { 
     ssr: false,
-    loading: () => <div className="h-[500px] w-full bg-gray-100 dark:bg-gray-800 animate-pulse rounded-xl" />
+    loading: () => <div className="h-[500px] w-full bg-muted/50 animate-pulse rounded-2xl" />
   }
 );
 
@@ -44,13 +45,13 @@ export default function SessionReportPage() {
             analyticsApi.getMetricsForSession(sessionId),
             sessionService.getSessionMessages(Number(sessionId))
           ]);
-          let data = metricsData;
+          let data = metricsData as RawMetric[];
           setMessages(sessionMessages);
           
           // Check if we have semantic metrics (e.g. sentiment)
           // If not, trigger generation (Optimized Option C)
           // We check for 'sentiment' which is produced by the Deep Analysis
-          const hasSentiment = data.some((m: any) => m.metric_name === 'sentiment');
+          const hasSentiment = data.some((m) => m.metric_name === 'sentiment');
           
           if (!hasSentiment && data.length > 0) { // Only generate if we have SOME data (audio metrics) but missing deep metrics
               console.log("Missing semantic metrics. Triggering auto-generation...");
@@ -95,29 +96,41 @@ export default function SessionReportPage() {
   }, [sessionId]);
 
   if (!sessionId) {
-    return <div className="text-center py-8">Invalid Session ID provided.</div>;
+    return (
+      <PageShell className="flex items-center justify-center">
+        <div className="text-sm text-muted-foreground">Invalid Session ID provided.</div>
+      </PageShell>
+    );
   }
 
   if (loading || generating) {
     return (
-        <div className="flex flex-col h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            <p className="text-lg text-gray-700 dark:text-gray-300">
-                {generating ? "AI is analyzing your session conversation..." : "Loading session report..."}
-            </p>
-            {generating && <p className="text-sm text-gray-500">This may take a minute for long sessions.</p>}
+      <PageShell className="flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-3 text-muted-foreground">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
+          <p className="text-lg text-foreground">
+            {generating ? "AI is analyzing your session conversation..." : "Loading session report..."}
+          </p>
+          {generating && <p className="text-sm text-muted-foreground">This may take a minute for long sessions.</p>}
         </div>
+      </PageShell>
     );
   }
 
   if (error) {
-    return <div className="text-center py-8 text-red-600">Error: {error}</div>;
+    return (
+      <PageShell className="flex items-center justify-center">
+        <div className="text-sm text-destructive">Error: {error}</div>
+      </PageShell>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 dark:bg-gray-900 text-gray-900 dark:text-white">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <h2 className="text-3xl font-extrabold text-center">Session Report (ID: {sessionId})</h2>
+    <PageShell>
+      <div className="container mx-auto max-w-4xl px-4 space-y-8">
+        <h2 className="text-3xl font-heading font-bold text-center text-foreground">
+          Session Report (ID: {sessionId})
+        </h2>
         
         {/* AI Coach Summary Section */}
         {chartData.length > 0 && <AICoachSummary data={chartData} />}
@@ -128,24 +141,29 @@ export default function SessionReportPage() {
         )}
 
         {metrics.length === 0 ? (
-          <p className="text-center text-gray-600 dark:text-gray-400">No metrics available for this session yet.</p>
+          <p className="text-center text-muted-foreground">No metrics available for this session yet.</p>
         ) : (
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg dark:bg-gray-800">
-            <div className="px-4 py-5 sm:px-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Detailed Metrics Log</h3>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="px-6 py-5">
+              <h3 className="text-lg font-heading font-semibold text-foreground">Detailed Metrics Log</h3>
             </div>
-            <div className="border-t border-gray-200 dark:border-gray-700">
+            <div className="border-t border-border">
               <dl>
                 {metrics.map((metric, index) => (
-                  <div key={metric.id} className={`${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : 'bg-white dark:bg-gray-800'} px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6`}>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">{metric.metric_name}</dt>
-                    <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 dark:text-white">
-                      {typeof metric.metric_value === 'number' ? metric.metric_value.toFixed(2) : metric.metric_value} 
+                  <div
+                    key={metric.id}
+                    className={`${index % 2 === 0 ? 'bg-muted/30' : 'bg-card'} px-6 py-5 sm:grid sm:grid-cols-3 sm:gap-4`}
+                  >
+                    <dt className="text-sm font-medium text-muted-foreground">{metric.metric_name}</dt>
+                    <dd className="mt-1 text-sm text-foreground sm:mt-0 sm:col-span-2">
+                      {typeof metric.metric_value === 'number' ? metric.metric_value.toFixed(2) : metric.metric_value}
                       {metric.metric_name === 'response_latency' && ' seconds'}
                       {metric.context && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Context: {metric.context}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Context: {metric.context}</p>
                       )}
-                      <p className="text-xs text-gray-400 dark:text-gray-500">Recorded at: {new Date(metric.created_at).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Recorded at: {new Date(metric.created_at).toLocaleString()}
+                      </p>
                     </dd>
                   </div>
                 ))}
@@ -154,15 +172,15 @@ export default function SessionReportPage() {
           </div>
         )}
 
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg dark:bg-gray-800">
-          <div className="px-4 py-5 sm:px-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Transcript</h3>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="px-6 py-5">
+            <h3 className="text-lg font-heading font-semibold text-foreground">Transcript</h3>
           </div>
-          <div className="border-t border-gray-200 dark:border-gray-700">
+          <div className="border-t border-border">
             <TranscriptViewer text="" messages={messages} />
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

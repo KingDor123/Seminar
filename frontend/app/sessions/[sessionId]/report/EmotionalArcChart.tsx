@@ -40,53 +40,49 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
   const safeId = rawId.replace(/:/g, "");
   const gradientId = `sentiment-gradient-${safeId}`;
 
-  // DEBUG OVERLAY
-  if (true) { 
-      console.log("Chart Data:", data);
-  }
-
   if (!data || data.length === 0) {
     return (
-      <div className="h-[500px] flex flex-col items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-900/50">
-        <div className="text-4xl mb-4">📊</div>
-        <p className="text-gray-500 dark:text-gray-400 font-medium">No session data available yet.</p>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Start a conversation to see your emotional arc.</p>
+      <div className="h-[500px] flex flex-col items-center justify-center border-2 border-dashed border-border rounded-2xl bg-muted/30">
+        <div className="text-lg font-heading font-semibold text-foreground">No session data yet</div>
+        <p className="text-sm text-muted-foreground mt-1">
+          Start a conversation to see your emotional arc.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 transition-all hover:shadow-2xl">
+    <div className="bg-card p-6 rounded-2xl shadow-sm border border-border transition-all hover:shadow-lg">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <h3 className="text-2xl font-heading font-semibold text-foreground flex items-center gap-2">
             Emotional Resonance Arc
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Real-time analysis of sentiment, focus, and clarity throughout the session.
           </p>
         </div>
         
         {/* Custom Legend */}
-        <div className="flex flex-wrap gap-4 text-xs font-medium bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+        <div className="flex flex-wrap gap-4 text-xs font-medium bg-muted/40 p-2 rounded-lg border border-border">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-gradient-to-r from-emerald-400 to-rose-500 shadow-sm"></span>
-            <span className="text-gray-700 dark:text-gray-200">Sentiment (Area)</span>
+            <span className="w-3 h-3 rounded-full bg-stat-positive shadow-sm"></span>
+            <span className="text-muted-foreground">Sentiment</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-cyan-500 shadow-sm"></span>
-            <span className="text-gray-700 dark:text-gray-200">Focus</span>
+            <span className="w-3 h-3 rounded-full bg-primary shadow-sm"></span>
+            <span className="text-muted-foreground">Focus</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-purple-500 shadow-sm"></span>
-            <span className="text-gray-700 dark:text-gray-200">Clarity</span>
+            <span className="w-3 h-3 rounded-full bg-accent-foreground shadow-sm"></span>
+            <span className="text-muted-foreground">Clarity</span>
           </div>
         </div>
       </div>
 
       {/* Chart Container - Fixed Dimensions with Scroll */}
-      <div className="w-full overflow-x-auto border border-gray-100 dark:border-gray-700 rounded-lg bg-gray-50/50 dark:bg-gray-900/50 p-2 flex justify-center">
+      <div className="w-full overflow-x-auto border border-border rounded-lg bg-muted/30 p-2 flex justify-center">
           <ComposedChart
             width={1000}
             height={500}
@@ -95,9 +91,9 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
           >
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                <stop offset="50%" stopColor="#f59e0b" stopOpacity={0.1} />
-                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
+                <stop offset="5%" stopColor="hsl(var(--stat-positive))" stopOpacity={0.3} />
+                <stop offset="50%" stopColor="hsl(var(--stat-neutral))" stopOpacity={0.1} />
+                <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0.3} />
               </linearGradient>
             </defs>
 
@@ -107,7 +103,7 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
               dataKey="turn" 
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#9ca3af', fontSize: 11 }}
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
               dy={10}
               minTickGap={30}
             />
@@ -117,7 +113,7 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
               ticks={[-1, -0.5, 0, 0.5, 1]}
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#9ca3af', fontSize: 11 }}
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
               tickFormatter={(val) => {
                   if (val === 1) return 'Positive (+1)';
                   if (val === -1) return 'Negative (-1)';
@@ -132,22 +128,22 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
                 if (active && payload && payload.length) {
                   const ctx = payload[0].payload.context;
                   return (
-                    <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border border-gray-200 dark:border-gray-700 p-4 rounded-xl shadow-2xl max-w-xs">
-                      <p className="font-bold text-gray-800 dark:text-gray-100 mb-2 border-b border-gray-200 dark:border-gray-800 pb-2">
+                    <div className="bg-card/90 backdrop-blur-md border border-border p-4 rounded-xl shadow-lg max-w-xs">
+                      <p className="font-bold text-foreground mb-2 border-b border-border pb-2">
                         {label}
                       </p>
                       <div className="space-y-2 mb-3">
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         {payload.map((p: any) => (
                           <div key={p.name} className="flex justify-between items-center text-sm">
-                            <span className="capitalize text-gray-500 dark:text-gray-400">{p.name === 'topic_adherence' ? 'Focus' : p.name}:</span>
+                            <span className="capitalize text-muted-foreground">{p.name === 'topic_adherence' ? 'Focus' : p.name}:</span>
                             <span className="font-mono font-bold" style={{ color: p.color }}>
                               {Number(p.value).toFixed(2)}
                             </span>
                           </div>
                         ))}
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 italic line-clamp-3">
+                      <p className="text-xs text-muted-foreground italic line-clamp-3">
                         &quot;{ctx}&quot;
                       </p>
                     </div>
@@ -157,13 +153,13 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
               }}
             />
 
-            <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" opacity={0.5} />
+            <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="3 3" opacity={0.6} />
 
             <Brush 
               dataKey="turn"
               height={30}
-              stroke="#6366f1"
-              fill="rgba(99, 102, 241, 0.1)"
+              stroke="hsl(var(--primary))"
+              fill="hsl(var(--primary) / 0.12)"
               tickFormatter={() => ''}
             />
 
@@ -174,7 +170,7 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
               name="Sentiment"
               stroke="none" // No line
               dot={{ r: 8, strokeWidth: 2, fill: `url(#${gradientId})`, stroke: '#fff' }} 
-              activeDot={{ r: 10, strokeWidth: 0, fill: '#10b981' }}
+              activeDot={{ r: 10, strokeWidth: 0, fill: 'hsl(var(--stat-positive))' }}
               animationDuration={1500}
             />
 
@@ -184,8 +180,8 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
               dataKey="topic_adherence"
               name="Focus"
               stroke="none" // No line
-              dot={{ r: 6, fill: '#06b6d4' }}
-              activeDot={{ r: 8, fill: '#06b6d4' }}
+              dot={{ r: 6, fill: 'hsl(var(--primary))' }}
+              activeDot={{ r: 8, fill: 'hsl(var(--primary))' }}
               animationDuration={1500}
               animationBegin={300}
             />
@@ -196,8 +192,8 @@ export default function EmotionalArcChart({ data }: EmotionalArcChartProps) {
               dataKey="clarity"
               name="Clarity"
               stroke="none" // No line
-              dot={{ r: 6, fill: '#a855f7' }}
-              activeDot={{ r: 8, fill: '#a855f7' }}
+              dot={{ r: 6, fill: 'hsl(var(--accent-foreground))' }}
+              activeDot={{ r: 8, fill: 'hsl(var(--accent-foreground))' }}
               animationDuration={1500}
               animationBegin={600}
             />

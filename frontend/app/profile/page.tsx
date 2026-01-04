@@ -7,6 +7,10 @@ import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { PageShell } from '../../components/layout/PageShell';
+import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button';
+import { cn } from '../../lib/utils';
 
 export default function ProfilePage() {
   const { user, checkAuth, isLoading } = useAuth();
@@ -75,7 +79,11 @@ export default function ProfilePage() {
   };
 
   if (isLoading) {
-      return <div className="flex justify-center items-center min-h-screen">Loading user profile...</div>;
+      return (
+        <PageShell className="flex items-center justify-center">
+          <div className="text-sm text-muted-foreground">Loading user profile...</div>
+        </PageShell>
+      );
   }
 
   if (!user) {
@@ -83,135 +91,125 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 dark:bg-gray-900">
-      <div className="max-w-3xl mx-auto space-y-8">
-        
-        {/* Header */}
+    <PageShell>
+      <div className="container mx-auto max-w-3xl px-4 space-y-8">
         <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">Your Profile</h2>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                Manage your personal information and security settings.
-            </p>
+          <h2 className="text-3xl font-heading font-bold text-foreground">Your Profile</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Manage your personal information and security settings.
+          </p>
         </div>
 
-        {/* Profile Card */}
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg dark:bg-gray-800">
-            <div className="px-4 py-5 sm:px-6 flex items-center border-b border-gray-200 dark:border-gray-700">
-                 <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-2xl font-bold mr-4">
-                    {user.full_name?.charAt(0).toUpperCase()}
-                 </div>
-                 <div>
-                     <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                        {user.full_name}
-                     </h3>
-                     <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-                        {user.role === 'admin' ? 'Administrator' : 'Standard User'}
-                     </p>
-                 </div>
+        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="flex items-center gap-4 border-b border-border px-6 py-5">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary text-2xl font-semibold">
+              {user.full_name?.charAt(0).toUpperCase()}
             </div>
-
-            <div className="px-4 py-5 sm:p-6">
-                {success && (
-                    <div className="mb-4 rounded-md bg-green-50 p-4 text-sm text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-200 dark:border-green-800">
-                        {success}
-                    </div>
-                )}
-                {error && (
-                    <div className="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800">
-                        {error}
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                        
-                        <div className="sm:col-span-4">
-                            <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Full Name
-                            </label>
-                            <div className="mt-1">
-                                <input
-                                    type="text"
-                                    id="full_name"
-                                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border ${errors.full_name ? 'border-red-500' : ''}`}
-                                    {...register("full_name")}
-                                />
-                                {errors.full_name && <p className="mt-1 text-xs text-red-500">{errors.full_name.message}</p>}
-                            </div>
-                        </div>
-
-                        <div className="sm:col-span-4">
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Email Address
-                            </label>
-                            <div className="mt-1">
-                                <input
-                                    type="email"
-                                    id="email"
-                                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border ${errors.email ? 'border-red-500' : ''}`}
-                                    {...register("email")}
-                                />
-                                {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
-                            </div>
-                        </div>
-
-                        <div className="sm:col-span-6 border-t border-gray-200 pt-6 dark:border-gray-700">
-                             <h4 className="text-base font-medium text-gray-900 dark:text-white mb-4">Change Password</h4>
-                        </div>
-
-                        <div className="sm:col-span-3">
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                New Password <span className="text-gray-400 font-normal">(Optional)</span>
-                            </label>
-                            <div className="mt-1">
-                                <input
-                                    type="password"
-                                    id="password"
-                                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border ${errors.password ? 'border-red-500' : ''}`}
-                                    {...register("password")}
-                                />
-                                {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>}
-                            </div>
-                        </div>
-
-                        <div className="sm:col-span-3">
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Confirm New Password
-                            </label>
-                            <div className="mt-1">
-                                <input
-                                    type="password"
-                                    id="confirmPassword"
-                                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border ${errors.confirmPassword ? 'border-red-500' : ''}`}
-                                    {...register("confirmPassword")}
-                                />
-                                {errors.confirmPassword && <p className="mt-1 text-xs text-red-500">{errors.confirmPassword.message}</p>}
-                            </div>
-                        </div>
-
-                    </div>
-                    
-                    <div className="flex justify-end pt-5">
-                         <button
-                            type="button"
-                            onClick={() => router.back()}
-                            className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600 mr-3"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                        >
-                            {isSubmitting ? 'Saving...' : 'Save Changes'}
-                        </button>
-                    </div>
-                </form>
+            <div>
+              <h3 className="text-lg font-heading font-semibold text-foreground">{user.full_name}</h3>
+              <p className="text-sm text-muted-foreground">
+                {user.role === 'admin' ? 'Administrator' : 'Standard User'}
+              </p>
             </div>
+          </div>
+
+          <div className="px-6 py-6">
+            {success && (
+              <div className="mb-4 rounded-xl border border-primary/20 bg-primary/10 p-3 text-sm text-primary">
+                {success}
+              </div>
+            )}
+            {error && (
+              <div className="mb-4 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-6">
+                <div className="sm:col-span-4">
+                  <label htmlFor="full_name" className="text-sm font-medium text-muted-foreground">
+                    Full Name
+                  </label>
+                  <Input
+                    id="full_name"
+                    type="text"
+                    className={cn("mt-2 rounded-xl", errors.full_name && "border-destructive")}
+                    {...register("full_name")}
+                  />
+                  {errors.full_name && (
+                    <p className="mt-1 text-xs text-destructive">{errors.full_name.message}</p>
+                  )}
+                </div>
+
+                <div className="sm:col-span-4">
+                  <label htmlFor="email" className="text-sm font-medium text-muted-foreground">
+                    Email Address
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    className={cn("mt-2 rounded-xl", errors.email && "border-destructive")}
+                    {...register("email")}
+                  />
+                  {errors.email && (
+                    <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>
+                  )}
+                </div>
+
+                <div className="sm:col-span-6 border-t border-border pt-6">
+                  <h4 className="text-base font-heading font-semibold text-foreground">Change Password</h4>
+                  <p className="text-sm text-muted-foreground">Optional, leave blank to keep current password.</p>
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label htmlFor="password" className="text-sm font-medium text-muted-foreground">
+                    New Password
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    className={cn("mt-2 rounded-xl", errors.password && "border-destructive")}
+                    {...register("password")}
+                  />
+                  {errors.password && (
+                    <p className="mt-1 text-xs text-destructive">{errors.password.message}</p>
+                  )}
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label htmlFor="confirmPassword" className="text-sm font-medium text-muted-foreground">
+                    Confirm New Password
+                  </label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    className={cn("mt-2 rounded-xl", errors.confirmPassword && "border-destructive")}
+                    {...register("confirmPassword")}
+                  />
+                  {errors.confirmPassword && (
+                    <p className="mt-1 text-xs text-destructive">{errors.confirmPassword.message}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="rounded-xl"
+                  onClick={() => router.back()}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting} className="rounded-xl">
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
-
       </div>
-    </div>
+    </PageShell>
   );
 }

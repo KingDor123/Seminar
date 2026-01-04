@@ -21,7 +21,7 @@ export const TranscriptViewer: React.FC<TranscriptViewerProps> = ({ text, messag
       const normalized = part.replace(/\s+/g, ' ').trim().toLowerCase();
       if (FILLERS.includes(normalized)) {
         return (
-          <span key={i} className="bg-red-500/20 text-red-300 px-1 rounded mx-0.5 border border-red-500/30">
+          <span key={i} className="bg-destructive/10 text-destructive px-1 rounded mx-0.5 border border-destructive/20">
             {part}
           </span>
         );
@@ -41,12 +41,12 @@ export const TranscriptViewer: React.FC<TranscriptViewerProps> = ({ text, messag
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-800 overflow-hidden">
-      <div className="p-4 border-b border-slate-800 bg-slate-900/80 flex items-center gap-2">
-        <ScrollText className="h-4 w-4 text-cyan-400" />
-        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">Transcript Analysis</h3>
+    <div className="flex flex-col h-full bg-card rounded-2xl border border-border overflow-hidden">
+      <div className="p-4 border-b border-border bg-card flex items-center gap-2">
+        <ScrollText className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Transcript Analysis</h3>
       </div>
-      <div className="p-6 font-mono text-sm leading-relaxed text-slate-300 overflow-y-auto custom-scrollbar">
+      <div className="p-6 font-mono text-sm leading-relaxed text-foreground overflow-y-auto custom-scrollbar">
         {messages && messages.length > 0 ? (
           <div className="space-y-4">
             {messages.map((message, index) => {
@@ -56,13 +56,13 @@ export const TranscriptViewer: React.FC<TranscriptViewerProps> = ({ text, messag
                   key={index}
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-3 py-2 ${
-                      message.role === 'user'
-                        ? 'bg-blue-600/20 text-slate-100'
-                        : 'bg-slate-800/60 text-slate-200'
-                    }`}
-                  >
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                        message.role === 'user'
+                          ? 'bg-chat-user text-foreground'
+                          : 'bg-chat-bot border border-border text-foreground'
+                      }`}
+                    >
                     <div className="flex items-start gap-2">
                       {sentimentEmoji && (
                         <span className="text-xs" title={message.sentiment || undefined}>

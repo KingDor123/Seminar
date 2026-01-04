@@ -1,45 +1,53 @@
 import React from 'react';
-import { clsx } from 'clsx';
 import { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface MetricCardProps {
   title: string;
   value: string | number;
   unit?: string;
   icon: LucideIcon;
-  trend?: 'up' | 'down' | 'neutral';
-  color?: 'blue' | 'green' | 'red' | 'yellow' | 'cyan';
+  variant?: 'positive' | 'neutral' | 'accent';
+  delay?: number;
 }
 
-export const MetricCard: React.FC<MetricCardProps> = ({ 
-  title, 
-  value, 
-  unit, 
-  icon: Icon,
-  color = 'cyan' 
-}) => {
-  const colorStyles = {
-    blue: 'text-blue-400 border-blue-500/30 bg-blue-500/10',
-    green: 'text-green-400 border-green-500/30 bg-green-500/10',
-    red: 'text-red-400 border-red-500/30 bg-red-500/10',
-    yellow: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10',
-    cyan: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
-  };
+const variantStyles = {
+  positive: 'border-stat-positive/20 bg-stat-positive/5',
+  neutral: 'border-stat-neutral/20 bg-stat-neutral/5',
+  accent: 'border-stat-accent/20 bg-stat-accent/5',
+};
 
+const iconStyles = {
+  positive: 'bg-stat-positive/10 text-stat-positive',
+  neutral: 'bg-stat-neutral/10 text-stat-neutral',
+  accent: 'bg-stat-accent/10 text-stat-accent',
+};
+
+export const MetricCard: React.FC<MetricCardProps> = ({
+  title,
+  value,
+  unit,
+  icon: Icon,
+  variant = 'neutral',
+  delay = 0,
+}) => {
   return (
-    <div className={clsx(
-      "relative overflow-hidden rounded-2xl border p-4 backdrop-blur-md transition-all hover:scale-[1.02]",
-      colorStyles[color]
-    )}>
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wider opacity-80">{title}</span>
-        <Icon className="h-4 w-4 opacity-70" />
+    <div
+      className={cn('rounded-2xl border-2 p-5 animate-fade-in', variantStyles[variant])}
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="mt-1 text-3xl font-heading font-bold text-foreground">
+            {value}
+            {unit && <span className="ml-1 text-sm font-medium text-muted-foreground">{unit}</span>}
+          </p>
+        </div>
+        <div className={cn('rounded-xl p-2.5', iconStyles[variant])}>
+          <Icon className="h-5 w-5" />
+        </div>
       </div>
-      <div className="mt-3 flex items-baseline gap-1">
-        <span className="text-3xl font-bold tracking-tight">{value}</span>
-        {unit && <span className="text-sm font-medium opacity-60">{unit}</span>}
-      </div>
-      <div className="absolute -bottom-4 -right-4 h-16 w-16 rounded-full bg-current opacity-[0.08] blur-xl" />
     </div>
   );
 };

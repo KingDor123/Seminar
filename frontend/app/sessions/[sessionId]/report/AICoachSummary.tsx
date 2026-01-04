@@ -63,13 +63,13 @@ export default function AICoachSummary({ data }: AICoachSummaryProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
       {/* Strengths Card */}
-      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 shadow-sm">
-        <h3 className="text-xl font-bold text-green-800 dark:text-green-400 mb-4 flex items-center">
+      <div className="rounded-2xl border border-stat-positive/20 bg-stat-positive/5 p-6 shadow-sm">
+        <h3 className="text-xl font-heading font-semibold text-foreground mb-4 flex items-center">
           <span className="mr-2">✅</span> What You Did Well
         </h3>
         <ul className="space-y-3">
           {summary.strengths.map((s, i) => (
-            <li key={i} className="flex items-start text-green-900 dark:text-green-100">
+            <li key={i} className="flex items-start text-foreground">
               <span className="mr-2">•</span> {s}
             </li>
           ))}
@@ -77,13 +77,13 @@ export default function AICoachSummary({ data }: AICoachSummaryProps) {
       </div>
 
       {/* Tips Card */}
-      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6 shadow-sm">
-        <h3 className="text-xl font-bold text-yellow-800 dark:text-yellow-400 mb-4 flex items-center">
+      <div className="rounded-2xl border border-stat-accent/20 bg-stat-accent/5 p-6 shadow-sm">
+        <h3 className="text-xl font-heading font-semibold text-foreground mb-4 flex items-center">
           <span className="mr-2">💡</span> Coaching Tips
         </h3>
         <ul className="space-y-3">
           {summary.tips.map((t, i) => (
-            <li key={i} className="flex items-start text-yellow-900 dark:text-yellow-100">
+            <li key={i} className="flex items-start text-foreground">
               <span className="mr-2">•</span> {t}
             </li>
           ))}

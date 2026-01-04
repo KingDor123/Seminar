@@ -9,6 +9,7 @@ import { useChatSession } from '../../../hooks/useChatSession';
 import { useAuth } from "../../../context/AuthContext";
 import { useStreamingConversation } from "../../../hooks/useStreamingConversation";
 import { AudioQueue } from "../../../utils/audioQueue";
+import { PageShell } from "../../../components/layout/PageShell";
 
 // Global set to track pending session creations across component remounts (Strict Mode fix)
 const pendingSessions = new Set<string>();
@@ -208,7 +209,14 @@ export default function MeetingPage() {
 
   const startVAD = useCallback((stream: MediaStream) => {
       try {
-          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const AudioContextCtor =
+            window.AudioContext ||
+            (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+          if (!AudioContextCtor) {
+              console.error("AudioContext is not supported in this browser.");
+              return;
+          }
+          const audioCtx = new AudioContextCtor();
           const source = audioCtx.createMediaStreamSource(stream);
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 512;
@@ -331,32 +339,38 @@ export default function MeetingPage() {
     router.push('/home');
   };
 
-  if (isLoading) return <div className="flex h-screen items-center justify-center bg-black text-white">Initializing Meeting...</div>;
+  if (isLoading) {
+    return (
+      <PageShell className="flex items-center justify-center">
+        <div className="text-sm text-muted-foreground">Initializing Meeting...</div>
+      </PageShell>
+    );
+  }
   if (!user) return null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black font-sans">
-        <main className="flex flex-col items-center w-full max-w-6xl p-4">
-            <FaceTimeView
-            messages={messages}
-            isThinking={isProcessing}
-            audioElement={null}
-            audioUrl={null}
-            visemes={[]}
-            isGeneratingAudio={status === "processing" || status === "speaking"}
-            isAiSpeaking={isAiSpeaking}
-            userVideoRef={userVideoRef}
-            isSpeechRecognitionListening={isRecording}
-            startListening={toggleListening}
-            onEndCall={handleEndCall}
-            input={input}
-            setInput={setInput}
-            sendMessage={sendMessage}
-            selectedScenario={scenarioId}
-            audioRef={() => {}} 
-            cameraError={cameraError}
-            />
-        </main>
-    </div>
+    <PageShell className="flex items-center justify-center">
+      <main className="flex w-full max-w-6xl flex-col items-center px-4">
+        <FaceTimeView
+          messages={messages}
+          isThinking={isProcessing}
+          audioElement={null}
+          audioUrl={null}
+          visemes={[]}
+          isGeneratingAudio={status === "processing" || status === "speaking"}
+          isAiSpeaking={isAiSpeaking}
+          userVideoRef={userVideoRef}
+          isSpeechRecognitionListening={isRecording}
+          startListening={toggleListening}
+          onEndCall={handleEndCall}
+          input={input}
+          setInput={setInput}
+          sendMessage={sendMessage}
+          selectedScenario={scenarioId}
+          audioRef={() => {}}
+          cameraError={cameraError}
+        />
+      </main>
+    </PageShell>
   );
 }

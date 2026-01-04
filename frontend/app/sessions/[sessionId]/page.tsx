@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { TranscriptViewer } from "../../../../components/dashboard/TranscriptViewer";
-import { sessionService } from "../../../../services/sessionService";
-import type { ChatMessage } from "../../../../types/chat";
+import { TranscriptViewer } from "../../../components/dashboard/TranscriptViewer";
+import { sessionService } from "../../../services/sessionService";
+import type { ChatMessage } from "../../../types/chat";
+import { PageShell } from "../../../components/layout/PageShell";
 
 export default function SessionDetailPage() {
   const params = useParams();
@@ -41,43 +42,47 @@ export default function SessionDetailPage() {
   }, [sessionId]);
 
   if (!sessionId) {
-    return <div className="text-center py-8 text-slate-500">Invalid Session ID provided.</div>;
+    return (
+      <PageShell className="flex items-center justify-center">
+        <div className="text-sm text-muted-foreground">Invalid Session ID provided.</div>
+      </PageShell>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
+    <PageShell>
+      <div className="container mx-auto max-w-5xl px-4 space-y-8">
         <header className="space-y-2">
-          <h1 className="text-3xl font-bold">Session #{sessionId}</h1>
-          <p className="text-slate-400">Review the full transcript with sentiment markers.</p>
+          <h1 className="text-3xl font-heading font-bold text-foreground">Session #{sessionId}</h1>
+          <p className="text-muted-foreground">Review the full transcript with sentiment markers.</p>
         </header>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-          <h2 className="text-lg font-semibold text-white">Session Playback</h2>
-          <p className="text-sm text-slate-400">
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <h2 className="text-lg font-heading font-semibold text-foreground">Session Playback</h2>
+          <p className="text-sm text-muted-foreground">
             Transcript and analysis are available below.
           </p>
         </div>
 
         {loading && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-slate-400">
+          <div className="rounded-2xl border border-border bg-card p-6 text-muted-foreground">
             Loading transcript...
           </div>
         )}
 
         {error && (
-          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-rose-200">
+          <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-6 text-destructive">
             {error}
           </div>
         )}
 
         {!loading && !error && (
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-white">Transcript</h2>
+            <h2 className="text-lg font-heading font-semibold text-foreground">Transcript</h2>
             <TranscriptViewer text="" messages={messages} />
           </div>
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }
