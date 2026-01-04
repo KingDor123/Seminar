@@ -10,7 +10,6 @@ import sys
 
 # Robust import to handle both Docker (/app root) and Local (parent root) paths
 try:
-    from ai_service.pipeline import HybridPipeline
     from ai_service.app.engine.orchestrator import orchestrator
     from ai_service.app.engine.scenarios import SCENARIO_REGISTRY
 except ImportError:
@@ -18,7 +17,6 @@ except ImportError:
     pipeline_dir = os.path.abspath(os.path.join(current_dir, '../..'))
     if pipeline_dir not in sys.path:
         sys.path.append(pipeline_dir)
-    from pipeline import HybridPipeline
     from app.engine.orchestrator import orchestrator
     from app.engine.scenarios import SCENARIO_REGISTRY
 
@@ -28,21 +26,6 @@ logger = logging.getLogger(__name__)
 # --- Constants ---
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:5000/api")
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "supersecretkey")
-
-# --- Singleton Pipeline Initialization ---
-_pipeline: Optional[HybridPipeline] = None
-
-def get_pipeline() -> HybridPipeline:
-    global _pipeline
-    if _pipeline is None:
-        try:
-            logger.info("⚙️ Initializing HybridPipeline Singleton...")
-            _pipeline = HybridPipeline() 
-            logger.info("✅ HybridPipeline Ready.")
-        except Exception as e:
-            logger.critical(f"🔥 Pipeline Initialization Failed: {e}")
-            raise e
-    return _pipeline
 
 # --- Helper Functions ---
 def _sse_event(event: str, data: str) -> str:
@@ -78,22 +61,6 @@ async def _fetch_session_messages(session_id: int) -> List[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"⚠️ Session Messages Fetch Error: {e}")
     return []
-
-async def _fetch_scenario(scenario_id: str) -> Optional[Dict[str, Any]]:
-    if not scenario_id:
-        return None
-    try:
-        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
-            resp = await client.get(f"{BACKEND_URL}/scenarios/{scenario_id}")
-            if resp.status_code == 200:
-                return resp.json()
-            if resp.status_code == 404:
-                logger.warning(f"⚠️ Scenario not found: {scenario_id}")
-                return None
-            logger.error(f"⚠️ Scenario Fetch Failed: {resp.status_code} {resp.text}")
-    except Exception as e:
-        logger.error(f"⚠️ Scenario Fetch Error: {e}")
-    return None
 
 def _normalize_sentiment_label(label: Optional[str]) -> str:
     if not label:
@@ -196,54 +163,10 @@ async def interact(
                 yield _sse_event("status", "done")
                 yield _sse_event("done", "[DONE]")
                 return
-
-            # --- BRANCH: LEGACY PIPELINE ---
-            logger.info(f"🐢 Using Legacy HybridPipeline for {scenario_id}")
-            scenario = await _fetch_scenario(scenario_id.strip())
-            if not scenario:
-                yield _sse_event("error", "Invalid scenario_id")
-                return
-
-            persona_prompt = scenario.get("persona_prompt")
-            scenario_goal = scenario.get("scenario_goal")
-            difficulty = str(scenario.get("difficulty") or "normal")
             
-            pipeline = get_pipeline()
-            full_content = ""
-            detected_sentiment = "neutral" 
-            analysis_payload = None
-
-            async for chunk in pipeline.process_user_message_stream(
-                text=text,
-                base_system_prompt=persona_prompt,
-                difficulty_level=difficulty,
-                scenario_goal=scenario_goal,
-                history=history
-            ):
-                if isinstance(chunk, dict):
-                    if "sentiment" in chunk:
-                        detected_sentiment = chunk["sentiment"]
-                        if analysis_payload is None:
-                            analysis_payload = chunk
-                            await _save_message(
-                                session_id,
-                                "user",
-                                text,
-                                sentiment=detected_sentiment,
-                                analysis=analysis_payload
-                            )
-                        yield _sse_event("metrics", json.dumps(chunk, ensure_ascii=False))
-                elif isinstance(chunk, str):
-                    full_content += chunk
-                    yield _sse_event("transcript", json.dumps({"role": "assistant", "text": chunk, "partial": True}))
-            
-            if analysis_payload is None:
-                await _save_message(session_id, "user", text)
-
-            await _save_message(session_id, "assistant", full_content)
-            
-            yield _sse_event("status", "done")
-            yield _sse_event("done", "[DONE]")
+            # --- ERROR: UNKNOWN SCENARIO ---
+            logger.error(f"❌ Scenario '{scenario_id}' not found in registry.")
+            yield _sse_event("error", f"Scenario '{scenario_id}' not found.")
 
         except Exception as e:
             logger.error(f"❌ SSE Stream Error: {e}")
@@ -324,12 +247,8 @@ async def generate_report(session_id: int):
 
 @router.get("/health")
 async def health_check():
-    pipeline = get_pipeline()
     return {
         "status": "online",
-        "device": pipeline.device,
-        "models": {
-            "hebert": "loaded",
-            "aya": "connected"
-        }
+        "engine": "state-machine",
+        "ollama": "connected"
     }

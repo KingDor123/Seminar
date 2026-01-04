@@ -14,15 +14,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"   - STT: {settings.WHISPER_MODEL_SIZE}")
     logger.info(f"   - HeBERT fallback: {'enabled' if settings.ENABLE_HEBERT else 'disabled'}")
 
-    # Initialize HybridPipeline Singleton on startup to pre-load models
-    try:
-        from app.routers.conversation import get_pipeline
-        logger.info("📦 Pre-loading HybridPipeline models...")
-        get_pipeline()
-        logger.info("✅ HybridPipeline models loaded and ready.")
-    except Exception as e:
-        logger.error(f"❌ Failed to pre-load HybridPipeline: {e}")
-        
+    # No pre-loading needed for state-machine engine as it's purely API-based (Ollama)
+    
     yield
     
     logger.info("🛑 Service Shutting Down...")
