@@ -121,13 +121,15 @@ async def interact(
         raise HTTPException(status_code=400, detail="scenario_id is required")
 
     logger.info(f"🗣️ Interaction Request: Session={session_id}, Scenario={scenario_id}")
+    is_cold_start = text.strip() == "[START]"
 
     # 1. Fetch History
     history = await _fetch_history(session_id)
 
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
-            yield _sse_event("transcript", json.dumps({"role": "user", "text": text}))
+            if not is_cold_start:
+                yield _sse_event("transcript", json.dumps({"role": "user", "text": text}))
             yield _sse_event("status", "thinking")
 
             # --- BRANCH: NEW ENGINE ---
@@ -142,20 +144,21 @@ async def interact(
                          if "type" in chunk and chunk["type"] == "analysis":
                              analysis_payload = chunk
                              # Map new engine fields to legacy schema for frontend
-                             await _save_message(
-                                session_id,
-                                "user",
-                                text,
-                                sentiment=chunk.get("sentiment", "neutral"),
-                                analysis=chunk
-                            )
+                             if not is_cold_start:
+                                 await _save_message(
+                                    session_id,
+                                    "user",
+                                    text,
+                                    sentiment=chunk.get("sentiment", "neutral"),
+                                    analysis=chunk
+                                )
                              yield _sse_event("metrics", json.dumps(chunk, ensure_ascii=False))
                      elif isinstance(chunk, str):
                          # Tokens
                          full_content += chunk
                          yield _sse_event("transcript", json.dumps({"role": "assistant", "text": chunk, "partial": True}))
                 
-                if analysis_payload is None:
+                if analysis_payload is None and not is_cold_start:
                     # Fallback save if analysis failed
                     await _save_message(session_id, "user", text)
                 

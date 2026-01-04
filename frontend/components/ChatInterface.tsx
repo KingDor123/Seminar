@@ -36,6 +36,15 @@ export default function ChatInterface() {
     audioQueueRef.current = new AudioQueue();
   }, []);
 
+  // --- Initial Greeting Trigger ---
+  useEffect(() => {
+    if (isInCall && sessionId && messages.length === 0) {
+      // Trigger the AI's opening line (Cold Start)
+      // We pass "[START]" directly to the API but DO NOT add it to the UI state
+      sendStreamMessage("[START]", null);
+    }
+  }, [isInCall, sessionId, messages.length, sendStreamMessage]);
+
   // --- Streaming Hook ---
   const handleNewMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {

@@ -26,6 +26,7 @@ export default function MeetingPage() {
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]); // Ref for latest messages if needed
+  const coldStartSentRef = useRef<number | null>(null);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -154,6 +155,16 @@ export default function MeetingPage() {
     onAudioData: handleAudioData,
     onError: handleError
   });
+
+  // --- Cold Start Trigger ---
+  useEffect(() => {
+    if (!sessionId || sessionStatus !== "active") return;
+    if (messages.length !== 0) return;
+    if (coldStartSentRef.current === sessionId) return;
+
+    coldStartSentRef.current = sessionId;
+    sendStreamMessage("[START]", null);
+  }, [sessionId, sessionStatus, messages.length, sendStreamMessage]);
 
 
   // --- Recording & VAD State ---

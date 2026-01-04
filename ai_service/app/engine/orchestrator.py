@@ -38,10 +38,21 @@ class ScenarioOrchestrator:
             yield "Error: Invalid state configuration."
             return
 
+        # --- SPECIAL CASE: INITIALIZATION ---
+        if user_text.strip() == "[START]":
+            logger.info(f"🎬 Initializing conversation in state: {current_node_id}")
+            # Skip evaluation, just act out the initial state
+            async for token in RolePlayAgent.generate_response(
+                user_text="[START]", # Pass strict signal
+                base_persona=graph.base_persona,
+                state=current_state,
+                history=[], # No history for start
+                eval_result=None
+            ):
+                yield token
+            return
+
         # 3. Evaluate User Input (The "Coach")
-        # We skip evaluation if we are in the very first turn and the user just said "Start"? 
-        # Actually, let's assume standard conversational flow.
-        
         logger.info(f"🧐 Evaluating turn in state: {current_node_id}")
         eval_result = await EvaluatorAgent.evaluate(user_text, current_state, history)
         

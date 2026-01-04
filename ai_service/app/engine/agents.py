@@ -17,46 +17,46 @@ class EvaluatorAgent:
         
         criteria_text = "\n".join([f"- {c}" for c in state.evaluation.criteria])
         
-                system_prompt = (
-                    "You are a strict conversation evaluator.\n"
-                    "Analyze the user's latest message against the required criteria.\n"
-                    f"Current Context: {state.description}\n"
-                    f"Passing Criteria:\n{criteria_text}\n"
-                    f"Pass Condition: {state.evaluation.pass_condition}\n"
-                    "Determine if the user satisfied the criteria to move forward.\n"
-                    "Also classify the user's sentiment as 'positive', 'negative', or 'neutral'."
-                )
+        system_prompt = (
+            "You are a strict conversation evaluator.\n"
+            "Analyze the user's latest message against the required criteria.\n"
+            f"Current Context: {state.description}\n"
+            f"Passing Criteria:\n{criteria_text}\n"
+            f"Pass Condition: {state.evaluation.pass_condition}\n"
+            "Determine if the user satisfied the criteria to move forward.\n"
+            "Also classify the user's sentiment as 'positive', 'negative', or 'neutral'."
+        )
+
+        schema = (
+            '{"passed": boolean, "reasoning": "string", "feedback": "string (optional internal note)", '
+            '"suggested_transition": "string (name of next state or null)", '
+            '"sentiment": "positive|negative|neutral"}'
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"User Input: {user_text}"}
+        ]
+
+        # In a real app, we might include recent history context here too
+
+        result = await llm_client.generate_json(messages, schema)
         
-                schema = (
-                    '{"passed": boolean, "reasoning": "string", "feedback": "string (optional internal note)", '
-                    '"suggested_transition": "string (name of next state or null)", '
-                    '"sentiment": "positive|negative|neutral"}'
-                )
+        # Determine next state
+        next_state = None
+        if result.get("passed", False):
+            # Simple logic: take the first transition if passed, or what LLM suggests
+            # For this scripted engine, we usually just take the first transition if passed.
+            if state.transitions:
+                next_state = state.transitions[0].target_state_id
         
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"User Input: {user_text}"}
-                ]
-        
-                # In a real app, we might include recent history context here too
-        
-                result = await llm_client.generate_json(messages, schema)
-                
-                # Determine next state
-                next_state = None
-                if result.get("passed", False):
-                    # Simple logic: take the first transition if passed, or what LLM suggests
-                    # For this scripted engine, we usually just take the first transition if passed.
-                    if state.transitions:
-                        next_state = state.transitions[0].target_state_id
-                
-                return AgentOutput(
-                    passed=result.get("passed", False),
-                    reasoning=result.get("reasoning", ""),
-                    feedback=result.get("feedback", ""),
-                    next_state_id=next_state,
-                    sentiment=result.get("sentiment", "neutral")
-                )
+        return AgentOutput(
+            passed=result.get("passed", False),
+            reasoning=result.get("reasoning", ""),
+            feedback=result.get("feedback", ""),
+            next_state_id=next_state,
+            sentiment=result.get("sentiment", "neutral")
+        )
 
 class RolePlayAgent:
     """
@@ -127,7 +127,13 @@ class RolePlayAgent:
         # 4. Final Assembly
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(trimmed_history)
-        messages.append({"role": "user", "content": user_text})
+        
+        if user_text.strip() == "[START]":
+            # For cold start, we don't append user text. 
+            # We append a system trigger to start the conversation.
+            messages.append({"role": "system", "content": "ACTION: Start the conversation according to your goal. Say the opening line."})
+        else:
+            messages.append({"role": "user", "content": user_text})
 
         # 5. Stream Response
         async for token in llm_client.generate_stream(messages):

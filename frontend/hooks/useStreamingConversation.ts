@@ -62,7 +62,8 @@ export const useStreamingConversation = ({
         abortControllerRef.current = new AbortController();
 
         // --- OPTIMISTIC UI UPDATE ---
-        if (text) {
+        const isColdStart = typeof text === "string" && text.trim() === "[START]";
+        if (text && !isColdStart) {
             lastOptimisticText.current = text;
             onNewMessage({
                 role: "user",
@@ -136,6 +137,9 @@ export const useStreamingConversation = ({
                                     continue;
                                 }
 
+                                if (data.role === "user" && typeof data.text === "string" && data.text.trim() === "[START]") {
+                                    continue;
+                                }
                                 if (data.text) {
                                     onNewMessage({
                                         role: data.role === "assistant" ? "ai" : "user",
