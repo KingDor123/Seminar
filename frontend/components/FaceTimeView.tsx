@@ -51,11 +51,11 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [showChat, setShowChat] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
-  
+
   // Derived state
   const isMuted = !isSpeechRecognitionListening;
   const lastSubtitle = messages.length > 0 ? messages[messages.length - 1].content : "";
-  
+
   // Manage Audio Context
   useEffect(() => {
     if (!audioElement) return;
@@ -110,11 +110,11 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
   };
 
   return (
-    <div className="relative flex h-[80vh] w-full max-w-7xl rounded-3xl border border-border bg-card/80 overflow-hidden shadow-xl">
-      
+    <div className="relative flex h-[80vh] w-full max-w-7xl rounded-3xl border border-border bg-background overflow-hidden shadow-xl">
+
       {/* --- Main Stage (AI Avatar) --- */}
       <div className={`relative transition-all duration-300 ${showChat ? 'w-2/3' : 'w-full'} h-full bg-gradient-to-b from-muted/60 to-background`}>
-        
+
         {/* Header Overlay */}
         <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-10 bg-gradient-to-b from-card/80 to-transparent">
              <div className="flex items-center gap-3">
@@ -133,7 +133,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
                      </div>
                  </div>
              </div>
-             
+
              <div className="bg-destructive/10 text-destructive px-3 py-1 rounded-full text-xs font-mono border border-destructive/20 flex items-center gap-2">
                  <span>REC</span>
                  <span className={`w-2 h-2 bg-destructive rounded-full ${!isMuted ? 'animate-pulse' : 'opacity-20'}`}></span>
@@ -173,7 +173,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
                   </svg>
               </button>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.map((msg, idx) => (
                   <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -187,7 +187,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
 
           <div className="p-4 border-t border-border bg-card">
               <div className="relative">
-                  <input 
+                  <input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
@@ -230,9 +230,9 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
 
       {/* --- Bottom Controls Bar --- */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-3 bg-card/95 backdrop-blur-xl border border-border px-5 py-3 rounded-full shadow-lg z-30">
-          
+
           {/* Mute Button */}
-          <button 
+          <button
              onClick={toggleMic}
              className={`p-3 rounded-full transition-all ${isMuted ? 'bg-muted text-muted-foreground hover:bg-muted/80' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
              title={isMuted ? "Unmute (Start Recording)" : "Mute (Stop Recording)"}
@@ -250,7 +250,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
           </button>
 
           {/* Camera Button */}
-          <button 
+          <button
              onClick={toggleCamera}
              className={`p-3 rounded-full transition-all ${cameraOff ? 'bg-muted text-muted-foreground hover:bg-muted/80' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}
              title={cameraOff ? "Turn Video On" : "Turn Video Off"}
@@ -268,7 +268,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
           </button>
 
           {/* Chat Toggle */}
-          <button 
+          <button
              onClick={() => setShowChat(!showChat)}
              className={`p-3 rounded-full transition-all ${showChat ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
              title="Toggle Chat"
@@ -279,7 +279,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
           </button>
 
           {/* End Call */}
-          <button 
+          <button
              onClick={onEndCall}
              className="px-6 py-3 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full font-bold flex items-center gap-2 shadow-lg transition-transform hover:scale-105"
              title="End Meeting"
