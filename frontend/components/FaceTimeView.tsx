@@ -118,7 +118,7 @@ const FaceTimeView: React.FC<FaceTimeViewProps> = ({
         {/* Header Overlay */}
         <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-10 bg-gradient-to-b from-card/80 to-transparent">
              <div className="flex items-center gap-3">
-                 <div className="bg-card/90 backdrop-blur-md p-2 rounded-lg border border-border">
+                 <div className="bg-background backdrop-blur-md p-2 rounded-lg border border-border">
                      <span className="text-xs font-semibold text-primary">SS</span>
                  </div>
                  <div>

@@ -156,7 +156,7 @@ export default function Avatar3D({ audioElement, visemes, audioAnalyser }: { aud
   // Internal analyser state removed; use prop instead.
 
   return (
-    <div className="w-full h-full bg-gradient-to-b from-gray-900 to-gray-800">
+    <div className="w-full h-full bg-transparent">
       <Canvas camera={{ position: [0, 0, 5], fov: 60 }}>
         <ambientLight intensity={1} />
         <directionalLight position={[5, 5, 5]} intensity={1} />
