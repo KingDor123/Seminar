@@ -26,20 +26,39 @@ class ScenarioOrchestrator:
             return
 
         # 2. Load State
+        is_cold_start = user_text.strip() == "[START]"
         session_data = state_manager.get_state(session_id)
-        current_node_id = session_data.current_node_id if session_data else graph.initial_state_id
-        
-        # If this is a new session, save initial state
-        if not session_data:
+
+        if is_cold_start:
+            current_node_id = graph.initial_state_id
+            state_manager.update_state(session_id, scenario_id, current_node_id)
+        elif session_data:
+            if session_data.scenario_id != scenario_id:
+                logger.warning(
+                    f"Session {session_id} scenario mismatch ({session_data.scenario_id} != {scenario_id}); resetting state."
+                )
+                current_node_id = graph.initial_state_id
+                state_manager.update_state(session_id, scenario_id, current_node_id)
+            else:
+                current_node_id = session_data.current_node_id
+        else:
+            current_node_id = graph.initial_state_id
             state_manager.update_state(session_id, scenario_id, current_node_id)
 
         current_state = graph.states.get(current_node_id)
         if not current_state:
-            yield "Error: Invalid state configuration."
-            return
+            logger.warning(
+                f"Invalid state '{current_node_id}' for scenario '{scenario_id}'; resetting to initial state."
+            )
+            current_node_id = graph.initial_state_id
+            state_manager.update_state(session_id, scenario_id, current_node_id)
+            current_state = graph.states.get(current_node_id)
+            if not current_state:
+                yield "Error: Invalid state configuration."
+                return
 
         # --- SPECIAL CASE: INITIALIZATION ---
-        if user_text.strip() == "[START]":
+        if is_cold_start:
             logger.info(f"🎬 Initializing conversation in state: {current_node_id}")
             # Skip evaluation, just act out the initial state
             async for token in RolePlayAgent.generate_response(
