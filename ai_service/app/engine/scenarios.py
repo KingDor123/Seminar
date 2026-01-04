@@ -123,8 +123,8 @@ bank_graph = ScenarioGraph(
     states={
         "start": ScenarioState(
             id="start",
-            description="Opening the call",
-            actor_instruction="Introduce yourself as Dana from the bank. Ask how you can help with the loan application today.",
+            description="Opening the call (simulation only)",
+            actor_instruction="Introduce yourself as Dana from the bank. Ask how you can help with the loan application today. Simulation only; do not request any personal or identifying information.",
             evaluation=EvaluationCriteria(
                 criteria=["User states intent to apply for a loan"],
                 pass_condition="User confirms they want to apply for a loan.",
@@ -137,7 +137,7 @@ bank_graph = ScenarioGraph(
         "ask_amount": ScenarioState(
             id="ask_amount",
             description="Asking for loan amount",
-            actor_instruction="Ask: 'What is the loan amount you are interested in?' (באיזה סכום הלוואה את/ה מעוניין/ת?)",
+            actor_instruction="Ask for the approximate loan amount they want. (באיזה סכום הלוואה את/ה מעוניין/ת?) Simulation only; no personal or identifying info.",
             evaluation=EvaluationCriteria(
                 criteria=["User provides a numeric amount"],
                 pass_condition="User states a clear loan amount.",
@@ -150,7 +150,7 @@ bank_graph = ScenarioGraph(
         "ask_purpose": ScenarioState(
             id="ask_purpose",
             description="Asking for loan purpose",
-            actor_instruction="Ask: 'What is the purpose of the loan?' (מהי מטרת ההלוואה?)",
+            actor_instruction="Ask for the purpose of the loan in one short question. (מהי מטרת ההלוואה?) Simulation only; no personal or identifying info.",
             evaluation=EvaluationCriteria(
                 criteria=["User states a valid purpose (car, renovation, etc.)"],
                 pass_condition="User explains what the money is for.",
@@ -163,7 +163,7 @@ bank_graph = ScenarioGraph(
         "ask_income": ScenarioState(
             id="ask_income",
             description="Asking for income details",
-            actor_instruction="Ask about their monthly income and if they have other commitments.",
+            actor_instruction="Ask for an approximate monthly income range and whether they have other commitments. Keep it to one short sentence and avoid any personal identifiers or documents. Simulation only.",
             evaluation=EvaluationCriteria(
                 criteria=["User provides income details"],
                 pass_condition="User states their approximate income.",
@@ -175,8 +175,8 @@ bank_graph = ScenarioGraph(
         ),
         "present_terms": ScenarioState(
             id="present_terms",
-            description="Presenting loan options",
-            actor_instruction="State that based on the data, they are eligible. Mention a standard interest rate (e.g., Prime + 2%). Ask if this sounds okay.",
+            description="Presenting loan options (simulation only)",
+            actor_instruction="State that based on the provided info, they are eligible. Mention a standard interest rate (e.g., Prime + 2%). Ask if these terms work or if they have questions. Simulation only; do NOT request personal or identifying info (ID, account number, address, phone, exact income).",
             evaluation=EvaluationCriteria(
                 criteria=["User accepts or asks about terms"],
                 pass_condition="User acknowledges the terms.",
@@ -189,7 +189,7 @@ bank_graph = ScenarioGraph(
         "closing": ScenarioState(
             id="closing",
             description="Closing the application",
-            actor_instruction="Confirm the application is submitted. Thank them and say goodbye.",
+            actor_instruction="Confirm the application is submitted (simulation). Thank them and say goodbye.",
             evaluation=EvaluationCriteria(
                 criteria=["User says goodbye"],
                 pass_condition="User ends conversation.",
