@@ -1,14 +1,19 @@
 import axios from 'axios';
 
-let API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001/api';
+let API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '/api';
 
-// --- Start of Fix ---
-// Ensure the API_URL is always a valid HTTP/HTTPS URL when running in the browser
-if (typeof window !== 'undefined' && API_URL.startsWith('backend:')) {
-  console.warn(`Frontend: Correcting malformed NEXT_PUBLIC_BACKEND_URL from '${API_URL}' to 'http://localhost:5001/api' for browser access.`);
-  API_URL = 'http://localhost:5001'; // Fallback to localhost for client-side
+// Prefer same-origin `/api` in the browser for local/dev to ensure auth cookies are sent.
+if (typeof window !== 'undefined') {
+  const isLocalHost =
+    API_URL.startsWith('backend:') ||
+    API_URL.includes('localhost:5001') ||
+    API_URL.includes('127.0.0.1:5001');
+
+  if (isLocalHost) {
+    console.warn(`Frontend: Using same-origin '/api' for '${API_URL}' to preserve auth cookies.`);
+    API_URL = '/api';
+  }
 }
-// --- End of Fix ---
 
 // Normalize URL: remove trailing slash
 API_URL = API_URL.replace(/\/$/, "");

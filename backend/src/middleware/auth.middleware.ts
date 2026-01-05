@@ -52,7 +52,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     }
 
     if (!token) {
-        return next(new AppError('Not authenticated', 401));
+        return res.status(401).json({ message: 'Not authenticated' });
     }
 
     try {
@@ -68,7 +68,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 
         next();
     } catch (error) {
-        return next(new AppError('Invalid or expired token', 401));
+        return res.status(401).json({ message: 'Invalid or expired token' });
     }
 };
 
