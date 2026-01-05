@@ -45,10 +45,7 @@ services:
       - ./ai_service:/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    device_requests:
-      - driver: nvidia
-        count: 1
-        capabilities: [gpu]
+    runtime: nvidia
     networks:
       - web
 
@@ -60,10 +57,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5; ollama pull aya:8b; wait"]
-    device_requests:
-      - driver: nvidia
-        count: 1
-        capabilities: [gpu]
+    runtime: nvidia
     networks:
       - web
 
