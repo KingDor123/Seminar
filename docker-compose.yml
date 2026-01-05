@@ -58,6 +58,13 @@ services:
     entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5; ollama pull aya:8b; wait"]
     networks:
       - web
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   frontend:
     build: ./frontend
