@@ -1,0 +1,48 @@
+@startuml 
+title SoftSkill AI - Conversation Pipeline (v2)
+autonumber
+
+actor User
+participant "Frontend" as FE
+box "AI Service" #LightBlue
+    participant "API Endpoint" as API
+    participant "Orchestrator" as ORC
+    participant "Evaluator Agent" as EVAL
+    participant "RolePlay Agent" as RPA
+end box
+participant "Backend API" as BE
+participant "Ollama (LLM)" as LLM
+
+== Initialization ==
+User -> FE : Send Message
+FE -> API : POST /api/interact\n(sessionId, text)
+API -> ORC : process_turn(text)
+
+== Context Loading ==
+ORC -> BE : GET /sessions/{id}/messages
+BE --> ORC : History JSON
+ORC -> ORC : Load Scenario State
+
+== Step 1: Evaluation ==
+ORC -> EVAL : evaluate(input, state_criteria)
+EVAL -> LLM : Prompt (Did user meet goal?)
+LLM --> EVAL : JSON { "passed": bool, "reason": "..." }
+EVAL --> ORC : EvaluationResult
+
+opt Criteria Met
+    ORC -> ORC : Transition to Next State
+end
+
+== Step 2: Response Generation ==
+ORC -> RPA : generate_response(history, state, persona)
+RPA -> LLM : Prompt (Sandwich: Rules + Persona + Hist)
+LLM --> RPA : Stream Tokens
+RPA --> ORC : Stream Tokens
+ORC --> API : Stream Tokens
+API --> FE : SSE Stream (displayed to User)
+
+== Persistence (Async) ==
+ORC -> BE : POST /sessions/{id}/messages\n(User Input + Sentiment)
+ORC -> BE : POST /sessions/{id}/messages\n(AI Response)
+
+@enduml

@@ -113,92 +113,93 @@ _BANK_PERSONA = """
 את דנה, נציגת בנק רגועה ומקצועית בשיחת וידאו לבקשת הלוואה.
 סגנון דיבור: חמימה, פשוטה, תומכת ומעודדת. משפט קצר אחד בכל תשובה.
 """
-
 bank_graph = ScenarioGraph(
     id="bank",
     name="בקשת הלוואה - בנק",
     base_persona=_BANK_PERSONA,
-    goal="לנהל בקשת הלוואה מקצועית: איסוף נתונים פיננסיים, הסבר תנאים, ושמירה על תקשורת ברורה.",
+    goal="לנהל בקשת הלוואה בצורה מקצועית: איסוף נתונים פיננסיים, הסבר תנאים ושמירה על תקשורת ברורה.",
     initial_state_id="start",
     states={
         "start": ScenarioState(
             id="start",
-            description="Opening the call (simulation only)",
-            actor_instruction="Introduce yourself as Dana from the bank. Ask how you can help with the loan application today. Simulation only; do not request any personal or identifying information.",
+            description="פתיחת השיחה (סימולציה בלבד)",
+            actor_instruction="הצג/י את עצמך כדנה מהבנק. שאל/י כיצד ניתן לסייע היום בתהליך בקשת ההלוואה. סימולציה בלבד; אין לבקש מידע אישי או מזהה.",
             evaluation=EvaluationCriteria(
-                criteria=["User states intent to apply for a loan"],
-                pass_condition="User confirms they want to apply for a loan.",
-                failure_feedback_guidance="User needs to state they are here for the loan application."
+                criteria=["המשתמש מציין כוונה להגיש בקשה להלוואה"],
+                pass_condition="המשתמש מאשר שהוא מעוניין להגיש בקשה להלוואה.",
+                failure_feedback_guidance="המשתמש צריך לציין שהוא כאן לצורך בקשת הלוואה."
             ),
             transitions=[
-                Transition(target_state_id="ask_amount", condition="User confirmed intent")
+                Transition(target_state_id="ask_amount", condition="המשתמש אישר כוונה")
             ]
         ),
         "ask_amount": ScenarioState(
             id="ask_amount",
-            description="Asking for loan amount",
-            actor_instruction="Ask for the approximate loan amount they want. (באיזה סכום הלוואה את/ה מעוניין/ת?) Simulation only; no personal or identifying info.",
+            description="בקשת סכום ההלוואה",
+            actor_instruction="שאל/י מהו סכום ההלוואה המשוער שבו הוא/היא מעוניין/ת. סימולציה בלבד; ללא מידע אישי או מזהה.",
             evaluation=EvaluationCriteria(
-                criteria=["User provides a numeric amount"],
-                pass_condition="User states a clear loan amount.",
-                failure_feedback_guidance="User must specify how much money they need."
+                criteria=["המשתמש מספק סכום מספרי"],
+                pass_condition="המשתמש מציין סכום הלוואה ברור.",
+                failure_feedback_guidance="המשתמש חייב לציין כמה כסף הוא צריך."
             ),
             transitions=[
-                Transition(target_state_id="ask_purpose", condition="User provided amount")
+                Transition(target_state_id="ask_purpose", condition="המשתמש סיפק סכום"),
+                Transition(target_state_id="ask_income", condition="המשתמש סיפק גם סכום הלוואה וגם מטרה")
             ]
         ),
         "ask_purpose": ScenarioState(
             id="ask_purpose",
-            description="Asking for loan purpose",
-            actor_instruction="Ask for the purpose of the loan in one short question. (מהי מטרת ההלוואה?) Simulation only; no personal or identifying info.",
+            description="בקשת מטרת ההלוואה",
+            actor_instruction="שאל/י בקצרה מהי מטרת ההלוואה.",
             evaluation=EvaluationCriteria(
-                criteria=["User states a valid purpose (car, renovation, etc.)"],
-                pass_condition="User explains what the money is for.",
-                failure_feedback_guidance="User needs to say why they need the money."
+                criteria=["המשתמש מציין מטרה תקפה (רכב, שיפוץ וכו')"],
+                pass_condition="המשתמש מסביר לשם מה נדרש הכסף.",
+                failure_feedback_guidance="המשתמש צריך לומר מדוע הוא זקוק לכסף."
             ),
             transitions=[
-                Transition(target_state_id="ask_income", condition="User provided purpose")
+                Transition(target_state_id="ask_income", condition="המשתמש סיפק מטרה")
             ]
         ),
         "ask_income": ScenarioState(
             id="ask_income",
-            description="Asking for income details",
-            actor_instruction="Ask for an approximate monthly income range and whether they have other commitments. Keep it to one short sentence and avoid any personal identifiers or documents. Simulation only.",
+            description="בקשת פרטי הכנסה",
+            actor_instruction="שאל/י לגבי טווח הכנסה חודשית משוער והאם קיימות התחייבויות נוספות. שמור/י על משפט קצר והימנע/י מכל מזהה אישי או מסמכים. סימולציה בלבד.",
             evaluation=EvaluationCriteria(
-                criteria=["User provides income details"],
-                pass_condition="User states their approximate income.",
-                failure_feedback_guidance="User needs to provide income information for the application."
+                criteria=["המשתמש מספק פרטי הכנסה"],
+                pass_condition="המשתמש מציין הכנסה משוערת.",
+                failure_feedback_guidance="המשתמש צריך לספק מידע על הכנסה לצורך הבקשה."
             ),
             transitions=[
-                Transition(target_state_id="present_terms", condition="User provided income")
+                Transition(target_state_id="present_terms", condition="המשתמש סיפק הכנסה")
             ]
         ),
         "present_terms": ScenarioState(
             id="present_terms",
-            description="Presenting loan options (simulation only)",
-            actor_instruction="State that based on the provided info, they are eligible. Mention a standard interest rate (e.g., Prime + 2%). Ask if these terms work or if they have questions. Simulation only; do NOT request personal or identifying info (ID, account number, address, phone, exact income).",
+            description="הצגת תנאי הלוואה (סימולציה בלבד)",
+            actor_instruction="ציין/י שעל סמך המידע שנמסר המשתמש זכאי להלוואה. הצג/י ריבית סטנדרטית (לדוגמה: פריים + 2%). שאל/י האם התנאים מתאימים או אם יש שאלות. סימולציה בלבד; אין לבקש מידע אישי או מזהה (תעודת זהות, מספר חשבון, כתובת, טלפון, הכנסה מדויקת).",
             evaluation=EvaluationCriteria(
-                criteria=["User accepts or asks about terms"],
-                pass_condition="User acknowledges the terms.",
-                failure_feedback_guidance="User should confirm if they want to proceed with these terms."
+                criteria=["המשתמש מאשר או שואל לגבי התנאים"],
+                pass_condition="המשתמש מתייחס לתנאים.",
+                failure_feedback_guidance="המשתמש צריך לאשר אם ברצונו להמשיך עם תנאים אלו."
             ),
             transitions=[
-                Transition(target_state_id="closing", condition="User accepted terms")
+                Transition(target_state_id="closing", condition="המשתמש אישר את התנאים")
             ]
         ),
         "closing": ScenarioState(
             id="closing",
-            description="Closing the application",
-            actor_instruction="Confirm the application is submitted (simulation). Thank them and say goodbye.",
+            description="סיום הבקשה",
+            actor_instruction="אשר/י שהבקשה הוגשה (סימולציה). הודה/י למשתמש ואחל/י יום טוב.",
             evaluation=EvaluationCriteria(
-                criteria=["User says goodbye"],
-                pass_condition="User ends conversation.",
-                failure_feedback_guidance="Say goodbye."
+                criteria=["המשתמש נפרד"],
+                pass_condition="המשתמש מסיים את השיחה.",
+                failure_feedback_guidance="להיפרד לשלום."
             ),
             is_terminal=True
         )
     }
 )
+
 
 # --- Grocery Scenario Definition ---
 

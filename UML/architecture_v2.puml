@@ -1,0 +1,55 @@
+@startuml
+title SoftSkill AI - System Architecture (v2)
+
+skinparam componentStyle rectangle
+skinparam handwritten false
+skinparam packageStyle rectangle
+
+actor "User" as User
+
+package "Client Side" {
+    component "Next.js Frontend" as Frontend {
+        [Chat Interface]
+        [3D Avatar Renderer]
+        [Webcam/Mic Input]
+    }
+}
+
+package "Server Side (Docker Compose)" {
+    
+    component "Traefik (Reverse Proxy)" as Proxy
+    
+    component "Node.js Backend" as Backend {
+        [API Routes (/api/v1)]
+        [Auth Service]
+        [Session Management]
+    }
+    
+    component "AI Service (FastAPI)" as AIService {
+        [Orchestrator]
+        [Scenario Manager]
+        [LLM Client]
+    }
+    
+    component "Ollama (Local LLM)" as Ollama {
+        [Model: aya:8b]
+    }
+    
+    database "PostgreSQL" as DB {
+        [Users]
+        [Sessions]
+        [Messages]
+    }
+}
+
+' Relationships
+User --> Frontend : Interacts
+Frontend --> Proxy : HTTP / SSE
+Proxy --> Backend : /api/v1 (Auth, History)
+Proxy --> AIService : /api/interact (Chat Stream)
+
+AIService --> Backend : Fetch History / Save Msgs
+Backend --> DB : Read/Write
+AIService --> Ollama : Generate / Evaluate (JSON/Text)
+
+@enduml
