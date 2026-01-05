@@ -58,8 +58,6 @@ interface ApiMessage {
   sentiment?: string | null;
 }
 
-const AI_SERVICE_URL = "http://localhost:8000"; 
-
 export default function SessionsPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   
@@ -85,8 +83,8 @@ export default function SessionsPage() {
         setDashboardError(null);
 
         const [listRes, dashRes] = await Promise.allSettled([
-          fetch(`${AI_SERVICE_URL}/analytics/sessions_list`),
-          fetch(`${AI_SERVICE_URL}/analytics/dashboard`)
+          fetch("/api/analytics/sessions_list"),
+          fetch("/api/analytics/dashboard")
         ]);
 
         if (!isActive) return;

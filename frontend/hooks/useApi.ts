@@ -4,18 +4,7 @@ import { he } from '../constants/he';
 
 // Centralize API base URL resolution
 const useApiBase = () => {
-  const resolveApiBase = useCallback(() => {
-    let apiBase = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001";
-    apiBase = apiBase.replace(/\/$/, "");
-
-    if (/^\d+$/.test(apiBase)) {
-      apiBase = `http://localhost:${apiBase}`;
-    } else if (!apiBase.startsWith("http")) {
-      apiBase = `http://${apiBase}`;
-    }
-    return apiBase;
-  }, []);
-
+  const resolveApiBase = useCallback(() => "", []);
   return resolveApiBase;
 };
 
