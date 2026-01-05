@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   db:
     image: postgres:16
@@ -36,7 +38,6 @@ services:
       - .env
     environment:
       - MODEL_NAME=aya:8b
-
     ports:
       - "8000:8000"
     volumes:
@@ -44,6 +45,10 @@ services:
       - ./ai_service:/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    device_requests:
+      - driver: nvidia
+        count: 1
+        capabilities: [gpu]
     networks:
       - web
 
@@ -54,11 +59,13 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-    # Run server in background, pull model, then wait for server
     entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5; ollama pull aya:8b; wait"]
+    device_requests:
+      - driver: nvidia
+        count: 1
+        capabilities: [gpu]
     networks:
       - web
-    
 
   frontend:
     build: ./frontend
@@ -83,4 +90,4 @@ volumes:
 
 networks:
   web:
-    external: false
+    driver: bridge
