@@ -37,7 +37,7 @@ services:
     env_file:
       - .env
     environment:
-      - MODEL_NAME=aya:8b
+      - MODEL_NAME=aya:35b
     ports:
       - "8000:8000"
     volumes:
