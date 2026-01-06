@@ -56,7 +56,7 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5; ollama pull aya:8b; wait"]
+    entrypoint: ["/bin/bash", "-c", "ollama serve & sleep 5; ollama pull aya:35b; wait"]
     runtime: nvidia
     networks:
       - web

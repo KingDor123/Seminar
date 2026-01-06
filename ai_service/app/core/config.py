@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     # --- AI ---
     OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://ollama:11434/v1")
-    OLLAMA_MODEL: str = os.getenv("MODEL_NAME", "aya:8b")
+    OLLAMA_MODEL: str = os.getenv("MODEL_NAME", "aya:35b")
     ENABLE_HEBERT: bool = os.getenv("ENABLE_HEBERT", "false").lower() in ("1", "true", "yes")
 
     # --- Whisper (STT) ---
