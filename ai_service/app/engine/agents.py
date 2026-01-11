@@ -114,9 +114,12 @@ class RolePlayAgent:
             )
         elif signals.get("readiness") == "not_ready":
             prompt += (
-                "\n--- SOCIAL BRIDGE ---\n"
-                "The user is greeting you or chatting socially. Respond naturally and politely.\n"
-                "Do NOT ask for the missing information yet. Build rapport first.\n"
+                "\n--- SOCIAL BRIDGE (MODE: CHAT) ---\n"
+                "The user is greeting you or chatting socially.\n"
+                "1. Ignore any technical 'reasoning' provided below.\n"
+                "2. Respond naturally, warmly, and politely as your Persona.\n"
+                "3. Do NOT ask for the missing information (loan amount, etc.) yet.\n"
+                "4. Simply build rapport.\n"
             )
 
         if filled_slots:
