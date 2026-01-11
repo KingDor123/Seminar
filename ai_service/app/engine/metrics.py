@@ -10,9 +10,16 @@ logger = logging.getLogger(__name__)
 class TurnMetrics(BaseModel):
     # From raw_text
     greeting_present: bool = False
-    imperative_form: bool = False
     mitigation_present: bool = False
     
+    # Imperative Metrics (Layered)
+    imperative_raw: bool = False    # Pure linguistic detection
+    imperative_social: bool = False # Contextualized (Raw + No Mitigation)
+    directness_score: float = 0.0   # Calculated score
+    
+    # NLU / Slots
+    extracted_slots: Dict[str, Any] = {}
+
     # From STT
     wpm: float = 0.0
     pause_count: int = 0
@@ -24,6 +31,11 @@ class TurnMetrics(BaseModel):
     starts_with_verb: bool = False
     sentence_fragmentation: bool = False
     avg_dependency_depth: float = 0.0
+    
+    # Deprecated / Legacy mappings (for backward compatibility if needed)
+    @property
+    def imperative_form(self) -> bool:
+        return self.imperative_raw
 
 class MetricsEngine:
     
@@ -32,6 +44,9 @@ class MetricsEngine:
     # Imperatives or Future-as-Imperative (Partial List)
     IMPERATIVES = r"\b(תביא|תן|לך|בוא|תעשה|תגיד|תבדוק|שלח|תשלח|תכין)\b"
     MITIGATIONS = r"(בבקשה|אפשר|תוכל|אולי|סליחה|תודה|נא)"
+    
+    # Slot Regexes
+    REGEX_AMOUNT = r"(\d+(?:,\d{3})*(?: אלף| מיליון)?)"
 
     @staticmethod
     def compute_metrics(raw_text: str, stt_data: Dict[str, Any]) -> TurnMetrics:
@@ -43,6 +58,12 @@ class MetricsEngine:
             m.greeting_present = bool(re.search(MetricsEngine.GREETINGS, raw_text))
             regex_imperative = bool(re.search(MetricsEngine.IMPERATIVES, raw_text))
             m.mitigation_present = bool(re.search(MetricsEngine.MITIGATIONS, raw_text))
+            
+            # Simple Slot Extraction (Amount)
+            amount_match = re.search(MetricsEngine.REGEX_AMOUNT, raw_text)
+            if amount_match:
+                # Try to parse or just store string
+                m.extracted_slots["amount"] = amount_match.group(0) # Keep string with "alf" etc.
 
         # 2. STT Metrics
         m.wpm = stt_data.get("speech_rate_wpm", 0.0)
@@ -73,7 +94,6 @@ class MetricsEngine:
                 m.starts_with_verb = (first_sentence.words[0].upos == 'VERB')
 
             for sentence in doc.sentences:
-                has_subject = False
                 for word in sentence.words:
                     if word.upos != 'PUNCT':
                         total_lemmas += 1
@@ -81,45 +101,22 @@ class MetricsEngine:
                     if word.upos == 'VERB':
                         verb_found = True
                         
-                        # Hebrew Imperative Detection Logic
                         feats = word.feats if word.feats else ""
-                        
-                        # Case A: Explicit Morphological Imperative (Mood=Imp)
                         if "Mood=Imp" in feats:
                             stanza_imperative = True
-                        
-                        # Case B: Future/Present tense used as command (Person=2)
-                        # e.g., "תביא" (Tavi) often parsed as Future, 2nd Person, Masc, Sing
-                        # We trigger this if it's 2nd person verb.
-                        # Refinement: Only if NO subject is present in the sentence?
-                        # "אתה תביא" (You will bring) is less imperative than "תביא" (Bring).
                         if "Person=2" in feats:
-                             # This is a strong signal in this context (short commands)
-                             # We check if there's an explicit PRON subject linked? 
-                             # For simplicity/robustness in this "soft skills" context:
-                             # 2nd person verb is usually a directive.
                              stanza_imperative = True
                     
-                    if word.upos in ('PRON', 'PROPN', 'NOUN') and 'nsubj' in (word.deprel or ""):
-                        has_subject = True
-                        
                     token_count += 1
-                
-                # Refinement: If it was Person=2 but had a subject "אתה", maybe it's less command-y?
-                # But "אתה תביא לי" is still directive.
-                # We stick to the simpler signal for now.
-
-            # Repetition (Higher = more repetition)
+            
             if total_lemmas > 0:
                 m.lemma_repetition_ratio = round(1.0 - (len(unique_lemmas) / total_lemmas), 2)
             
             m.has_main_verb = verb_found
             
-            # Fragmentation: No verb and short (heuristic)
             if not verb_found and total_lemmas < 4:
                 m.sentence_fragmentation = True
                 
-            # Quick Avg Dependency Depth
             depths = []
             for sentence in doc.sentences:
                 heads = {w.id: w.head for w in sentence.words}
@@ -134,11 +131,21 @@ class MetricsEngine:
             if depths:
                 m.avg_dependency_depth = round(sum(depths) / len(depths), 2)
 
-        # Combined Imperative Logic
-        m.imperative_form = regex_imperative or stanza_imperative
+        # --- Layered Imperative Logic ---
+        m.imperative_raw = regex_imperative or stanza_imperative
+        m.imperative_social = m.imperative_raw and not m.mitigation_present
+        
+        # --- Directness Score ---
+        score = 0.0
+        if m.imperative_raw: score += 1.0
+        if m.starts_with_verb: score += 0.5
+        if m.mitigation_present: score -= 0.7
+        if m.greeting_present: score -= 0.3
+        
+        m.directness_score = round(score, 2)
 
-        logger.info(f"[METRICS] greeting={m.greeting_present} imperative={m.imperative_form} (regex={regex_imperative}, stanza={stanza_imperative}) mitigation={m.mitigation_present}")
-        logger.info(f"[METRICS] starts_with_verb={m.starts_with_verb} repetition={m.lemma_repetition_ratio} fragmentation={m.sentence_fragmentation}")
+        logger.info(f"[METRICS] greeting={m.greeting_present} imperative_raw={m.imperative_raw} imperative_social={m.imperative_social} mitigation={m.mitigation_present}")
+        logger.info(f"[METRICS] directness={m.directness_score} slots={m.extracted_slots}")
 
         return m
 
