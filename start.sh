@@ -4,7 +4,7 @@
 cleanup() {
     echo ""
     echo "🛑 Stopping SoftSkill v2 Stack..."
-    docker-compose down
+    docker compose down
     exit
 }
 
@@ -15,7 +15,7 @@ echo "🚀 Starting SoftSkill v2 Stack (Docker Only)..."
 
 # Start Docker Stack
 # The 'ollama' container inside docker-compose will handle the model download/serving.
-docker-compose up --build
+docker compose up --build
 
 # Wait for docker to exit
 wait
