@@ -123,29 +123,25 @@ class ScenarioOrchestrator:
         # Apply Decision Logic
         decision = DecisionEngine.decide(metrics, current_state, raw_text=user_text, session_id=str(session_id))
         
-        # --- SOFT READINESS CHECK ---
-        # If the gate passed but the user isn't socially ready (e.g., just said "Hi"), 
-        # we hold back the transition to be polite.
-        soft_block = False
+        # --- SOFT READINESS CHECK (Orchestrator Authority) ---
+        # If the Gate passed (no hard violations) but Aya says 'not_ready' (greeting/confusion),
+        # we HOLD the state transition to be polite.
         if decision.gate_passed and readiness == "not_ready":
-            logger.info(f"[ORCHESTRATOR] Soft blocking transition. User is GATE_PASSED but NOT_READY.")
-            soft_block = True
-            # Override decision to stay in state
+            logger.info(f"[ORCHESTRATOR] Readiness Check: User is PASS but NOT_READY. Switching to HOLD.")
             decision.gate_passed = False
-            decision.label = "NOT_READY_FOR_TRANSITION"
+            decision.label = "HOLD"
         
         # --- SIGNAL & NORM UPDATE ---
         signal_data = {
             "decision_label": decision.label,
             "current_state": current_node_id,
             "turn_frustration": is_frustrated,
-            "repair_given": decision.label in ["UNCLEAR", "INAPPROPRIATE_FOR_CONTEXT", "NOT_READY_FOR_TRANSITION"] or is_confused
+            "repair_given": decision.label in ["BLOCK", "HOLD"] or is_confused
         }
         signal_manager.update_signals(session_id, signal_data)
         
         # Mark Norms Taught (If violation triggered a block)
-        if decision.label == "INAPPROPRIATE_FOR_CONTEXT":
-            # Heuristic: We assume the violation was imperative/politeness if we blocked for context
+        if decision.label == "BLOCK":
             norm_manager.mark_as_taught(session_id, "imperative")
             
         current_norms = norm_manager.get_norms(session_id)
@@ -156,8 +152,8 @@ class ScenarioOrchestrator:
         if is_frustrated:
              feedback_context += ". USER SEEMS FRUSTRATED or REPEATING. Acknowledge known info."
         
-        if soft_block:
-            feedback_context += ". User is valid but NOT READY (e.g., greeting). Respond socially/helpfully. Do NOT ask for new info yet."
+        if decision.label == "HOLD":
+             feedback_context += ". User is valid but NOT READY (e.g., greeting). Respond socially/helpfully. Do NOT ask for new info yet."
 
         # Append Memory Context
         memory_str = f"Known Info: {current_slots.dict(exclude_none=True)}"
