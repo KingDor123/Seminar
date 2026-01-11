@@ -27,11 +27,15 @@ class ContextAnalyzerAgent:
             "Also detect behavioral signals:\n"
             "- frustration: Is the user sounding angry, impatient, or repetitive? (true/false)\n"
             "- confusion: Is the user asking 'what?' or sounding lost? (true/false)\n"
+            "- readiness: Is the user ready to proceed? (ready/not_ready)\n"
+            "  * 'not_ready': Greetings (Hi, Hello), pure acknowledgements (Okay, Yes), confusion (What?), or vague social chatter without providing new info.\n"
+            "  * 'ready': User provides information, asks a relevant question, or explicitly says to continue.\n"
         )
 
         schema = (
             '{"extracted_slots": {"amount": "string|null", "purpose": "string|null", "income": "string|null"}, '
             '"signals": {"frustration": boolean, "confusion": boolean}, '
+            '"readiness": "ready|not_ready", '
             '"reasoning": "string"}'
         )
 
@@ -107,6 +111,12 @@ class RolePlayAgent:
                 "\n--- EMPATHY NOTE ---\n"
                 "The user seems frustrated. Acknowledge their feelings or what they already said, "
                 "and try to move to the next point politely.\n"
+            )
+        elif signals.get("readiness") == "not_ready":
+            prompt += (
+                "\n--- SOCIAL BRIDGE ---\n"
+                "The user is greeting you or chatting socially. Respond naturally and politely.\n"
+                "Do NOT ask for the missing information yet. Build rapport first.\n"
             )
 
         if filled_slots:
