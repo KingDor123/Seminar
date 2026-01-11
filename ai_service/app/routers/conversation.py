@@ -10,17 +10,14 @@ import sys
 
 # Robust import to handle both Docker (/app root) and Local (parent root) paths
 try:
-    from ai_service.app.engine.orchestrator import orchestrator
-    from ai_service.app.engine.scenarios import SCENARIO_REGISTRY
-    from ai_service.app.services.stt import STTService
-except ImportError:
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    pipeline_dir = os.path.abspath(os.path.join(current_dir, '../..'))
-    if pipeline_dir not in sys.path:
-        sys.path.append(pipeline_dir)
     from app.engine.orchestrator import orchestrator
     from app.engine.scenarios import SCENARIO_REGISTRY
     from app.services.stt import STTService
+except ImportError:
+    # Fallback/Debug for local dev outside docker
+    from ai_service.app.engine.orchestrator import orchestrator
+    from ai_service.app.engine.scenarios import SCENARIO_REGISTRY
+    from ai_service.app.services.stt import STTService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
