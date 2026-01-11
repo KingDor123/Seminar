@@ -1,4 +1,5 @@
-from typing import List, Dict, Optional
+import json
+from typing import List, Dict, Optional, Any
 from app.engine.schema import ScenarioState, AgentOutput
 from app.engine.llm import llm_client
 
@@ -72,15 +73,24 @@ class RolePlayAgent:
         return int(len(text) / RolePlayAgent.EST_CHARS_PER_TOKEN) + 5
 
     @staticmethod
-    async def generate_response(
-        user_text: str,
+    def _build_llm_prompt(
         base_persona: str,
         state: ScenarioState,
-        history: List[Dict[str, str]],
-        eval_result: Optional[AgentOutput] = None
-    ):
-        # 1. Construct System Prompt (The "Head" - Always Pinned)
-        system_prompt = (
+        llm_context: Dict[str, Any]
+    ) -> str:
+        """
+        Constructs the enhanced system prompt with context and repair instructions.
+        """
+        # Extract context safely
+        decision = llm_context.get("decision", {})
+        decision_label = decision.get("label", "GATE_PASSED")
+        signals = llm_context.get("signals", {})
+        slots = llm_context.get("slots", {})
+        filled_slots = slots.get("filled", {})
+        missing_slots = slots.get("missing", [])
+        
+        # Base System Instructions
+        prompt = (
             "SYSTEM INSTRUCTIONS:\n"
             "1. Output Language: Hebrew.\n"
             "2. Keep responses natural and concise.\n"
@@ -92,27 +102,87 @@ class RolePlayAgent:
             f"--- YOUR GOAL ---\n{state.actor_instruction}\n"
         )
 
-        # 2. Add Dynamic Guidance
+        # Context Injection
+        context_block = {
+            "state": state.id,
+            "decision": decision_label,
+            "known_info": filled_slots,
+            "missing_info": missing_slots,
+            "user_signals": {k: v for k, v in signals.items() if v}
+        }
+        prompt += f"\n--- CONTEXT ---\n{json.dumps(context_block, ensure_ascii=False, indent=2)}\n"
+
+        # Dynamic Repair Policy
+        if decision_label == "UNCLEAR" or signals.get("user_confused"):
+            prompt += (
+                "\n--- REPAIR POLICY (User is Unclear/Confused) ---\n"
+                "1. Acknowledge the user's input briefly.\n"
+                "2. Ask a clarifying question specifically about the missing info.\n"
+                "3. Provide 1-2 short Hebrew examples of valid answers.\n"
+                "4. Do NOT advance the topic until this is resolved.\n"
+                "Example: 'I understood you want a loan, but I need a number. For example: 20,000 or 50,000.'\n"
+            )
+        elif decision_label == "INAPPROPRIATE_FOR_CONTEXT":
+             prompt += (
+                "\n--- REPAIR POLICY (Inappropriate Behavior) ---\n"
+                "1. Politely but firmly address the tone/content.\n"
+                "2. Remind the user of the professional context.\n"
+                "3. Ask them to rephrase or provide the needed info politely.\n"
+            )
+        elif signals.get("user_frustrated"):
+            prompt += (
+                "\n--- REPAIR POLICY (Frustration Detected) ---\n"
+                "1. Acknowledge the user's frustration or repetition.\n"
+                "2. Confirm what you ALREADY know (from 'known_info').\n"
+                "3. Move the conversation forward gently.\n"
+                "4. Do NOT re-ask for information you already have.\n"
+            )
+        
+        # Memory & Focus Policy (Always Active)
+        if filled_slots:
+            prompt += f"\n--- MEMORY POLICY ---\nDo NOT re-ask for: {', '.join(filled_slots.keys())}.\n"
+        
+        if missing_slots and not (decision_label == "UNCLEAR" or signals.get("user_confused")):
+            # Only focus on missing slots if not currently confused/repairing (repair has its own focus)
+            prompt += f"Focus on obtaining: {', '.join(missing_slots)}.\n"
+
+        return prompt
+
+    @staticmethod
+    async def generate_response(
+        user_text: str,
+        base_persona: str,
+        state: ScenarioState,
+        history: List[Dict[str, str]],
+        eval_result: Optional[AgentOutput] = None,
+        llm_context: Dict[str, Any] = None
+    ):
+        # Ensure llm_context exists
+        if llm_context is None:
+            llm_context = {}
+
+        # 1. Build Prompt
+        system_prompt = RolePlayAgent._build_llm_prompt(base_persona, state, llm_context)
+
+        # 2. Add Legacy Dynamic Guidance (if eval_result exists and failed, override/append)
+        # Note: The new _build_llm_prompt handles repair policies, but we keep this for specific scenario guidance
         if eval_result and not eval_result.passed:
             system_prompt += (
-                f"\n--- GUIDANCE ---\n"
+                f"\n--- SPECIFIC SCENARIO GUIDANCE ---\n"
                 f"The user did NOT meet the goal. {state.evaluation.failure_feedback_guidance}\n"
                 f"Internal Reasoning: {eval_result.reasoning}"
             )
         
-        # 3. Smart Context Trimming (The "Middle")
-        # We need to fit: System Prompt + History + User Message <= MAX_TOTAL_TOKENS
-        
+        # 3. Smart Context Trimming
         sys_tokens = RolePlayAgent._estimate_tokens(system_prompt)
         user_tokens = RolePlayAgent._estimate_tokens(user_text)
-        reserved_tokens = sys_tokens + user_tokens + 200 # +200 buffer for safety/output
+        reserved_tokens = sys_tokens + user_tokens + 200 
         
         available_history_tokens = RolePlayAgent.MAX_TOTAL_TOKENS - reserved_tokens
         
         trimmed_history = []
         current_history_tokens = 0
         
-        # Iterate backwards (newest first) to keep the most relevant context
         for msg in reversed(history):
             msg_content = msg.get("content", "")
             msg_tokens = RolePlayAgent._estimate_tokens(msg_content)
@@ -121,9 +191,8 @@ class RolePlayAgent:
                 trimmed_history.append(msg)
                 current_history_tokens += msg_tokens
             else:
-                break # Stop if we run out of space
+                break 
         
-        # Reverse back to chronological order
         trimmed_history.reverse()
         
         # 4. Final Assembly
@@ -131,8 +200,6 @@ class RolePlayAgent:
         messages.extend(trimmed_history)
         
         if user_text.strip() == "[START]":
-            # For cold start, we don't append user text. 
-            # We append a system trigger to start the conversation.
             messages.append({"role": "system", "content": "ACTION: Start the conversation according to your goal. Say the opening line."})
         else:
             messages.append({"role": "user", "content": user_text})

@@ -111,6 +111,39 @@ class ScenarioOrchestrator:
         # Append Memory Context
         memory_str = f"Known Info: {current_slots.dict(exclude_none=True)}"
         
+        # --- BUILD LLM CONTEXT ---
+        # Identify missing slots for current state
+        # Simplified: If we are in 'ask_amount', we need 'amount'.
+        missing_slots = []
+        required_slot_for_state = STATE_SLOT_MAP.get(target_state.id)
+        if required_slot_for_state and not getattr(current_slots, required_slot_for_state):
+            missing_slots.append(required_slot_for_state)
+
+        llm_context = {
+            "session_id": str(session_id),
+            "scenario_id": str(scenario_id),
+            "state": target_state.id,
+            "decision": {
+                "label": decision.label,
+                "reason": "; ".join(decision.reasons),
+                "passed": decision.gate_passed
+            },
+            "slots": {
+                "filled": current_slots.dict(exclude_none=True),
+                "missing": missing_slots
+            },
+            "signals": {
+                "user_frustrated": is_frustrated,
+                "repetition_score": metrics.lemma_repetition_ratio,
+                "user_confused": decision.label == "UNCLEAR" # Simple heuristic
+            },
+            # "conversation_window" is implicitly handled by the Agent via 'history' param
+        }
+        
+        # --- OBSERVABILITY ---
+        # Compact context log
+        logger.info(f"[LLM_CONTEXT] session={session_id} state={target_state.id} decision={decision.label} missing={missing_slots} signals={llm_context['signals']}")
+        
         # Convert to AgentOutput for compatibility with RolePlayAgent
         eval_result = AgentOutput(
             passed=decision.gate_passed,
@@ -177,14 +210,17 @@ class ScenarioOrchestrator:
         # 5. Generate Response (The "Actor")
         # The actor generates response based on the TARGET state (where we are now)
         logger.info(f"🎭 Generating response for state: {target_state.id}")
-        logger.info(f"[LLM] generating response for state={target_state.id} persona=bank_clerk")
+        
+        # LLM Call Log
+        logger.info(f"[LLM_CALL] model=aya:8b state={target_state.id} missing_slots={missing_slots} decision={decision.label}")
         
         async for token in RolePlayAgent.generate_response(
             user_text,
             graph.base_persona,
             target_state,
             history,
-            eval_result # Pass result so actor knows if user failed (GATE_PASSED=False)
+            eval_result, # Pass result so actor knows if user failed (GATE_PASSED=False)
+            llm_context=llm_context
         ):
             yield token
 
