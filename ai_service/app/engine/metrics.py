@@ -15,7 +15,6 @@ class TurnMetrics(BaseModel):
     # Imperative Metrics (Layered)
     imperative_raw: bool = False    # Pure linguistic detection
     imperative_social: bool = False # Contextualized (Raw + No Mitigation)
-    directness_score: float = 0.0   # Calculated score
     
     # NLU / Slots
     extracted_slots: Dict[str, Any] = {}
@@ -135,17 +134,8 @@ class MetricsEngine:
         m.imperative_raw = regex_imperative or stanza_imperative
         m.imperative_social = m.imperative_raw and not m.mitigation_present
         
-        # --- Directness Score ---
-        score = 0.0
-        if m.imperative_raw: score += 1.0
-        if m.starts_with_verb: score += 0.5
-        if m.mitigation_present: score -= 0.7
-        if m.greeting_present: score -= 0.3
-        
-        m.directness_score = round(score, 2)
-
         logger.info(f"[METRICS] greeting={m.greeting_present} imperative_raw={m.imperative_raw} imperative_social={m.imperative_social} mitigation={m.mitigation_present}")
-        logger.info(f"[METRICS] directness={m.directness_score} slots={m.extracted_slots}")
+        logger.info(f"[METRICS] slots={m.extracted_slots}")
 
         return m
 

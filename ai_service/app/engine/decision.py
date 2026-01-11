@@ -48,10 +48,9 @@ class DecisionEngine:
         # Metrics Snapshot
         logger.info("[DECISION_TREE] Metrics:")
         logger.info(f"  - greeting: {metrics.greeting_present}")
-        logger.info(f"  - imperative: {metrics.imperative_raw} (Stanza/Regex detected)")
+        logger.info(f"  - imperative: {metrics.imperative_form} (Stanza/Regex detected)")
         logger.info(f"  - mitigation: {metrics.mitigation_present}")
         logger.info(f"  - imperative_social: {metrics.imperative_social} (Raw + No Mitigation)")
-        logger.info(f"  - directness_score: {metrics.directness_score}")
         logger.info(f"  - starts_with_verb: {metrics.starts_with_verb}")
         logger.info(f"  - fragmentation: {metrics.sentence_fragmentation}")
         logger.info(f"  - repetition: {metrics.lemma_repetition_ratio}")
