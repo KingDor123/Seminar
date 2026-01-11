@@ -13,11 +13,85 @@ const normalizeSentiment = (value: unknown): 'positive' | 'negative' | 'neutral'
     return null;
 };
 
+/**
+ * Adapter to coerce incoming analysis payload into the legacy DB schema.
+ * Handles both:
+ * 1. Legacy Schema (confidence, detected_intent, social_impact, reasoning)
+ * 2. V2 Schema (metrics, decision, reasons[], passed, current_state)
+ */
 const coerceAnalysis = (analysis: unknown): TurnAnalysisInput | null => {
     if (!analysis || typeof analysis !== 'object') {
         return null;
     }
     const record = analysis as Record<string, unknown>;
+    
+    // --- V2 SCHEMA ADAPTER ---
+    // Detection: Presence of 'metrics' object or 'decision' string
+    if ('metrics' in record || 'decision' in record) {
+        try {
+            // 1. Sentiment (Preserve or Default)
+            const sentiment = normalizeSentiment(record.sentiment) || 'neutral';
+            
+            // 2. Confidence Mapping (passed -> legacy confidence)
+            // passed=true -> 0.9 (High confidence)
+            // passed=false -> 0.3 (Low confidence)
+            const passed = record.passed === true;
+            const confidence = passed ? 0.9 : 0.3;
+            
+            // 3. Detected Intent -> Decision Label
+            const detected_intent = typeof record.decision === 'string' 
+                ? record.decision 
+                : 'UNKNOWN_DECISION';
+                
+            // 4. Reasoning -> Join array
+            let reasoning = 'No reasons provided';
+            if (Array.isArray(record.reasons)) {
+                reasoning = record.reasons.join('; ');
+            } else if (typeof record.reasons === 'string') {
+                reasoning = record.reasons;
+            } else if (typeof record.reasoning === 'string') {
+                // Fallback if V2 mixed with V1 naming
+                reasoning = record.reasoning;
+            }
+
+            // 5. Social Impact -> JSON Storage Wrapper
+            // We store the full structured data here to preserve it
+            const wrapper = {
+                _compat: "v2_analysis_to_legacy",
+                decision: record.decision,
+                passed: record.passed,
+                metrics: record.metrics || {},
+                state: record.current_state,
+                sentiment: sentiment
+            };
+            
+            // Safe Stringify
+            let social_impact = '{}';
+            try {
+                social_impact = JSON.stringify(wrapper);
+            } catch (e) {
+                console.warn('[Adapter] Failed to stringify metrics for social_impact', e);
+                social_impact = JSON.stringify({ error: 'Serialization Failed' });
+            }
+
+            // Log once (optional, keeping minimal per instructions)
+            // console.warn('[LegacyAdapter] Converted V2 analysis payload to V1 schema');
+
+            return {
+                sentiment,
+                confidence,
+                detected_intent,
+                social_impact,
+                reasoning
+            };
+
+        } catch (err) {
+            console.error('[Adapter] V2 Schema conversion failed:', err);
+            return null;
+        }
+    }
+
+    // --- LEGACY SCHEMA VALIDATION ---
     const sentiment = normalizeSentiment(record.sentiment);
     const confidence = typeof record.confidence === 'number' ? record.confidence : parseFloat(String(record.confidence));
     if (!sentiment || Number.isNaN(confidence)) {
@@ -27,6 +101,8 @@ const coerceAnalysis = (analysis: unknown): TurnAnalysisInput | null => {
     const detected_intent = typeof record.detected_intent === 'string' ? record.detected_intent : '';
     const social_impact = typeof record.social_impact === 'string' ? record.social_impact : '';
     const reasoning = typeof record.reasoning === 'string' ? record.reasoning : '';
+    
+    // Strict legacy check: all fields required
     if (!detected_intent || !social_impact || !reasoning) {
         return null;
     }
