@@ -54,15 +54,20 @@ class StanzaNLP:
                 tokens_count = 0
                 lemmas = []
                 pos_tags = []
+                feats_sample = []
+                
                 for sentence in doc.sentences:
                     for word in sentence.words:
                         tokens_count += 1
                         lemmas.append(word.lemma)
                         pos_tags.append(word.upos)
+                        if len(feats_sample) < 10:
+                            feats_sample.append(f"{word.id}:{word.feats or '_'}")
                 
                 logger.info(f"[NLP] tokens={tokens_count}")
                 logger.info(f"[NLP] lemmas={lemmas}")
                 logger.info(f"[NLP] pos={pos_tags}")
+                logger.info(f"[NLP] feats_sample={feats_sample}")
 
             return doc
         except Exception as e:

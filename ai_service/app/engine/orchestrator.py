@@ -81,7 +81,7 @@ class ScenarioOrchestrator:
         metrics = MetricsEngine.compute_metrics(user_text, stt_data or {})
         
         # Apply Decision Logic
-        decision = DecisionEngine.decide(metrics, current_state, raw_text=user_text)
+        decision = DecisionEngine.decide(metrics, current_state, raw_text=user_text, session_id=str(session_id))
         
         # Convert to AgentOutput for compatibility with RolePlayAgent
         eval_result = AgentOutput(

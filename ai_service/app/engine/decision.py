@@ -29,26 +29,31 @@ class DecisionResult(BaseModel):
 class DecisionEngine:
     
     @staticmethod
-    def decide(metrics: TurnMetrics, state: ScenarioState, raw_text: str = "") -> DecisionResult:
+    def decide(metrics: TurnMetrics, state: ScenarioState, raw_text: str = "", session_id: str = "unknown") -> DecisionResult:
         logger = logging.getLogger("DecisionEngine")
         reasons = []
         
         # --- DECISION TREE START ---
-        logger.info("[DECISION_TREE] ─────────────────────────────")
+        logger.info("[DECISION_TREE] ──────────────────────────────────────────────")
+        logger.info(f"[DECISION_TREE] Session: {session_id}")
         logger.info(f"[DECISION_TREE] State: {state.id}")
         logger.info(f"[DECISION_TREE] Input: \"{raw_text}\"")
         
         # Metrics Snapshot
         logger.info("[DECISION_TREE] Metrics:")
         logger.info(f"  - greeting: {metrics.greeting_present}")
-        logger.info(f"  - imperative: {metrics.imperative_form}")
+        logger.info(f"  - imperative: {metrics.imperative_form} (Stanza/Regex detected)")
         logger.info(f"  - mitigation: {metrics.mitigation_present}")
         logger.info(f"  - starts_with_verb: {metrics.starts_with_verb}")
         logger.info(f"  - fragmentation: {metrics.sentence_fragmentation}")
         logger.info(f"  - repetition: {metrics.lemma_repetition_ratio}")
+        logger.info(f"  - avg_dep_depth: {metrics.avg_dependency_depth}")
+        
+        # Rule Evaluation
+        logger.info("[DECISION_TREE] Rules Evaluation:")
 
         # Rule 1: Clarity Check
-        logger.info("[DECISION_TREE] Rule: Clarity (Sentence Fragmentation)")
+        # ... (rest of logic)
         logger.info(f"  Conditions:")
         logger.info(f"    sentence_fragmentation: {metrics.sentence_fragmentation} -> {'FAIL' if metrics.sentence_fragmentation else 'PASS'}")
         

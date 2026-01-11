@@ -21,6 +21,7 @@ class TurnMetrics(BaseModel):
     # From Stanza
     lemma_repetition_ratio: float = 0.0
     has_main_verb: bool = False
+    starts_with_verb: bool = False
     sentence_fragmentation: bool = False
     avg_dependency_depth: float = 0.0
 
@@ -36,10 +37,11 @@ class MetricsEngine:
     def compute_metrics(raw_text: str, stt_data: Dict[str, Any]) -> TurnMetrics:
         m = TurnMetrics()
         
-        # 1. Raw Text Metrics
+        # 1. Raw Text Metrics (Regex)
+        regex_imperative = False
         if raw_text:
             m.greeting_present = bool(re.search(MetricsEngine.GREETINGS, raw_text))
-            m.imperative_form = bool(re.search(MetricsEngine.IMPERATIVES, raw_text))
+            regex_imperative = bool(re.search(MetricsEngine.IMPERATIVES, raw_text))
             m.mitigation_present = bool(re.search(MetricsEngine.MITIGATIONS, raw_text))
 
         # 2. STT Metrics
@@ -56,6 +58,8 @@ class MetricsEngine:
         # 4. Stanza Metrics (on Analysis Text)
         doc = nlp_service.analyze(analysis_text)
         
+        stanza_imperative = False
+        
         if doc and doc.sentences:
             total_lemmas = 0
             unique_lemmas = set()
@@ -63,15 +67,48 @@ class MetricsEngine:
             total_depth = 0
             token_count = 0
             
+            # Check first word POS for imperative heuristic
+            first_sentence = doc.sentences[0]
+            if first_sentence.words:
+                m.starts_with_verb = (first_sentence.words[0].upos == 'VERB')
+
             for sentence in doc.sentences:
+                has_subject = False
                 for word in sentence.words:
                     if word.upos != 'PUNCT':
                         total_lemmas += 1
                         unique_lemmas.add(word.lemma)
                     if word.upos == 'VERB':
                         verb_found = True
+                        
+                        # Hebrew Imperative Detection Logic
+                        feats = word.feats if word.feats else ""
+                        
+                        # Case A: Explicit Morphological Imperative (Mood=Imp)
+                        if "Mood=Imp" in feats:
+                            stanza_imperative = True
+                        
+                        # Case B: Future/Present tense used as command (Person=2)
+                        # e.g., "תביא" (Tavi) often parsed as Future, 2nd Person, Masc, Sing
+                        # We trigger this if it's 2nd person verb.
+                        # Refinement: Only if NO subject is present in the sentence?
+                        # "אתה תביא" (You will bring) is less imperative than "תביא" (Bring).
+                        if "Person=2" in feats:
+                             # This is a strong signal in this context (short commands)
+                             # We check if there's an explicit PRON subject linked? 
+                             # For simplicity/robustness in this "soft skills" context:
+                             # 2nd person verb is usually a directive.
+                             stanza_imperative = True
+                    
+                    if word.upos in ('PRON', 'PROPN', 'NOUN') and 'nsubj' in (word.deprel or ""):
+                        has_subject = True
+                        
                     token_count += 1
-            
+                
+                # Refinement: If it was Person=2 but had a subject "אתה", maybe it's less command-y?
+                # But "אתה תביא לי" is still directive.
+                # We stick to the simpler signal for now.
+
             # Repetition (Higher = more repetition)
             if total_lemmas > 0:
                 m.lemma_repetition_ratio = round(1.0 - (len(unique_lemmas) / total_lemmas), 2)
@@ -97,8 +134,11 @@ class MetricsEngine:
             if depths:
                 m.avg_dependency_depth = round(sum(depths) / len(depths), 2)
 
-        logger.info(f"[METRICS] greeting={m.greeting_present} imperative={m.imperative_form} mitigation={m.mitigation_present}")
-        logger.info(f"[METRICS] repetition={m.lemma_repetition_ratio} fragmentation={m.sentence_fragmentation}")
+        # Combined Imperative Logic
+        m.imperative_form = regex_imperative or stanza_imperative
+
+        logger.info(f"[METRICS] greeting={m.greeting_present} imperative={m.imperative_form} (regex={regex_imperative}, stanza={stanza_imperative}) mitigation={m.mitigation_present}")
+        logger.info(f"[METRICS] starts_with_verb={m.starts_with_verb} repetition={m.lemma_repetition_ratio} fragmentation={m.sentence_fragmentation}")
 
         return m
 
