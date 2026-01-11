@@ -196,6 +196,17 @@ bank_graph = ScenarioGraph(
                 failure_feedback_guidance="להיפרד לשלום."
             ),
             is_terminal=True
+        ),
+        "end_not_eligible": ScenarioState(
+            id="end_not_eligible",
+            description="End - Not Eligible",
+            actor_instruction="Politely and empathetically explain that based on the current financial details (income vs commitments), we cannot proceed with the loan application at this moment. Suggest checking again in the future. Close the conversation.",
+            evaluation=EvaluationCriteria(
+                criteria=["Conversation ends"],
+                pass_condition="User acknowledges.",
+                failure_feedback_guidance="Politely close."
+            ),
+            is_terminal=True
         )
     }
 )
