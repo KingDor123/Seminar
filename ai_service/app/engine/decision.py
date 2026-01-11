@@ -1,7 +1,25 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel
 from app.engine.metrics import TurnMetrics
 from app.engine.schema import ScenarioState
+import logging
+
+# Behavioral Constraints Mapping
+# Defines forbidden behaviors per state ID (heuristic-based)
+STATE_EXPECTATIONS: Dict[str, Dict[str, List[str]]] = {
+  "start": {
+    "forbidden": ["imperative"],
+  },
+  "ask_amount": {
+    "forbidden": ["imperative"],
+  },
+  "ask_purpose": {
+    "forbidden": ["imperative"],
+  },
+  "ask_income": {
+    "forbidden": ["imperative"],
+  }
+}
 
 class DecisionResult(BaseModel):
     gate_passed: bool
@@ -11,101 +29,118 @@ class DecisionResult(BaseModel):
 class DecisionEngine:
     
     @staticmethod
-    def decide(metrics: TurnMetrics, state: ScenarioState) -> DecisionResult:
-        import logging
+    def decide(metrics: TurnMetrics, state: ScenarioState, raw_text: str = "") -> DecisionResult:
         logger = logging.getLogger("DecisionEngine")
         reasons = []
         
-        # 1. Clarity Check
-        # If fragmented (no verb, short) -> Unclear
+        # --- DECISION TREE START ---
+        logger.info("[DECISION_TREE] ─────────────────────────────")
+        logger.info(f"[DECISION_TREE] State: {state.id}")
+        logger.info(f"[DECISION_TREE] Input: \"{raw_text}\"")
+        
+        # Metrics Snapshot
+        logger.info("[DECISION_TREE] Metrics:")
+        logger.info(f"  - greeting: {metrics.greeting_present}")
+        logger.info(f"  - imperative: {metrics.imperative_form}")
+        logger.info(f"  - mitigation: {metrics.mitigation_present}")
+        logger.info(f"  - starts_with_verb: {metrics.starts_with_verb}")
+        logger.info(f"  - fragmentation: {metrics.sentence_fragmentation}")
+        logger.info(f"  - repetition: {metrics.lemma_repetition_ratio}")
+
+        # Rule 1: Clarity Check
+        logger.info("[DECISION_TREE] Rule: Clarity (Sentence Fragmentation)")
+        logger.info(f"  Conditions:")
+        logger.info(f"    sentence_fragmentation: {metrics.sentence_fragmentation} -> {'FAIL' if metrics.sentence_fragmentation else 'PASS'}")
+        
         if metrics.sentence_fragmentation:
+            logger.info("  Result: FAIL")
+            logger.info("[DECISION_TREE] Final Decision:")
+            logger.info("  - label: UNCLEAR")
+            logger.info("  - reason: Sentence fragment detected")
+            logger.info("[DECISION_TREE] ─────────────────────────────")
+            
+            # Legacy Logs
             logger.info("[DECISION] rule=sentence_fragmentation -> FAIL")
             logger.info("[DECISION] label=UNCLEAR")
+            
             return DecisionResult(
                 gate_passed=False, 
                 label="UNCLEAR", 
                 reasons=["Sentence fragment detected (missing verb, too short)."]
             )
+        else:
+            logger.info("  Result: PASS")
+
+        # Rule 2: Behavioral State Validation
+        logger.info(f"[DECISION_TREE] Rule: State-Specific Behavioral Expectations ({state.id})")
         
-        # 2. Situational Appropriateness
-        is_appropriate = True
+        expectations = STATE_EXPECTATIONS.get(state.id, {})
+        forbidden_behaviors = expectations.get("forbidden", [])
         
-        # Rule: Imperative + No Mitigation -> Inappropriate (Politeness check)
-        if metrics.imperative_form and not metrics.mitigation_present:
-            is_appropriate = False
-            reasons.append("Imperative language used without mitigation (politeness).")
-            logger.info("[DECISION] rule=imperative_without_mitigation -> FAIL")
-            
-        # Rule: Role Mismatch (Placeholder - requires knowing user role constraint)
-        # For now, we assume implicit customer role. 
-        # If we had explicit 'user_role' in state, we would check it.
+        is_imperative = (metrics.imperative_form or metrics.starts_with_verb) and not metrics.mitigation_present
         
-        if not is_appropriate:
-            logger.info("[DECISION] label=INAPPROPRIATE_FOR_CONTEXT")
-            return DecisionResult(
+        logger.info("  Conditions:")
+        # Log state condition
+        has_forbidden_imperative = "imperative" in forbidden_behaviors
+        logger.info(f"    state == {state.id} (forbidden: {forbidden_behaviors}) -> {'CHECK' if has_forbidden_imperative else 'SKIP'}")
+        
+        if has_forbidden_imperative:
+            logger.info(f"    is_imperative: {is_imperative} -> {'FAIL' if is_imperative else 'PASS'}")
+            if is_imperative:
+                logger.info("  Result: FAIL")
+                logger.info("[DECISION_TREE] Final Decision:")
+                logger.info("  - label: INAPPROPRIATE_FOR_CONTEXT")
+                logger.info(f"  - reason: Imperative forbidden in {state.id}")
+                logger.info("[DECISION_TREE] ─────────────────────────────")
+
+                # Legacy Logs
+                logger.info(f"[DECISION] rule=forbidden_imperative_in_state({state.id}) -> FAIL")
+                logger.info("[DECISION] label=INAPPROPRIATE_FOR_CONTEXT")
+                
+                return DecisionResult(
+                    gate_passed=False,
+                    label="INAPPROPRIATE_FOR_CONTEXT",
+                    reasons=["Behavioral Violation: Imperative/Commanding language is inappropriate for this stage of the conversation (State: " + state.id + ")."]
+                )
+            else:
+                logger.info("  Result: PASS")
+        else:
+            logger.info("  Result: PASS (No specific constraints)")
+
+        # Rule 3: Global Politeness
+        logger.info("[DECISION_TREE] Rule: Global Politeness (Imperative without Mitigation)")
+        logger.info("  Conditions:")
+        logger.info(f"    is_imperative: {is_imperative} -> {'FAIL' if is_imperative else 'PASS'}")
+        
+        if is_imperative:
+             logger.info("  Result: FAIL")
+             reasons.append("Imperative language used without mitigation (politeness).")
+             
+             logger.info("[DECISION_TREE] Final Decision:")
+             logger.info("  - label: INAPPROPRIATE_FOR_CONTEXT")
+             logger.info("  - reason: Global imperative check")
+             logger.info("[DECISION_TREE] ─────────────────────────────")
+
+             # Legacy Logs
+             logger.info("[DECISION] rule=global_imperative_without_mitigation -> FAIL")
+             logger.info("[DECISION] label=INAPPROPRIATE_FOR_CONTEXT")
+             
+             return DecisionResult(
                 gate_passed=False,
                 label="INAPPROPRIATE_FOR_CONTEXT",
                 reasons=reasons
             )
+        else:
+            logger.info("  Result: PASS")
             
-        # 3. Gate Passed
+        # Gate Passed
+        logger.info("[DECISION_TREE] Final Decision:")
+        logger.info("  - label: GATE_PASSED")
+        logger.info("  - reason: Input is clear and appropriate")
+        logger.info("[DECISION_TREE] ─────────────────────────────")
+
+        # Legacy Logs
         logger.info("[DECISION] all_rules_passed")
         logger.info("[DECISION] label=GATE_PASSED")
-        
-        # Note: We do NOT evaluate if they 'passed' the scenario goal here.
-        # The prompt says: "Decision Engine (Gate Only)... Do NOT evaluate 'quality'".
-        # Wait, if we don't evaluate quality/goal, how do we move to the next state?
-        # The Target Architecture diagram shows:
-        # [Decision Engine] -> [Orchestrator]
-        # And "Orchestrator reacts ONLY to: UNCLEAR, INAPPROPRIATE, GATE_PASSED".
-        # If GATE_PASSED, does the Orchestrator then move state?
-        # The prompt says: "Replace any LLM-based pass/fail with Decision Engine output".
-        # This implies the Decision Engine MUST determine if the step is passed.
-        # BUT the prompt also says: "Do NOT evaluate 'quality'".
-        # AND "Do NOT delegate decisions to LLM".
-        
-        # Clarification from prompt: "Decision Engine (Rule-Based)... Rules: ... Else -> GATE_PASSED".
-        # This implies GATE_PASSED just means "You made a valid, appropriate turn".
-        # It does NOT mean "You achieved the goal".
-        # However, the previous `EvaluatorAgent` (LLM) decided `passed=True/False` based on `criteria`.
-        # If I remove that, who decides if we move to the next node?
-        
-        # Re-reading Prompt:
-        # "6. Orchestrator Integration... Replace any LLM-based pass/fail with Decision Engine output... Orchestrator reacts ONLY to: UNCLEAR, INAPPROPRIATE, GATE_PASSED".
-        # This suggests a strict gating mechanism. 
-        # If "GATE_PASSED", maybe we assume the user *succeeded* in the interaction?
-        # OR maybe we just stay in the same state unless logic says move?
-        # The prompt says: "Rules module... is_appropriate".
-        # It does NOT mention checking `criteria` (like "User must mention interest rate").
-        # If the Decision Engine is purely rule-based (politeness, clarity), it cannot semantic check "Did they ask for a loan?".
-        
-        # CONTRADICTION CHECK:
-        # "Replace any LLM-based pass/fail" vs "Do NOT delegate decisions to LLM" vs "Decision Engine is Rule-Based".
-        # If I cannot use LLM to check semantics ("Did he ask about X?"), and Rules are only Politeness/Clarity,
-        # then we lose the ability to check semantic goals.
-        # UNLESS "Situational Appropriateness" implies checking specific keywords defined in the state?
-        # The prompt "Target Architecture" doesn't explicitly show a "Goal Checker".
-        # BUT, "Orchestrator Integration" says "Replace... with Decision Engine output".
-        
-        # INTERPRETATION:
-        # The user wants a strict behavioral pipeline. 
-        # For this refactor, "GATE_PASSED" likely translates to "Valid Turn, proceed".
-        # But if the scenario requires specific semantic milestones, we might be dropping that feature if we remove the LLM Evaluator completely.
-        # However, the instruction "Do NOT remove or break... ScenarioState / Orchestrator logic" implies the conversation flow must work.
-        # If I strictly follow "No LLM for decision", I can't check complex semantic goals.
-        # BUT, "Situational Appropriateness Rules" are the ONLY decision logic mentioned.
-        # I will strictly follow the "Decision Engine" rules provided:
-        # Rules: Clarity -> UNCLEAR, Appropriateness -> INAPPROPRIATE, Else -> GATE_PASSED.
-        
-        # What about state transition?
-        # If GATE_PASSED, the Orchestrator usually needs to know "Did we finish this state?".
-        # If I can't check that, the user is stuck forever.
-        # MAYBE "GATE_PASSED" implies "You pass this state".
-        # Or maybe the Orchestrator keeps the old LLM for "Goal Checking" but uses Decision Engine for "Gating"?
-        # Prompt: "Replace any LLM-based pass/fail with Decision Engine output".
-        # This is strong. It suggests the DE determines the outcome.
-        # This means if I speak clearly and politely, I PASS the state.
-        # This might be the intended behavior for this specific "SoftSkill AI Trainer" refactor (focus on form over content?).
-        # I will proceed with this assumption: GATE_PASSED = Success (Transition).
         
         return DecisionResult(gate_passed=True, label="GATE_PASSED", reasons=["Input is clear and appropriate."])
