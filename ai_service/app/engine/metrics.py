@@ -97,5 +97,8 @@ class MetricsEngine:
             if depths:
                 m.avg_dependency_depth = round(sum(depths) / len(depths), 2)
 
+        logger.info(f"[METRICS] greeting={m.greeting_present} imperative={m.imperative_form} mitigation={m.mitigation_present}")
+        logger.info(f"[METRICS] repetition={m.lemma_repetition_ratio} fragmentation={m.sentence_fragmentation}")
+
         return m
 

@@ -12,11 +12,15 @@ class DecisionEngine:
     
     @staticmethod
     def decide(metrics: TurnMetrics, state: ScenarioState) -> DecisionResult:
+        import logging
+        logger = logging.getLogger("DecisionEngine")
         reasons = []
         
         # 1. Clarity Check
         # If fragmented (no verb, short) -> Unclear
         if metrics.sentence_fragmentation:
+            logger.info("[DECISION] rule=sentence_fragmentation -> FAIL")
+            logger.info("[DECISION] label=UNCLEAR")
             return DecisionResult(
                 gate_passed=False, 
                 label="UNCLEAR", 
@@ -30,12 +34,14 @@ class DecisionEngine:
         if metrics.imperative_form and not metrics.mitigation_present:
             is_appropriate = False
             reasons.append("Imperative language used without mitigation (politeness).")
+            logger.info("[DECISION] rule=imperative_without_mitigation -> FAIL")
             
         # Rule: Role Mismatch (Placeholder - requires knowing user role constraint)
         # For now, we assume implicit customer role. 
         # If we had explicit 'user_role' in state, we would check it.
         
         if not is_appropriate:
+            logger.info("[DECISION] label=INAPPROPRIATE_FOR_CONTEXT")
             return DecisionResult(
                 gate_passed=False,
                 label="INAPPROPRIATE_FOR_CONTEXT",
@@ -43,6 +49,9 @@ class DecisionEngine:
             )
             
         # 3. Gate Passed
+        logger.info("[DECISION] all_rules_passed")
+        logger.info("[DECISION] label=GATE_PASSED")
+        
         # Note: We do NOT evaluate if they 'passed' the scenario goal here.
         # The prompt says: "Decision Engine (Gate Only)... Do NOT evaluate 'quality'".
         # Wait, if we don't evaluate quality/goal, how do we move to the next state?

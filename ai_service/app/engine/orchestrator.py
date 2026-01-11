@@ -106,11 +106,15 @@ class ScenarioOrchestrator:
         # 4. State Transition Logic
         target_state = current_state # Default: stay put
         
+        logger.info(f"[STATE] current={current_node_id}")
+        logger.info(f"[STATE] decision={decision.label}")
+
         if eval_result.passed:
             # Simple linear transition for now: take first available
             if current_state.transitions:
                 next_id = current_state.transitions[0].target_state_id
                 if next_id in graph.states:
+                    logger.info(f"[STATE] transition={current_node_id} -> {next_id}")
                     logger.info(f"🚀 Transitioning: {current_node_id} -> {next_id}")
                     current_node_id = next_id
                     target_state = graph.states[next_id]
@@ -124,6 +128,7 @@ class ScenarioOrchestrator:
         # 5. Generate Response (The "Actor")
         # The actor generates response based on the TARGET state (where we are now)
         logger.info(f"🎭 Generating response for state: {target_state.id}")
+        logger.info(f"[LLM] generating response for state={target_state.id} persona=bank_clerk") # Persona is generic here as graph.base_persona is large text
         
         async for token in RolePlayAgent.generate_response(
             user_text,

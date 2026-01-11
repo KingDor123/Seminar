@@ -47,5 +47,7 @@ class Preprocessor:
 
         # Note: We do NOT remove fillers from analysis_text per strict "Text Contract".
         # analysis_text is minimal normalization.
+        
+        logger.info(f"[PREPROCESS] analysis_text=\"{analysis_text}\"")
 
         return raw_text, analysis_text, filler_count

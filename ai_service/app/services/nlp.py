@@ -48,6 +48,22 @@ class StanzaNLP:
         
         try:
             doc = self.pipeline(text)
+            
+            # Logging for observability
+            if doc and doc.sentences:
+                tokens_count = 0
+                lemmas = []
+                pos_tags = []
+                for sentence in doc.sentences:
+                    for word in sentence.words:
+                        tokens_count += 1
+                        lemmas.append(word.lemma)
+                        pos_tags.append(word.upos)
+                
+                logger.info(f"[NLP] tokens={tokens_count}")
+                logger.info(f"[NLP] lemmas={lemmas}")
+                logger.info(f"[NLP] pos={pos_tags}")
+
             return doc
         except Exception as e:
             logger.error(f"❌ Stanza Analysis Failed: {e}")

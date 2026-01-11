@@ -156,6 +156,10 @@ async def interact(
              raise HTTPException(status_code=400, detail="Either 'text' or 'audio' must be provided.")
         # If audio provided but no text, we continue with empty text (will likely fail logic but allow flow)
 
+    input_type = "audio" if audio else "text"
+    logger.info(f"[INPUT] session={session_id} scenario={scenario_id} type={input_type}")
+    logger.info(f"[INPUT] raw_text=\"{text}\"")
+
     is_cold_start = text.strip() == "[START]"
 
     # 1. Fetch History
