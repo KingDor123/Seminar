@@ -29,7 +29,7 @@ class ContextAnalyzerAgent:
             "- confusion: Is the user asking 'what?' or sounding lost? (true/false)\n"
             "- readiness: Is the user ready to proceed? (ready/not_ready)\n"
             "  * 'not_ready': Greetings (Hi, Hello), pure acknowledgements (Okay, Yes), confusion (What?), or vague social chatter without providing new info.\n"
-            "  * 'ready': User provides information, asks a relevant question, or explicitly says to continue.\n"
+            "  * 'ready': User provides ANY relevant info (amount, purpose, income), states a clear intent (e.g. 'I want a car'), asks a relevant question, or explicitly says to continue.\n"
         )
 
         schema = (
