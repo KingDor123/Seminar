@@ -112,6 +112,15 @@ class RolePlayAgent:
         }
         prompt += f"\n--- CONTEXT ---\n{json.dumps(context_block, ensure_ascii=False, indent=2)}\n"
 
+        # Normative Memory Policy
+        norms_taught = llm_context.get("norms_taught", [])
+        if norms_taught:
+            prompt += (
+                f"\n--- NORMS ALREADY TAUGHT ---\n"
+                f"The user has already been instructed on: {', '.join(norms_taught)}.\n"
+                "DO NOT lecture them again on these points. Assume they know it.\n"
+            )
+
         # Dynamic Repair Policy
         if decision_label == "UNCLEAR" or signals.get("user_confused"):
             prompt += (

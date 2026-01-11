@@ -8,6 +8,8 @@ from app.engine.agents import RolePlayAgent
 from app.engine.metrics import MetricsEngine
 from app.engine.decision import DecisionEngine
 from app.engine.memory import slot_manager
+from app.engine.norms import norm_manager
+from app.engine.signals import signal_manager
 
 # Map states to the slots they require/collect
 STATE_SLOT_MAP = {
@@ -40,8 +42,11 @@ class ScenarioOrchestrator:
         session_data = state_manager.get_state(session_id)
 
         if is_cold_start:
-            # Clear slots on new session start
+            # Clear all session data on start
             slot_manager.clear_slots(session_id)
+            norm_manager.clear_norms(session_id)
+            signal_manager.clear_signals(session_id)
+            
             current_node_id = graph.initial_state_id
             state_manager.update_state(session_id, scenario_id, current_node_id)
         elif session_data:
@@ -96,13 +101,29 @@ class ScenarioOrchestrator:
         current_slots = slot_manager.get_slots(session_id)
         
         # --- FRUSTRATION DETECTION ---
-        # Heuristic: Repetition > 0.3 OR User updates a slot with same value? (Too complex for now)
-        # We focus on Repetition + "Slot already filled" context implies frustration if we ask again.
         is_frustrated = metrics.lemma_repetition_ratio > 0.4
         
         # Apply Decision Logic
         decision = DecisionEngine.decide(metrics, current_state, raw_text=user_text, session_id=str(session_id))
         
+        # --- SIGNAL & NORM UPDATE ---
+        # Update Signals
+        signal_data = {
+            "decision_label": decision.label,
+            "current_state": current_node_id,
+            "turn_frustration": is_frustrated,
+            "repair_given": decision.label in ["UNCLEAR", "INAPPROPRIATE_FOR_CONTEXT"]
+        }
+        signal_manager.update_signals(session_id, signal_data)
+        
+        # Mark Norms Taught (If violation triggered a block)
+        if decision.label == "INAPPROPRIATE_FOR_CONTEXT":
+            # Heuristic: We assume the violation was imperative/politeness if we blocked for context
+            norm_manager.mark_as_taught(session_id, "imperative")
+            
+        current_norms = norm_manager.get_norms(session_id)
+        current_signals = signal_manager.get_signals(session_id)
+
         # Prepare Feedback for Agent
         feedback_context = decision.label
         if is_frustrated:
@@ -112,17 +133,18 @@ class ScenarioOrchestrator:
         memory_str = f"Known Info: {current_slots.dict(exclude_none=True)}"
         
         # --- BUILD LLM CONTEXT ---
-        # Identify missing slots for current state
-        # Simplified: If we are in 'ask_amount', we need 'amount'.
         missing_slots = []
-        required_slot_for_state = STATE_SLOT_MAP.get(target_state.id)
+        required_slot_for_state = STATE_SLOT_MAP.get(target_state.id) if 'target_state' in locals() else STATE_SLOT_MAP.get(current_state.id)
+        # Wait, target_state is calculated later. Use current_state for now.
+        required_slot_for_state = STATE_SLOT_MAP.get(current_state.id)
+        
         if required_slot_for_state and not getattr(current_slots, required_slot_for_state):
             missing_slots.append(required_slot_for_state)
 
         llm_context = {
             "session_id": str(session_id),
             "scenario_id": str(scenario_id),
-            "state": target_state.id,
+            "state": current_state.id,
             "decision": {
                 "label": decision.label,
                 "reason": "; ".join(decision.reasons),
@@ -133,16 +155,17 @@ class ScenarioOrchestrator:
                 "missing": missing_slots
             },
             "signals": {
-                "user_frustrated": is_frustrated,
+                "user_frustrated": is_frustrated or current_signals.frustration_detected,
                 "repetition_score": metrics.lemma_repetition_ratio,
-                "user_confused": decision.label == "UNCLEAR" # Simple heuristic
+                "user_confused": current_signals.confusion_streak > 0,
+                "progress_stalled": current_signals.progress_stalled
             },
-            # "conversation_window" is implicitly handled by the Agent via 'history' param
+            "norms_taught": list(current_norms.taught_norms)
         }
         
         # --- OBSERVABILITY ---
         # Compact context log
-        logger.info(f"[LLM_CONTEXT] session={session_id} state={target_state.id} decision={decision.label} missing={missing_slots} signals={llm_context['signals']}")
+        logger.info(f"[LLM_CONTEXT] session={session_id} state={current_state.id} decision={decision.label} missing={missing_slots} signals={llm_context['signals']} norms={llm_context['norms_taught']}")
         
         # Convert to AgentOutput for compatibility with RolePlayAgent
         eval_result = AgentOutput(
@@ -210,6 +233,9 @@ class ScenarioOrchestrator:
         # 5. Generate Response (The "Actor")
         # The actor generates response based on the TARGET state (where we are now)
         logger.info(f"🎭 Generating response for state: {target_state.id}")
+        
+        # Update context state to target_state for LLM
+        llm_context["state"] = target_state.id
         
         # LLM Call Log
         logger.info(f"[LLM_CALL] model=aya:8b state={target_state.id} missing_slots={missing_slots} decision={decision.label}")
