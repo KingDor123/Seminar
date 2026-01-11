@@ -43,9 +43,6 @@ class MetricsEngine:
     # Imperatives or Future-as-Imperative (Partial List)
     IMPERATIVES = r"\b(תביא|תן|לך|בוא|תעשה|תגיד|תבדוק|שלח|תשלח|תכין)\b"
     MITIGATIONS = r"(בבקשה|אפשר|תוכל|אולי|סליחה|תודה|נא)"
-    
-    # Slot Regexes
-    REGEX_AMOUNT = r"(\d+(?:,\d{3})*(?: אלף| מיליון)?)"
 
     @staticmethod
     def compute_metrics(raw_text: str, stt_data: Dict[str, Any]) -> TurnMetrics:
@@ -57,12 +54,6 @@ class MetricsEngine:
             m.greeting_present = bool(re.search(MetricsEngine.GREETINGS, raw_text))
             regex_imperative = bool(re.search(MetricsEngine.IMPERATIVES, raw_text))
             m.mitigation_present = bool(re.search(MetricsEngine.MITIGATIONS, raw_text))
-            
-            # Simple Slot Extraction (Amount)
-            amount_match = re.search(MetricsEngine.REGEX_AMOUNT, raw_text)
-            if amount_match:
-                # Try to parse or just store string
-                m.extracted_slots["amount"] = amount_match.group(0) # Keep string with "alf" etc.
 
         # 2. STT Metrics
         m.wpm = stt_data.get("speech_rate_wpm", 0.0)
