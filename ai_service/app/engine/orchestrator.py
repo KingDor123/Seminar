@@ -110,15 +110,24 @@ class ScenarioOrchestrator:
         
         current_slots = slot_manager.get_slots(session_id)
         
-        # --- FRUSTRATION DETECTION ---
-        llm_signals = llm_analysis.get("signals", {})
+        # --- FRUSTRATION & SIGNAL DETECTION ---
+        llm_signals_list = llm_analysis.get("signals", [])
         readiness = llm_analysis.get("readiness", "ready")
+        intent = llm_analysis.get("intent", "unknown")
         
-        is_frustrated = metrics.lemma_repetition_ratio > 0.4 or llm_signals.get("frustration", False)
-        is_confused = llm_signals.get("confusion", False)
+        is_frustrated = (
+            metrics.lemma_repetition_ratio > 0.4 
+            or "frustration" in llm_signals_list
+            or "anger" in llm_signals_list
+        )
+        is_confused = (
+            "confusion" in llm_signals_list 
+            or intent == "clarification_request"
+        )
         
         # --- OBSERVABILITY: READINESS ---
-        logger.info(f"[READINESS] value={readiness} reason={llm_analysis.get('reasoning', 'no reasoning')}")
+        # Using intent and signals for reasoning as 'reasoning' field was removed from schema
+        logger.info(f"[READINESS] value={readiness} intent={intent} signals={llm_signals_list}")
         
         # Apply Decision Logic
         decision = DecisionEngine.decide(metrics, current_state, raw_text=user_text, session_id=str(session_id))
@@ -185,7 +194,9 @@ class ScenarioOrchestrator:
                 "repetition_score": metrics.lemma_repetition_ratio,
                 "user_confused": is_confused or current_signals.confusion_streak > 0,
                 "progress_stalled": current_signals.progress_stalled,
-                "readiness": readiness
+                "readiness": readiness,
+                "intent": intent,
+                "emotional_tone": llm_analysis.get("emotional_tone", "neutral")
             },
             "norms_taught": list(current_norms.taught_norms)
         }

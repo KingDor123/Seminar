@@ -5,8 +5,9 @@ from app.engine.llm import llm_client
 
 class ContextAnalyzerAgent:
     """
-    Step 1: The "Brains". Analyzes user input to extract semantic slots 
-    and behavioral signals before we generate a response.
+    Aya: The Situational Analyzer (Sensor).
+    Observes user input and conversational context to produce a structured state description.
+    Does NOT decide progression, response, or corrective action.
     """
     
     @staticmethod
@@ -17,26 +18,31 @@ class ContextAnalyzerAgent:
     ) -> Dict[str, Any]:
         
         system_prompt = (
-            "You are a linguistic analyzer for a Hebrew conversation.\n"
-            "Your goal is to extract specific information from the user's latest message.\n"
-            f"Current Conversation Context: {state.description}\n"
-            "Extract the following slots if present:\n"
-            "- amount: The loan amount mentioned (number or Hebrew text).\n"
-            "- purpose: The reason for the loan.\n"
-            "- income: Details about their monthly salary or income.\n\n"
-            "Also detect behavioral signals:\n"
-            "- frustration: Is the user sounding angry, impatient, or repetitive? (true/false)\n"
-            "- confusion: Is the user asking 'what?' or sounding lost? (true/false)\n"
-            "- readiness: Is the user ready to proceed? (ready/not_ready)\n"
-            "  * 'not_ready': Greetings (Hi, Hello), pure acknowledgements (Okay, Yes), confusion (What?), or vague social chatter without providing new info.\n"
-            "  * 'ready': User provides ANY relevant info (amount, purpose, income), states a clear intent (e.g. 'I want a car'), asks a relevant question, or explicitly says to continue.\n"
+            "You are a clinical conversational observer analyzing a user's input in a social skills training scenario.\n"
+            "Your role is PURE ANALYSIS. Do not interpret for the user. Do not suggest responses.\n"
+            f"Current Context: {state.description}\n\n"
+            "Analyze the following dimensions strictly:\n"
+            "1. Intent: What is the user functionally trying to do? (e.g., attempt_answer, avoidance, silence, clarification_request)\n"
+            "2. Clarity: 0.0-1.0 score of how intelligible the input is.\n"
+            "3. Confidence: 0.0-1.0 score of user's apparent confidence.\n"
+            "4. Engagement: low/medium/high.\n"
+            "5. Emotional Tone: neutral/positive/negative/uncertain.\n"
+            "6. Readiness: Is the user socially and semantically ready to move forward? (ready/not_ready)\n"
+            "   - 'not_ready': Greetings, confusion, vague chatter, avoidance.\n"
+            "   - 'ready': Provides relevant information or clear intent to proceed.\n"
+            "7. Signals: List specific observed behaviors (e.g., 'short_answer', 'repetition', 'confusion', 'frustration').\n"
+            "8. Extracted Information: Identify any specific data provided (amount, purpose, income) if present.\n"
         )
 
         schema = (
-            '{"extracted_slots": {"amount": "string|null", "purpose": "string|null", "income": "string|null"}, '
-            '"signals": {"frustration": boolean, "confusion": boolean}, '
+            '{"intent": "string", '
+            '"clarity": float, '
+            '"confidence": float, '
+            '"engagement": "low|medium|high", '
+            '"emotional_tone": "neutral|positive|negative|uncertain", '
             '"readiness": "ready|not_ready", '
-            '"reasoning": "string"}'
+            '"signals": ["string"], '
+            '"extracted_slots": {"amount": "string|null", "purpose": "string|null", "income": "string|null"}}'
         )
 
         messages = [
