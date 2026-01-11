@@ -110,27 +110,6 @@ class ScenarioOrchestrator:
         
         current_slots = slot_manager.get_slots(session_id)
         
-        # --- ELIGIBILITY CHECK (Soft Termination) ---
-        # Logic: If income is explicitly '0', 'none', 'אין', or indicates no capability to repay.
-        # Note: Ideally we check for commitments too, but checking zero income is a safe start for this feature.
-        income_val = str(getattr(current_slots, "income", "")).lower()
-        if "0" in income_val or "אין" in income_val or "no" in income_val or "none" in income_val:
-             # Check if we have a special terminal state for this
-             if "end_not_eligible" in graph.states:
-                 logger.info(f"🛑 User not eligible (Income: {income_val}). Transitioning to end_not_eligible.")
-                 current_node_id = "end_not_eligible"
-                 target_state = graph.states[current_node_id]
-                 state_manager.update_state(session_id, scenario_id, current_node_id)
-                 yield {"type": "transition", "from": current_state.id, "to": current_node_id}
-                 
-                 # Force decision to PASS so we generate the response
-                 decision.gate_passed = True
-                 decision.label = "GATE_PASSED"
-                 
-                 # Continue to generation (skip the rest of decision logic for this turn?)
-                 # Actually, we should probably skip the standard DecisionEngine check if we are terminating.
-                 # Let's let it flow, but override the state.
-        
         # --- FRUSTRATION & SIGNAL DETECTION ---
         llm_signals_list = llm_analysis.get("signals", [])
         readiness = llm_analysis.get("readiness", "ready")
@@ -150,10 +129,23 @@ class ScenarioOrchestrator:
         # Using intent and signals for reasoning as 'reasoning' field was removed from schema
         logger.info(f"[READINESS] value={readiness} intent={intent} signals={llm_signals_list}")
         
-        # Apply Decision Logic
+        # --- STEP 3: DECISION ENGINE (THE GATE) ---
         decision = DecisionEngine.decide(metrics, current_state, raw_text=user_text, session_id=str(session_id))
+
+        # --- ELIGIBILITY CHECK (Soft Termination) ---
+        income_val = str(getattr(current_slots, "income", "")).lower()
+        is_not_eligible = ("0" in income_val or "אין" in income_val or "no" in income_val or "none" in income_val)
         
-        # --- SOFT READINESS CHECK (Orchestrator Authority) ---
+        if is_not_eligible and "end_not_eligible" in graph.states:
+             logger.info(f"[ELIGIBILITY] User not eligible (Income: {income_val}). Transitioning to end_not_eligible.")
+             current_node_id = "end_not_eligible"
+             target_state = graph.states[current_node_id]
+             state_manager.update_state(session_id, scenario_id, current_node_id)
+             yield {"type": "transition", "from": current_state.id, "to": current_node_id}
+             decision.gate_passed = True
+             decision.label = "PASS"
+        
+        # --- FRUSTRATION & SIGNAL DETECTION ---
         # If the Gate passed (no hard violations) but Aya says 'not_ready' (greeting/confusion),
         # we HOLD the state transition to be polite.
         if decision.gate_passed and readiness == "not_ready":

@@ -30,11 +30,6 @@ class TurnMetrics(BaseModel):
     starts_with_verb: bool = False
     sentence_fragmentation: bool = False
     avg_dependency_depth: float = 0.0
-    
-    # Deprecated / Legacy mappings (for backward compatibility if needed)
-    @property
-    def imperative_form(self) -> bool:
-        return self.imperative_raw
 
 class MetricsEngine:
     
