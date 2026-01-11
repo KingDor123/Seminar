@@ -4,7 +4,7 @@ from typing import AsyncGenerator, Dict, Any, List, Optional
 from app.engine.schema import ScenarioGraph, AgentOutput
 from app.engine.scenarios import get_scenario_graph
 from app.engine.state_manager import state_manager
-from app.engine.agents import RolePlayAgent
+from app.engine.agents import RolePlayAgent, ContextAnalyzerAgent
 from app.engine.metrics import MetricsEngine
 from app.engine.decision import DecisionEngine
 from app.engine.memory import slot_manager
@@ -88,12 +88,22 @@ class ScenarioOrchestrator:
                 yield token
             return
 
+        # --- STEP 1: CONTEXTUAL UNDERSTANDING (LLM CALL #1) ---
+        logger.info(f"🧠 Analyzing context for turn in state: {current_node_id}")
+        llm_analysis = await ContextAnalyzerAgent.analyze_context(user_text, current_state, history)
+
         # 3. New Pipeline: Metrics -> Rules -> Decision (The "Gate")
         logger.info(f"🧐 Evaluating turn in state: {current_node_id}")
         
         # Calculate Metrics
         metrics = MetricsEngine.compute_metrics(user_text, stt_data or {})
         
+        # Merge LLM Understanding with Deterministic Metrics
+        llm_slots = llm_analysis.get("extracted_slots", {})
+        for slot_key, slot_val in llm_slots.items():
+            if slot_val:
+                metrics.extracted_slots[slot_key] = slot_val
+
         # --- MEMORY UPDATE ---
         if metrics.extracted_slots:
             slot_manager.update_slots(session_id, metrics.extracted_slots)
@@ -101,18 +111,19 @@ class ScenarioOrchestrator:
         current_slots = slot_manager.get_slots(session_id)
         
         # --- FRUSTRATION DETECTION ---
-        is_frustrated = metrics.lemma_repetition_ratio > 0.4
+        llm_signals = llm_analysis.get("signals", {})
+        is_frustrated = metrics.lemma_repetition_ratio > 0.4 or llm_signals.get("frustration", False)
+        is_confused = llm_signals.get("confusion", False)
         
         # Apply Decision Logic
         decision = DecisionEngine.decide(metrics, current_state, raw_text=user_text, session_id=str(session_id))
         
         # --- SIGNAL & NORM UPDATE ---
-        # Update Signals
         signal_data = {
             "decision_label": decision.label,
             "current_state": current_node_id,
             "turn_frustration": is_frustrated,
-            "repair_given": decision.label in ["UNCLEAR", "INAPPROPRIATE_FOR_CONTEXT"]
+            "repair_given": decision.label in ["UNCLEAR", "INAPPROPRIATE_FOR_CONTEXT"] or is_confused
         }
         signal_manager.update_signals(session_id, signal_data)
         
@@ -155,9 +166,9 @@ class ScenarioOrchestrator:
                 "missing": missing_slots
             },
             "signals": {
-                "user_frustrated": is_frustrated or current_signals.frustration_detected,
+                "user_frustrated": is_frustrated,
                 "repetition_score": metrics.lemma_repetition_ratio,
-                "user_confused": current_signals.confusion_streak > 0,
+                "user_confused": is_confused or current_signals.confusion_streak > 0,
                 "progress_stalled": current_signals.progress_stalled
             },
             "norms_taught": list(current_norms.taught_norms)
@@ -170,7 +181,7 @@ class ScenarioOrchestrator:
         # Convert to AgentOutput for compatibility with RolePlayAgent
         eval_result = AgentOutput(
             passed=decision.gate_passed,
-            reasoning=f"{'; '.join(decision.reasons)} | {memory_str}",
+            reasoning=f"{llm_analysis.get('reasoning', '')} | {'; '.join(decision.reasons)}",
             feedback=feedback_context,
             next_state_id=None,
             sentiment="neutral"

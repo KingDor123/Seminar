@@ -3,35 +3,36 @@ from typing import List, Dict, Optional, Any
 from app.engine.schema import ScenarioState, AgentOutput
 from app.engine.llm import llm_client
 
-class EvaluatorAgent:
+class ContextAnalyzerAgent:
     """
-    Analyzes the user's input against the current state's passing criteria.
-    Decides if we move to the next state.
+    Step 1: The "Brains". Analyzes user input to extract semantic slots 
+    and behavioral signals before we generate a response.
     """
     
     @staticmethod
-    async def evaluate(
+    async def analyze_context(
         user_text: str, 
         state: ScenarioState, 
         history: List[Dict[str, str]]
-    ) -> AgentOutput:
-        
-        criteria_text = "\n".join([f"- {c}" for c in state.evaluation.criteria])
+    ) -> Dict[str, Any]:
         
         system_prompt = (
-            "You are a strict conversation evaluator.\n"
-            "Analyze the user's latest message against the required criteria.\n"
-            f"Current Context: {state.description}\n"
-            f"Passing Criteria:\n{criteria_text}\n"
-            f"Pass Condition: {state.evaluation.pass_condition}\n"
-            "Determine if the user satisfied the criteria to move forward.\n"
-            "Also classify the user's sentiment as 'positive', 'negative', or 'neutral'."
+            "You are a linguistic analyzer for a Hebrew conversation.\n"
+            "Your goal is to extract specific information from the user's latest message.\n"
+            f"Current Conversation Context: {state.description}\n"
+            "Extract the following slots if present:\n"
+            "- amount: The loan amount mentioned (number or Hebrew text).\n"
+            "- purpose: The reason for the loan.\n"
+            "- income: Details about their monthly salary or income.\n\n"
+            "Also detect behavioral signals:\n"
+            "- frustration: Is the user sounding angry, impatient, or repetitive? (true/false)\n"
+            "- confusion: Is the user asking 'what?' or sounding lost? (true/false)\n"
         )
 
         schema = (
-            '{"passed": boolean, "reasoning": "string", "feedback": "string (optional internal note)", '
-            '"suggested_transition": "string (name of next state or null)", '
-            '"sentiment": "positive|negative|neutral"}'
+            '{"extracted_slots": {"amount": "string|null", "purpose": "string|null", "income": "string|null"}, '
+            '"signals": {"frustration": boolean, "confusion": boolean}, '
+            '"reasoning": "string"}'
         )
 
         messages = [
@@ -39,34 +40,18 @@ class EvaluatorAgent:
             {"role": "user", "content": f"User Input: {user_text}"}
         ]
 
-        # In a real app, we might include recent history context here too
-
         result = await llm_client.generate_json(messages, schema)
-        
-        # Determine next state
-        next_state = None
-        if result.get("passed", False):
-            # Simple logic: take the first transition if passed, or what LLM suggests
-            # For this scripted engine, we usually just take the first transition if passed.
-            if state.transitions:
-                next_state = state.transitions[0].target_state_id
-        
-        return AgentOutput(
-            passed=result.get("passed", False),
-            reasoning=result.get("reasoning", ""),
-            feedback=result.get("feedback", ""),
-            next_state_id=next_state,
-            sentiment=result.get("sentiment", "neutral")
-        )
+        return result
 
 class RolePlayAgent:
     """
-    Generates the in-character response.
+    Step 2: The "Actor". Generates the in-character response using the 
+    analysis from Step 1.
     """
     
     # Heuristic constants
     MAX_TOTAL_TOKENS = 2048
-    EST_CHARS_PER_TOKEN = 3.5 # Conservative estimate for Hebrew/English
+    EST_CHARS_PER_TOKEN = 3.5 
     
     @staticmethod
     def _estimate_tokens(text: str) -> int:
@@ -79,9 +64,9 @@ class RolePlayAgent:
         llm_context: Dict[str, Any]
     ) -> str:
         """
-        Constructs the enhanced system prompt with context and repair instructions.
+        Constructs the natural language system prompt.
+        We use natural summaries instead of rigid JSON to keep the model 'human'.
         """
-        # Extract context safely
         decision = llm_context.get("decision", {})
         decision_label = decision.get("label", "GATE_PASSED")
         signals = llm_context.get("signals", {})
@@ -89,71 +74,43 @@ class RolePlayAgent:
         filled_slots = slots.get("filled", {})
         missing_slots = slots.get("missing", [])
         
-        # Base System Instructions
         prompt = (
             "SYSTEM INSTRUCTIONS:\n"
             "1. Output Language: Hebrew.\n"
             "2. Keep responses natural and concise.\n"
             "3. Use 1-2 short sentences max and ask at most one question.\n"
-            "4. Avoid lists or long explanations unless the user asks.\n"
-            f"5. STAY IN CHARACTER.\n\n"
+            f"4. STAY IN CHARACTER.\n\n"
             f"--- PERSONA ---\n{base_persona}\n\n"
             f"--- CURRENT SITUATION ---\n{state.description}\n"
             f"--- YOUR GOAL ---\n{state.actor_instruction}\n"
         )
 
-        # Context Injection
-        context_block = {
-            "state": state.id,
-            "decision": decision_label,
-            "known_info": filled_slots,
-            "missing_info": missing_slots,
-            "user_signals": {k: v for k, v in signals.items() if v}
-        }
-        prompt += f"\n--- CONTEXT ---\n{json.dumps(context_block, ensure_ascii=False, indent=2)}\n"
+        # Natural Language Context Summary (Better for Aya-8b than raw JSON)
+        prompt += "\n--- CONTEXT SUMMARY ---\n"
+        prompt += f"- Current Step: {state.id}\n"
+        
+        if filled_slots:
+            prompt += f"- Known Information: {', '.join([f'{k}: {v}' for k, v in filled_slots.items()])}\n"
+        
+        if missing_slots:
+            prompt += f"- Still Missing: {', '.join(missing_slots)}\n"
 
-        # Normative Memory Policy
-        norms_taught = llm_context.get("norms_taught", [])
-        if norms_taught:
-            prompt += (
-                f"\n--- NORMS ALREADY TAUGHT ---\n"
-                f"The user has already been instructed on: {', '.join(norms_taught)}.\n"
-                "DO NOT lecture them again on these points. Assume they know it.\n"
-            )
-
-        # Dynamic Repair Policy
+        # Behavior Handling
         if decision_label == "UNCLEAR" or signals.get("user_confused"):
             prompt += (
-                "\n--- REPAIR POLICY (User is Unclear/Confused) ---\n"
-                "1. Acknowledge the user's input briefly.\n"
-                "2. Ask a clarifying question specifically about the missing info.\n"
-                "3. Provide 1-2 short Hebrew examples of valid answers.\n"
-                "4. Do NOT advance the topic until this is resolved.\n"
-                "Example: 'I understood you want a loan, but I need a number. For example: 20,000 or 50,000.'\n"
-            )
-        elif decision_label == "INAPPROPRIATE_FOR_CONTEXT":
-             prompt += (
-                "\n--- REPAIR POLICY (Inappropriate Behavior) ---\n"
-                "1. Politely but firmly address the tone/content.\n"
-                "2. Remind the user of the professional context.\n"
-                "3. Ask them to rephrase or provide the needed info politely.\n"
+                "\n--- CONVERSATION REPAIR ---\n"
+                "The user's response was unclear. Gently acknowledge what they said, "
+                "but ask specifically for the missing info with a short example.\n"
             )
         elif signals.get("user_frustrated"):
             prompt += (
-                "\n--- REPAIR POLICY (Frustration Detected) ---\n"
-                "1. Acknowledge the user's frustration or repetition.\n"
-                "2. Confirm what you ALREADY know (from 'known_info').\n"
-                "3. Move the conversation forward gently.\n"
-                "4. Do NOT re-ask for information you already have.\n"
+                "\n--- EMPATHY NOTE ---\n"
+                "The user seems frustrated. Acknowledge their feelings or what they already said, "
+                "and try to move to the next point politely.\n"
             )
-        
-        # Memory & Focus Policy (Always Active)
+
         if filled_slots:
-            prompt += f"\n--- MEMORY POLICY ---\nDo NOT re-ask for: {', '.join(filled_slots.keys())}.\n"
-        
-        if missing_slots and not (decision_label == "UNCLEAR" or signals.get("user_confused")):
-            # Only focus on missing slots if not currently confused/repairing (repair has its own focus)
-            prompt += f"Focus on obtaining: {', '.join(missing_slots)}.\n"
+            prompt += f"\n--- MEMORY ---\nDo NOT ask for information already provided above.\n"
 
         return prompt
 
@@ -166,53 +123,42 @@ class RolePlayAgent:
         eval_result: Optional[AgentOutput] = None,
         llm_context: Dict[str, Any] = None
     ):
-        # Ensure llm_context exists
         if llm_context is None:
             llm_context = {}
 
         # 1. Build Prompt
         system_prompt = RolePlayAgent._build_llm_prompt(base_persona, state, llm_context)
 
-        # 2. Add Legacy Dynamic Guidance (if eval_result exists and failed, override/append)
-        # Note: The new _build_llm_prompt handles repair policies, but we keep this for specific scenario guidance
+        # 2. Specific Guidance (Backward Compatibility)
         if eval_result and not eval_result.passed:
-            system_prompt += (
-                f"\n--- SPECIFIC SCENARIO GUIDANCE ---\n"
-                f"The user did NOT meet the goal. {state.evaluation.failure_feedback_guidance}\n"
-                f"Internal Reasoning: {eval_result.reasoning}"
-            )
+            system_prompt += f"\nNote: {state.evaluation.failure_feedback_guidance}\n"
         
-        # 3. Smart Context Trimming
+        # 3. Trim context...
         sys_tokens = RolePlayAgent._estimate_tokens(system_prompt)
         user_tokens = RolePlayAgent._estimate_tokens(user_text)
         reserved_tokens = sys_tokens + user_tokens + 200 
-        
         available_history_tokens = RolePlayAgent.MAX_TOTAL_TOKENS - reserved_tokens
         
         trimmed_history = []
         current_history_tokens = 0
-        
         for msg in reversed(history):
-            msg_content = msg.get("content", "")
-            msg_tokens = RolePlayAgent._estimate_tokens(msg_content)
-            
+            msg_tokens = RolePlayAgent._estimate_tokens(msg.get("content", ""))
             if current_history_tokens + msg_tokens < available_history_tokens:
                 trimmed_history.append(msg)
                 current_history_tokens += msg_tokens
             else:
                 break 
-        
         trimmed_history.reverse()
         
-        # 4. Final Assembly
+        # 4. Assembly
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(trimmed_history)
         
         if user_text.strip() == "[START]":
-            messages.append({"role": "system", "content": "ACTION: Start the conversation according to your goal. Say the opening line."})
+            messages.append({"role": "system", "content": "ACTION: Start the conversation according to your goal."})
         else:
             messages.append({"role": "user", "content": user_text})
 
-        # 5. Stream Response
+        # 5. Stream
         async for token in llm_client.generate_stream(messages):
             yield token
