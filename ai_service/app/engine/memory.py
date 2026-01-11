@@ -9,7 +9,7 @@ class ConversationSlots(BaseModel):
     Slot-based memory structure per session.
     Tracks critical information extracted during the conversation.
     """
-    amount: Optional[int] = None
+    amount: Optional[str] = None # Stored as string to handle Hebrew text numbers
     purpose: Optional[str] = None
     income: Optional[str] = None
     # Add other slots as needed for different scenarios

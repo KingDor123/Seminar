@@ -74,6 +74,31 @@ class ScenarioOrchestrator:
                 yield "Error: Invalid state configuration."
                 return
 
+        # --- TERMINAL STATE CHECK (FIX 1 & 4) ---
+        if current_state.is_terminal:
+            logger.info(f"🛑 Already in terminal state: {current_node_id}. Generating closing response.")
+            # Minimal context for terminal response
+            llm_context = {
+                "session_id": str(session_id),
+                "scenario_id": str(scenario_id),
+                "state": current_state.id,
+                "decision": {"label": "PASS", "reason": "Terminal state", "passed": True},
+                "slots": {"filled": slot_manager.get_slots(session_id).dict(exclude_none=True), "missing": []},
+                "signals": {},
+                "norms_taught": []
+            }
+            
+            async for token in RolePlayAgent.generate_response(
+                user_text,
+                graph.base_persona,
+                current_state,
+                history,
+                None,
+                llm_context=llm_context
+            ):
+                yield token
+            return
+
         # --- SPECIAL CASE: INITIALIZATION ---
         if is_cold_start:
             logger.info(f"🎬 Initializing conversation in state: {current_node_id}")

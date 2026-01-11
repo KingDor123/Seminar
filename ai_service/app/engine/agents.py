@@ -27,11 +27,9 @@ class ContextAnalyzerAgent:
             "3. Confidence: 0.0-1.0 score of user's apparent confidence.\n"
             "4. Engagement: low/medium/high.\n"
             "5. Emotional Tone: neutral/positive/negative/uncertain.\n"
-            "6. Readiness: Is the user socially and semantically ready to move forward? (ready/not_ready)\n"
-            "   - 'not_ready': Greetings, confusion, vague chatter, avoidance.\n"
-            "   - 'ready': Provides relevant information or clear intent to proceed.\n"
-            "7. Signals: List specific observed behaviors (e.g., 'short_answer', 'repetition', 'confusion', 'frustration').\n"
-            "8. Extracted Information: Identify any specific data provided (amount, purpose, income) if present.\n"
+            "- readiness: Is the user ready to proceed? (ready/not_ready)\n"
+            "  * 'not_ready': Greetings (Hi, Hello), pure acknowledgements (Okay, Yes), confusion (What?), vague social chatter, or SHORT COMMANDS without details (e.g., 'Give me money', 'Start').\n"
+            "  * 'ready': User provides ANY relevant info (amount, purpose, income), states a clear intent WITH details (e.g. 'I want a car loan'), or asks a specific relevant question.\n"
         )
 
         schema = (
