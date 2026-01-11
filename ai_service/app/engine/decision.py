@@ -2,36 +2,6 @@ from typing import List, Optional, Dict
 from pydantic import BaseModel
 from app.engine.metrics import TurnMetrics
 from app.engine.schema import ScenarioState
-import logging
-
-# Behavioral Constraints Mapping
-# Defines forbidden behaviors per state ID (heuristic-based)
-STATE_EXPECTATIONS: Dict[str, Dict[str, List[str]]] = {
-  "start": {
-    "forbidden": ["imperative"],
-  },
-  "ask_amount": {
-    "forbidden": ["imperative"],
-  },
-  "ask_purpose": {
-    "forbidden": ["imperative"],
-  },
-  "ask_income": {
-    "forbidden": ["imperative"],
-  }
-}
-
-class DecisionResult(BaseModel):
-    gate_passed: bool
-    label: str # "UNCLEAR", "INAPPROPRIATE_FOR_CONTEXT", "GATE_PASSED"
-    reasons: List[str] = []
-
-class DecisionEngine:
-    
-from typing import List, Optional, Dict
-from pydantic import BaseModel
-from app.engine.metrics import TurnMetrics
-from app.engine.schema import ScenarioState
 from app.engine.norms import norm_manager
 from app.engine.signals import signal_manager
 import logging
@@ -78,7 +48,7 @@ class DecisionEngine:
         # Metrics Snapshot
         logger.info("[DECISION_TREE] Metrics:")
         logger.info(f"  - greeting: {metrics.greeting_present}")
-        logger.info(f"  - imperative: {metrics.imperative_form} (Stanza/Regex detected)")
+        logger.info(f"  - imperative: {metrics.imperative_raw} (Stanza/Regex detected)")
         logger.info(f"  - mitigation: {metrics.mitigation_present}")
         logger.info(f"  - imperative_social: {metrics.imperative_social} (Raw + No Mitigation)")
         logger.info(f"  - directness_score: {metrics.directness_score}")
@@ -100,10 +70,6 @@ class DecisionEngine:
         logger.info(f"  [Rule: Clarity]")
         logger.info(f"    condition: sentence_fragmentation ({metrics.sentence_fragmentation})")
         
-        # Context-Aware Clarity: If stuck in confusion loop, relax strictness? 
-        # Or maybe the Orchestrator handles the "switch to explanation". 
-        # Decision Engine just reports valid/invalid.
-        
         if metrics.sentence_fragmentation:
             logger.info("    result: FAIL")
             logger.info("[DECISION_TREE] Final Decision:")
@@ -115,7 +81,7 @@ class DecisionEngine:
             logger.info("    result: PASS")
 
         # Rule 2: Behavioral State Validation
-        logger.info(f"  [Rule: State Expectations ({state.id})]")
+        logger.info(f"  [Rule: State Expectations ({state.id})")
         expectations = STATE_EXPECTATIONS.get(state.id, {})
         forbidden = expectations.get("forbidden", [])
         
@@ -141,8 +107,7 @@ class DecisionEngine:
                 return DecisionResult(
                     gate_passed=False,
                     label="INAPPROPRIATE_FOR_CONTEXT",
-                    reasons=[f"Imperative/Commanding language is inappropriate for this stage ({state.id})."]
-                )
+                    reasons=[f"Imperative/Commanding language is inappropriate for this stage ({state.id})."])
         else:
             logger.info("    result: PASS")
 
@@ -173,5 +138,3 @@ class DecisionEngine:
         logger.info("[DECISION_TREE] ─────────────────────────────")
         
         return DecisionResult(gate_passed=True, label="GATE_PASSED", reasons=["Input is clear and appropriate."])
-
-    
