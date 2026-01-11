@@ -2,7 +2,7 @@ import logging
 import json
 import httpx
 import os
-from fastapi import APIRouter, HTTPException, Form
+from fastapi import APIRouter, HTTPException, Form, UploadFile, File
 from fastapi.responses import StreamingResponse
 from typing import Optional, AsyncGenerator, List, Dict, Any
 
@@ -12,6 +12,7 @@ import sys
 try:
     from ai_service.app.engine.orchestrator import orchestrator
     from ai_service.app.engine.scenarios import SCENARIO_REGISTRY
+    from ai_service.app.services.stt import STTService
 except ImportError:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     pipeline_dir = os.path.abspath(os.path.join(current_dir, '../..'))
@@ -19,6 +20,7 @@ except ImportError:
         sys.path.append(pipeline_dir)
     from app.engine.orchestrator import orchestrator
     from app.engine.scenarios import SCENARIO_REGISTRY
+    from app.services.stt import STTService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -26,6 +28,13 @@ logger = logging.getLogger(__name__)
 # --- Constants ---
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:5000/api")
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "supersecretkey")
+
+# --- Initialize Services ---
+try:
+    stt_service = STTService()
+except Exception as e:
+    logger.error(f"Failed to initialize STT Service: {e}")
+    stt_service = None
 
 # --- Helper Functions ---
 def _sse_event(event: str, data: str) -> str:
@@ -111,16 +120,42 @@ async def _save_message(
 @router.post("/interact")
 async def interact(
     session_id: int = Form(...),
-    text: str = Form(...),
+    text: Optional[str] = Form(None),
+    audio: Optional[UploadFile] = File(None),
     scenario_id: Optional[str] = Form(None)
 ):
     """
     Main Interaction Endpoint (Streaming SSE) with History Injection.
+    Supports Text or Audio input.
     """
     if not scenario_id or not scenario_id.strip():
         raise HTTPException(status_code=400, detail="scenario_id is required")
 
     logger.info(f"🗣️ Interaction Request: Session={session_id}, Scenario={scenario_id}")
+    
+    stt_data = {}
+    
+    # 0. Input Handling
+    if audio:
+        if not stt_service:
+             raise HTTPException(status_code=500, detail="STT Service unavailable")
+        
+        logger.info(f"🎤 Receiving Audio: {audio.filename}")
+        audio_bytes = await audio.read()
+        stt_result = await stt_service.transcribe(audio_bytes, language="he")
+        
+        text = stt_result.get("raw_text", "")
+        stt_data = stt_result
+        
+        if not text:
+             logger.warning("STT yielded empty text.")
+    
+    if not text or not text.strip():
+        # Fallback if audio failed or neither provided
+        if not audio: 
+             raise HTTPException(status_code=400, detail="Either 'text' or 'audio' must be provided.")
+        # If audio provided but no text, we continue with empty text (will likely fail logic but allow flow)
+
     is_cold_start = text.strip() == "[START]"
 
     # 1. Fetch History
@@ -129,6 +164,7 @@ async def interact(
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
             if not is_cold_start:
+                # Send back the transcript if it was audio, or just confirm text
                 yield _sse_event("transcript", json.dumps({"role": "user", "text": text}))
             yield _sse_event("status", "thinking")
 
@@ -138,7 +174,8 @@ async def interact(
                 full_content = ""
                 analysis_payload: Optional[Dict[str, Any]] = None
                 
-                async for chunk in orchestrator.process_turn(str(session_id), scenario_id, text, history):
+                # Pass STT data to orchestrator
+                async for chunk in orchestrator.process_turn(str(session_id), scenario_id, text, history, stt_data=stt_data):
                      if isinstance(chunk, dict):
                          # Metadata / Analysis
                          if "type" in chunk and chunk["type"] == "analysis":

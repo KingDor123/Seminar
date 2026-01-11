@@ -1,11 +1,13 @@
 import logging
 import json
-from typing import AsyncGenerator, Dict, Any, List
+from typing import AsyncGenerator, Dict, Any, List, Optional
 
-from app.engine.schema import ScenarioGraph
+from app.engine.schema import ScenarioGraph, AgentOutput
 from app.engine.scenarios import get_scenario_graph
 from app.engine.state_manager import state_manager
-from app.engine.agents import EvaluatorAgent, RolePlayAgent
+from app.engine.agents import RolePlayAgent
+from app.engine.metrics import MetricsEngine
+from app.engine.decision import DecisionEngine
 
 logger = logging.getLogger("Orchestrator")
 
@@ -16,7 +18,8 @@ class ScenarioOrchestrator:
         session_id: str,
         scenario_id: str,
         user_text: str,
-        history: List[Dict[str, str]]
+        history: List[Dict[str, str]],
+        stt_data: Optional[Dict[str, Any]] = None
     ) -> AsyncGenerator[Any, None]:
         
         # 1. Load Graph
@@ -71,42 +74,55 @@ class ScenarioOrchestrator:
                 yield token
             return
 
-        # 3. Evaluate User Input (The "Coach")
+        # 3. New Pipeline: Metrics -> Rules -> Decision (The "Gate")
         logger.info(f"🧐 Evaluating turn in state: {current_node_id}")
-        eval_result = await EvaluatorAgent.evaluate(user_text, current_state, history)
+        
+        # Calculate Metrics
+        metrics = MetricsEngine.compute_metrics(user_text, stt_data or {})
+        
+        # Apply Decision Logic
+        decision = DecisionEngine.decide(metrics, current_state)
+        
+        # Convert to AgentOutput for compatibility with RolePlayAgent
+        eval_result = AgentOutput(
+            passed=decision.gate_passed,
+            reasoning="; ".join(decision.reasons),
+            feedback=decision.label,
+            next_state_id=None, # Decision Engine doesn't select next state ID logic yet, defaults to transition[0] logic below
+            sentiment="neutral" # No sentiment analysis per instructions
+        )
         
         # Yield metadata about the evaluation
         yield {
             "type": "analysis",
-            "sentiment": eval_result.sentiment, 
-            "confidence": 1.0 if eval_result.passed else 0.5,
-            "detected_intent": "next_step" if eval_result.passed else "retry",
-            "social_impact": "progress" if eval_result.passed else "stagnation",
-            "reasoning": eval_result.reasoning,
-            "passed": eval_result.passed,
+            "sentiment": "neutral", 
+            "decision": decision.label,
+            "reasons": decision.reasons,
+            "metrics": metrics.dict(),
+            "passed": decision.gate_passed,
             "current_state": current_node_id
         }
 
         # 4. State Transition Logic
         target_state = current_state # Default: stay put
         
-        if eval_result.passed and eval_result.next_state_id:
-            next_id = eval_result.next_state_id
-            if next_id in graph.states:
-                logger.info(f"🚀 Transitioning: {current_node_id} -> {next_id}")
-                current_node_id = next_id
-                target_state = graph.states[next_id]
-                state_manager.update_state(session_id, scenario_id, current_node_id)
-                
-                # Notify frontend of transition (optional)
-                yield {"type": "transition", "from": current_state.id, "to": next_id}
+        if eval_result.passed:
+            # Simple linear transition for now: take first available
+            if current_state.transitions:
+                next_id = current_state.transitions[0].target_state_id
+                if next_id in graph.states:
+                    logger.info(f"🚀 Transitioning: {current_node_id} -> {next_id}")
+                    current_node_id = next_id
+                    target_state = graph.states[next_id]
+                    state_manager.update_state(session_id, scenario_id, current_node_id)
+                    
+                    # Notify frontend of transition (optional)
+                    yield {"type": "transition", "from": current_state.id, "to": next_id}
             else:
-                logger.warning(f"⚠️ Invalid transition target: {next_id}")
+                logger.info("Terminal state reached or no transitions.")
 
         # 5. Generate Response (The "Actor")
         # The actor generates response based on the TARGET state (where we are now)
-        # Exception: If we failed, we are still in the old state, and the prompt includes "Guidance".
-        
         logger.info(f"🎭 Generating response for state: {target_state.id}")
         
         async for token in RolePlayAgent.generate_response(
@@ -114,7 +130,7 @@ class ScenarioOrchestrator:
             graph.base_persona,
             target_state,
             history,
-            eval_result # Pass result so actor knows if user failed
+            eval_result # Pass result so actor knows if user failed (GATE_PASSED=False)
         ):
             yield token
 
