@@ -17,90 +17,90 @@ interview_graph = ScenarioGraph(
     states={
         "start": ScenarioState(
             id="start",
-            description="Opening the interview",
-            actor_instruction="Introduce yourself as Sarah. Welcome the candidate. Ask them to sit down and if they are ready.",
+            description="פתיחת הראיון",
+            actor_instruction="הציגי את עצמך כשרה. ברכי את המועמד לשלום. הזמיני אותו לשבת ושאלי אם הוא מוכן.",
             evaluation=EvaluationCriteria(
-                criteria=["User responds to greeting"],
-                pass_condition="User acknowledges the greeting politely.",
-                failure_feedback_guidance="User should simply say hello or confirm they are ready."
+                criteria=["המשתמש עונה לברכה"],
+                pass_condition="המשתמש מאשר את הברכה בנימוס.",
+                failure_feedback_guidance="המשתמש צריך פשוט לומר שלום או לאשר שהוא מוכן."
             ),
             transitions=[
-                Transition(target_state_id="ask_intro", condition="User replied to greeting")
+                Transition(target_state_id="ask_intro", condition="המשתמש ענה לברכה")
             ]
         ),
         "ask_intro": ScenarioState(
             id="ask_intro",
-            description="Asking for self-introduction",
-            actor_instruction="Ask: 'Tell me a little about yourself.' (ספר לי קצת על עצמך)",
+            description="בקשה להצגה עצמית",
+            actor_instruction="שאלי: 'ספר לי קצת על עצמך.'",
             evaluation=EvaluationCriteria(
-                criteria=["User provides professional background", "User speaks clearly"],
-                pass_condition="User gives a brief overview of their background.",
-                failure_feedback_guidance="Encourage the user to focus on their professional experience."
+                criteria=["המשתמש מספק רקע מקצועי", "המשתמש מדבר בבירור"],
+                pass_condition="המשתמש נותן סקירה קצרה על הרקע שלו.",
+                failure_feedback_guidance="עודדי את המשתמש להתמקד בניסיון המקצועי שלו."
             ),
             transitions=[
-                Transition(target_state_id="ask_strength", condition="User provided introduction")
+                Transition(target_state_id="ask_strength", condition="המשתמש הציג את עצמו")
             ]
         ),
         "ask_strength": ScenarioState(
             id="ask_strength",
-            description="Asking about strengths",
-            actor_instruction="Ask about a key professional strength or skill.",
+            description="שאלה על חוזקות",
+            actor_instruction="שאלי על חוזקה או מיומנות מקצועית עיקרית.",
             evaluation=EvaluationCriteria(
-                criteria=["User names a strength", "User gives an example"],
-                pass_condition="User identifies a strength relevant to the job.",
-                failure_feedback_guidance="Ask the user to name one thing they are good at professionally."
+                criteria=["המשתמש מציין חוזקה", "המשתמש נותן דוגמה"],
+                pass_condition="המשתמש מזהה חוזקה רלוונטית לעבודה.",
+                failure_feedback_guidance="בקשי מהמשתמש לציין דבר אחד שהוא טוב בו מבחינה מקצועית."
             ),
             transitions=[
-                Transition(target_state_id="ask_challenge", condition="User answered strength question")
+                Transition(target_state_id="ask_challenge", condition="המשתמש ענה על שאלת החוזקה")
             ]
         ),
         "ask_challenge": ScenarioState(
             id="ask_challenge",
-            description="Asking about a challenge",
-            actor_instruction="Ask about a professional challenge they overcame.",
+            description="שאלה על אתגר",
+            actor_instruction="שאלי על אתגר מקצועי שהוא התגבר עליו.",
             evaluation=EvaluationCriteria(
-                criteria=["User describes a situation", "User describes action taken", "User describes result"],
-                pass_condition="User tells a story about overcoming a difficulty.",
-                failure_feedback_guidance="Prompt for a specific time something went wrong and how they fixed it."
+                criteria=["המשתמש מתאר סיטואציה", "המשתמש מתאר פעולה שננקטה", "המשתמש מתאר תוצאה"],
+                pass_condition="המשתמש מספר סיפור על התגברות על קושי.",
+                failure_feedback_guidance="בקשי דוגמה לזמן ספציפי שבו משהו השתבש ואיך הוא תיקן את זה."
             ),
             transitions=[
-                Transition(target_state_id="ask_motivation", condition="User answered challenge question")
+                Transition(target_state_id="ask_motivation", condition="המשתמש ענה על שאלת האתגר")
             ]
         ),
         "ask_motivation": ScenarioState(
             id="ask_motivation",
-            description="Asking why they want the job",
-            actor_instruction="Ask why they are interested in this specific position/company.",
+            description="שאלה על מוטיבציה",
+            actor_instruction="שאלי מדוע הוא מעוניין במשרה/בחברה הספציפית הזו.",
             evaluation=EvaluationCriteria(
-                criteria=["User shows interest", "User connects skills to role"],
-                pass_condition="User explains their motivation.",
-                failure_feedback_guidance="Ask what specifically attracted them to this role."
+                criteria=["המשתמש מראה עניין", "המשתמש מקשר מיומנויות לתפקיד"],
+                pass_condition="המשתמש מסביר את המוטיבציה שלו.",
+                failure_feedback_guidance="שאלי מה משך אותו ספציפית לתפקיד זה."
             ),
             transitions=[
-                Transition(target_state_id="ask_user_questions", condition="User answered motivation question")
+                Transition(target_state_id="ask_user_questions", condition="המשתמש ענה על שאלת המוטיבציה")
             ]
         ),
         "ask_user_questions": ScenarioState(
             id="ask_user_questions",
-            description="Inviting user questions",
-            actor_instruction="Ask if the candidate has any questions for you.",
+            description="הזמנת שאלות מצד המשתמש",
+            actor_instruction="שאלי אם למועמד יש שאלות עבורך.",
             evaluation=EvaluationCriteria(
-                criteria=["User asks a question OR declines politely"],
-                pass_condition="User engages in the Q&A part.",
-                failure_feedback_guidance="It is okay if they have no questions, but they should say so."
+                criteria=["המשתמש שואל שאלה או מסרב בנימוס"],
+                pass_condition="המשתמש משתתף בחלק של השאלות ותשובות.",
+                failure_feedback_guidance="זה בסדר אם אין לו שאלות, אבל הוא צריך לומר זאת."
             ),
             transitions=[
-                Transition(target_state_id="closing", condition="User finished asking questions")
+                Transition(target_state_id="closing", condition="המשתמש סיים לשאול שאלות")
             ]
         ),
         "closing": ScenarioState(
             id="closing",
-            description="End of interview",
-            actor_instruction="Thank the candidate for coming. Say you will be in touch soon. Goodbye.",
+            description="סיום הראיון",
+            actor_instruction="הודי למועמד על הגעתו. אמרי שתהיו בקשר בקרוב. להתראות.",
             evaluation=EvaluationCriteria(
-                criteria=["User says goodbye"],
-                pass_condition="User ends conversation.",
-                failure_feedback_guidance="Say goodbye."
+                criteria=["המשתמש נפרד לשלום"],
+                pass_condition="המשתמש מסיים את השיחה.",
+                failure_feedback_guidance="היפרדי לשלום."
             ),
             is_terminal=True
         )
@@ -217,77 +217,77 @@ grocery_graph = ScenarioGraph(
     states={
         "start": ScenarioState(
             id="start",
-            description="Greeting at checkout",
-            actor_instruction="Say: 'Hi! Welcome to FreshMarket. Did you find everything you needed?'",
+            description="ברכה בקופה",
+            actor_instruction="אמרי: 'היי! ברוכים הבאים לפרש-מרקט. מצאתם את כל מה שהייתם צריכים?'",
             evaluation=EvaluationCriteria(
-                criteria=["User replies to greeting"],
-                pass_condition="User confirms they found items or asks for something.",
-                failure_feedback_guidance="User should answer yes or no."
+                criteria=["המשתמש עונה לברכה"],
+                pass_condition="המשתמש מאשר שמצא פריטים או מבקש משהו.",
+                failure_feedback_guidance="המשתמש צריך לענות כן או לא."
             ),
             transitions=[
-                Transition(target_state_id="ask_club_card", condition="User replied")
+                Transition(target_state_id="ask_club_card", condition="המשתמש ענה")
             ]
         ),
         "ask_club_card": ScenarioState(
             id="ask_club_card",
-            description="Club card check",
-            actor_instruction="Ask if they have a club member card.",
+            description="בדיקת כרטיס מועדון",
+            actor_instruction="שאלי אם יש להם כרטיס חבר מועדון.",
             evaluation=EvaluationCriteria(
-                criteria=["User says yes/no to club card"],
-                pass_condition="User answers about the card.",
-                failure_feedback_guidance="User needs to say if they have a card or not."
+                criteria=["המשתמש אומר כן/לא לגבי כרטיס מועדון"],
+                pass_condition="המשתמש עונה לגבי הכרטיס.",
+                failure_feedback_guidance="המשתמש צריך לומר אם יש לו כרטיס או לא."
             ),
             transitions=[
-                Transition(target_state_id="scan_items", condition="User answered card question")
+                Transition(target_state_id="scan_items", condition="המשתמש ענה לשאלת הכרטיס")
             ]
         ),
         "scan_items": ScenarioState(
             id="scan_items",
-            description="Scanning items",
-            actor_instruction="Pretend to scan items. Make a small talk comment like 'Wow, these apples look great.'",
+            description="סריקת פריטים",
+            actor_instruction="העמידי פנים שאת סורקת פריטים. אמרי משפט סמול טוק כמו 'וואו, התפוחים האלה נראים נהדר'.",
             evaluation=EvaluationCriteria(
-                criteria=["User engages in small talk or acknowledgment"],
-                pass_condition="User responds politely.",
-                failure_feedback_guidance="User should acknowledge the comment."
+                criteria=["המשתמש משתתף בסמול טוק או מאשר"],
+                pass_condition="המשתמש מגיב בנימוס.",
+                failure_feedback_guidance="המשתמש צריך להתייחס להערה."
             ),
             transitions=[
-                Transition(target_state_id="ask_bag", condition="User responded")
+                Transition(target_state_id="ask_bag", condition="המשתמש הגיב")
             ]
         ),
         "ask_bag": ScenarioState(
             id="ask_bag",
-            description="Bag preference",
-            actor_instruction="Ask: 'Regular bag or reusable?' (שקית רגילה או רב-פעמית?)",
+            description="העדפת שקית",
+            actor_instruction="שאלי: 'שקית רגילה או רב-פעמית?'",
             evaluation=EvaluationCriteria(
-                criteria=["User chooses bag type"],
-                pass_condition="User selects a bag option.",
-                failure_feedback_guidance="User must choose a bag type."
+                criteria=["המשתמש בוחר סוג שקית"],
+                pass_condition="המשתמש בוחר אפשרות שקית.",
+                failure_feedback_guidance="המשתמש חייב לבחור סוג שקית."
             ),
             transitions=[
-                Transition(target_state_id="payment", condition="User chose bag")
+                Transition(target_state_id="payment", condition="המשתמש בחר שקית")
             ]
         ),
         "payment": ScenarioState(
             id="payment",
-            description="Payment",
-            actor_instruction="State the total (e.g., 45 shekels). Ask for payment.",
+            description="תשלום",
+            actor_instruction="צייני את הסכום הכולל (למשל, 45 שקלים). בקשי תשלום.",
             evaluation=EvaluationCriteria(
-                criteria=["User offers payment"],
-                pass_condition="User pays (states they are paying).",
-                failure_feedback_guidance="User needs to pay."
+                criteria=["המשתמש מציע תשלום"],
+                pass_condition="המשתמש משלם (מציין שהוא משלם).",
+                failure_feedback_guidance="המשתמש צריך לשלם."
             ),
             transitions=[
-                Transition(target_state_id="closing", condition="User paid")
+                Transition(target_state_id="closing", condition="המשתמש שילם")
             ]
         ),
         "closing": ScenarioState(
             id="closing",
-            description="Goodbye",
-            actor_instruction="Thank them and wish them a great day.",
+            description="פרידה",
+            actor_instruction="הודי להם ואחלי להם יום נהדר.",
             evaluation=EvaluationCriteria(
-                criteria=["User says goodbye"],
-                pass_condition="User ends conversation.",
-                failure_feedback_guidance="Say goodbye."
+                criteria=["המשתמש נפרד לשלום"],
+                pass_condition="המשתמש מסיים את השיחה.",
+                failure_feedback_guidance="היפרדי לשלום."
             ),
             is_terminal=True
         )
@@ -310,64 +310,64 @@ date_graph = ScenarioGraph(
     states={
         "start": ScenarioState(
             id="start",
-            description="Meeting up",
-            actor_instruction="Say: 'Hi! So fun to finally meet. How was your day?'",
+            description="פגישה",
+            actor_instruction="אמרי: 'היי! איזה כיף סוף סוף להיפגש. איך עבר היום שלך?'",
             evaluation=EvaluationCriteria(
-                criteria=["User returns greeting", "User answers how they are"],
-                pass_condition="User greets back and answers.",
-                failure_feedback_guidance="User should be polite and answer the question."
+                criteria=["המשתמש מחזיר ברכה", "המשתמש ענה איך הוא מרגיש"],
+                pass_condition="המשתמש מברך בחזרה ועונה.",
+                failure_feedback_guidance="המשתמש צריך להיות מנומס ולענות על השאלה."
             ),
             transitions=[
-                Transition(target_state_id="ask_hobby", condition="User replied")
+                Transition(target_state_id="ask_hobby", condition="המשתמש ענה")
             ]
         ),
         "ask_hobby": ScenarioState(
             id="ask_hobby",
-            description="Icebreaker / Hobbies",
-            actor_instruction="Ask about a hobby or shared interest.",
+            description="שבירת קרח / תחביבים",
+            actor_instruction="שאלי על תחביב או עניין משותף.",
             evaluation=EvaluationCriteria(
-                criteria=["User shares a hobby or interest"],
-                pass_condition="User talks about themselves.",
-                failure_feedback_guidance="Encourage user to share something they like doing."
+                criteria=["המשתמש משתף תחביב או עניין"],
+                pass_condition="המשתמש מדבר על עצמו.",
+                failure_feedback_guidance="עודדי את המשתמש לשתף משהו שהוא אוהב לעשות."
             ),
             transitions=[
-                Transition(target_state_id="share_self", condition="User shared hobby")
+                Transition(target_state_id="share_self", condition="המשתמש שיתף תחביב")
             ]
         ),
         "share_self": ScenarioState(
             id="share_self",
-            description="Sharing back",
-            actor_instruction="Share a brief interesting fact about yourself (Alex), then ask about food/drink preferences.",
+            description="שיתוף הדדי",
+            actor_instruction="שתפי עובדה מעניינת קצרה על עצמך (אלכס), ואז שאלי על העדפות אוכל/שתייה.",
             evaluation=EvaluationCriteria(
-                criteria=["User listens and responds to preference question"],
-                pass_condition="User answers the food/drink question.",
-                failure_feedback_guidance="User should answer what they want to order."
+                criteria=["המשתמש מקשיב ומגיב לשאלת ההעדפה"],
+                pass_condition="המשתמש ענה על שאלת האוכל/שתייה.",
+                failure_feedback_guidance="המשתמש צריך לענות מה הוא רוצה להזמין."
             ),
             transitions=[
-                Transition(target_state_id="ask_travel", condition="User answered preference")
+                Transition(target_state_id="ask_travel", condition="המשתמש ענה על ההעדפה")
             ]
         ),
         "ask_travel": ScenarioState(
             id="ask_travel",
-            description="Deepening conversation",
-            actor_instruction="Ask about favorite travel destinations or places they love.",
+            description="העמקת השיחה",
+            actor_instruction="שאלי על יעדי טיול אהובים או מקומות שהם אוהבים.",
             evaluation=EvaluationCriteria(
-                criteria=["User describes a place or trip"],
-                pass_condition="User shares a travel story or preference.",
-                failure_feedback_guidance="User should talk about a place they like."
+                criteria=["המשתמש מתאר מקום או טיול"],
+                pass_condition="המשתמש משתף סיפור טיול או העדפה.",
+                failure_feedback_guidance="המשתמש צריך לדבר על מקום שהוא אוהב."
             ),
             transitions=[
-                Transition(target_state_id="closing", condition="User shared travel info")
+                Transition(target_state_id="closing", condition="המשתמש שיתף מידע על טיולים")
             ]
         ),
         "closing": ScenarioState(
             id="closing",
-            description="End of date segment",
-            actor_instruction="Express you had a great time talking. Suggest doing this again.",
+            description="סיום חלק הדייט",
+            actor_instruction="הביעי שנהנית מאוד לדבר. הציעי לעשות זאת שוב.",
             evaluation=EvaluationCriteria(
-                criteria=["User agrees or politely declines"],
-                pass_condition="User responds to the suggestion.",
-                failure_feedback_guidance="User should say if they enjoyed it too."
+                criteria=["המשתמש מסכים או מסרב בנימוס"],
+                pass_condition="המשתמש מגיב להצעה.",
+                failure_feedback_guidance="המשתמש צריך לומר אם הוא נהנה גם כן."
             ),
             is_terminal=True
         )
@@ -390,51 +390,51 @@ conflict_graph = ScenarioGraph(
     states={
         "start": ScenarioState(
             id="start",
-            description="The Complaint",
-            actor_instruction="Angry start: 'Excuse me! We need to talk. The noise from your apartment last night was unbearable.'",
+            description="התלונה",
+            actor_instruction="התחלה כועסת: 'סליחה! אנחנו צריכים לדבר. הרעש מהדירה שלך אתמול בלילה היה בלתי נסבל.'",
             evaluation=EvaluationCriteria(
-                criteria=["User listens", "User does not attack back"],
-                pass_condition="User acknowledges the neighbor is upset.",
-                failure_feedback_guidance="User should ask what happened or apologize, not fight back."
+                criteria=["המשתמש מקשיב", "המשתמש לא תוקף בחזרה"],
+                pass_condition="המשתמש מבין שהשכנה כועסת.",
+                failure_feedback_guidance="המשתמש צריך לשאול מה קרה או להתנצל, לא להילחם בחזרה."
             ),
             transitions=[
-                Transition(target_state_id="express_frustration", condition="User acknowledged")
+                Transition(target_state_id="express_frustration", condition="המשתמש הודה")
             ]
         ),
         "express_frustration": ScenarioState(
             id="express_frustration",
-            description="Venting",
-            actor_instruction="Say: 'I couldn't sleep at all! It was shaking my walls!' (Wait for apology/explanation).",
+            description="שחרור קיטור",
+            actor_instruction="אמרי: 'לא יכולתי לישון בכלל! הקירות רעדו!' (חכי להתנצלות/הסבר).",
             evaluation=EvaluationCriteria(
-                criteria=["User apologizes OR explains politely"],
-                pass_condition="User offers an apology or valid explanation.",
-                failure_feedback_guidance="User needs to apologize or explain calmly."
+                criteria=["המשתמש מתנצל או מסביר בנימוס"],
+                pass_condition="המשתמש מציע התנצלות או הסבר תקף.",
+                failure_feedback_guidance="המשתמש צריך להתנצל או להסביר ברוגע."
             ),
             transitions=[
-                Transition(target_state_id="negotiate", condition="User apologized")
+                Transition(target_state_id="negotiate", condition="המשתמש התנצל")
             ]
         ),
         "negotiate": ScenarioState(
             id="negotiate",
-            description="Negotiating solution",
-            actor_instruction="Calm down slightly. Ask: 'So what are you going to do about it next time?'",
+            description="משא ומתן לפתרון",
+            actor_instruction="הירגעי מעט. שאלי: 'אז מה אתה מתכוון לעשות בקשר לזה בפעם הבאה?'",
             evaluation=EvaluationCriteria(
-                criteria=["User proposes a solution (e.g. quiet hours)"],
-                pass_condition="User offers a concrete fix.",
-                failure_feedback_guidance="User must suggest a way to prevent the noise."
+                criteria=["המשתמש מציע פתרון (למשל שעות שקט)"],
+                pass_condition="המשתמש מציע תיקון קונקרטי.",
+                failure_feedback_guidance="המשתמש חייב להציע דרך למנוע את הרעש."
             ),
             transitions=[
-                Transition(target_state_id="closing", condition="User offered solution")
+                Transition(target_state_id="closing", condition="המשתמש הציע פתרון")
             ]
         ),
         "closing": ScenarioState(
             id="closing",
-            description="Resolution",
-            actor_instruction="Accept the solution (if reasonable). 'Fine, let's hope it stays quiet.'",
+            description="פתרון",
+            actor_instruction="קבלי את הפתרון (אם הוא סביר). 'בסדר, נקווה שיישאר שקט.'",
             evaluation=EvaluationCriteria(
-                criteria=["User confirms agreement"],
-                pass_condition="User ends conversation politely.",
-                failure_feedback_guidance="Say goodbye."
+                criteria=["המשתמש מאשר הסכמה"],
+                pass_condition="המשתמש מסיים את השיחה בנימוס.",
+                failure_feedback_guidance="היפרדי לשלום."
             ),
             is_terminal=True
         )

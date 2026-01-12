@@ -18,13 +18,13 @@ class EvaluatorAgent:
         criteria_text = "\n".join([f"- {c}" for c in state.evaluation.criteria])
         
         system_prompt = (
-            "You are a strict conversation evaluator.\n"
-            "Analyze the user's latest message against the required criteria.\n"
-            f"Current Context: {state.description}\n"
-            f"Passing Criteria:\n{criteria_text}\n"
-            f"Pass Condition: {state.evaluation.pass_condition}\n"
-            "Determine if the user satisfied the criteria to move forward.\n"
-            "Also classify the user's sentiment as 'positive', 'negative', or 'neutral'."
+            "אתה מעריך שיחה קפדן.\n"
+            "נתח את ההודעה האחרונה של המשתמש כנגד הקריטריונים הנדרשים.\n"
+            f"הקשר נוכחי: {state.description}\n"
+            f"קריטריונים למעבר:\n{criteria_text}\n"
+            f"תנאי מעבר: {state.evaluation.pass_condition}\n"
+            "קבע אם המשתמש עמד בקריטריונים כדי להתקדם.\n"
+            "כמו כן, סווג את הסנטימנט של המשתמש כ-'positive', 'negative' או 'neutral'."
         )
 
         schema = (
@@ -81,23 +81,23 @@ class RolePlayAgent:
     ):
         # 1. Construct System Prompt (The "Head" - Always Pinned)
         system_prompt = (
-            "SYSTEM INSTRUCTIONS:\n"
-            "1. Output Language: Hebrew.\n"
-            "2. Keep responses natural and concise.\n"
-            "3. Use 1-2 short sentences max and ask at most one question.\n"
-            "4. Avoid lists or long explanations unless the user asks.\n"
-            f"5. STAY IN CHARACTER.\n\n"
-            f"--- PERSONA ---\n{base_persona}\n\n"
-            f"--- CURRENT SITUATION ---\n{state.description}\n"
-            f"--- YOUR GOAL ---\n{state.actor_instruction}\n"
+            "הוראות מערכת:\n"
+            "1. שפת פלט: עברית.\n"
+            "2. שמור על תשובות טבעיות ותמציתיות.\n"
+            "3. השתמש ב-1-2 משפטים קצרים לכל היותר ושאל לכל היותר שאלה אחת.\n"
+            "4. הימנע מרשימות או הסברים ארוכים.\n"
+            f"5. הישאר בדמות. לעולם אל תענה בשם המשתמש. אם המשתמש לא עונה, שאל שוב.\n\n"
+            f"--- דמות ---\n{base_persona}\n\n"
+            f"--- סיטואציה נוכחית ---\n{state.description}\n"
+            f"--- המטרה שלך ---\n{state.actor_instruction}\n"
         )
 
         # 2. Add Dynamic Guidance
         if eval_result and not eval_result.passed:
             system_prompt += (
-                f"\n--- GUIDANCE ---\n"
-                f"The user did NOT meet the goal. {state.evaluation.failure_feedback_guidance}\n"
-                f"Internal Reasoning: {eval_result.reasoning}"
+                f"\n--- הנחיה ---\n"
+                f"המשתמש לא עמד במטרה. {state.evaluation.failure_feedback_guidance}\n"
+                f"שיקול דעת פנימי: {eval_result.reasoning}"
             )
         
         # 3. Smart Context Trimming (The "Middle")
@@ -133,7 +133,7 @@ class RolePlayAgent:
         if user_text.strip() == "[START]":
             # For cold start, we don't append user text. 
             # We append a system trigger to start the conversation.
-            messages.append({"role": "system", "content": "ACTION: Start the conversation according to your goal. Say the opening line."})
+            messages.append({"role": "system", "content": "פעולה: התחל את השיחה בהתאם למטרה שלך. אמור את משפט הפתיחה."})
         else:
             messages.append({"role": "user", "content": user_text})
 
