@@ -75,8 +75,12 @@ class AnalyzerAgent:
             f"Pass Condition (Reference): {state.evaluation.pass_condition}\n"
             f"ALLOWED SIGNALS: [{signals_text}]\n\n"
             "Analyze the User Input below against these criteria.\n"
-            "IMPORTANT: If the user input meets the criteria to advance the conversation, you MUST include the relevant signal from the ALLOWED SIGNALS list in your 'signals' output field.\n"
-            "For example, if the criterion is 'User provides amount' and the user says '500 dollars', you MUST output 'signals': ['AMOUNT_GIVEN']."
+            "IMPORTANT INSTRUCTIONS FOR SIGNALS:\n"
+            "1. If the user input meets the criteria, you MUST include the relevant signal from ALLOWED SIGNALS in your 'signals' output.\n"
+            "2. For 'AMOUNT_GIVEN': Accept digits (100, 5000) OR Hebrew number words ('אלף', 'מאה', 'מיליון').\n"
+            "   - '20 אלף' IS A VALID AMOUNT -> Output ['AMOUNT_GIVEN']\n"
+            "   - '100 שקל' IS A VALID AMOUNT -> Output ['AMOUNT_GIVEN']\n"
+            "3. Do not omit signals if the criteria are met."
         )
         
         user_prompt = (
