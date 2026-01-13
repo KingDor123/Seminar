@@ -88,29 +88,32 @@ async def _save_message(
     session_id: int,
     role: str,
     content: str,
-    sentiment: Optional[str] = None,
-    analysis: Optional[Dict[str, Any]] = None
+    sentiment: Optional[str] = None
+    # REMOVED: analysis payload. We do not persist analysis to the backend.
 ):
     """
     Saves a message to the database asynchronously.
+    Raises exception on failure to allow caller to abort turn.
     """
     if not session_id or not content: return
-    try:
-        db_role = "ai" if role == "assistant" else role
-        payload = {"role": db_role, "content": content}
+    
+    db_role = "ai" if role == "assistant" else role
+    payload = {"role": db_role, "content": content}
 
-        if sentiment:
-            payload["sentiment"] = sentiment
-        if analysis:
-            payload["analysis"] = analysis
+    if sentiment:
+        payload["sentiment"] = sentiment
+    
+    # CRITICAL: Analysis dict is explicitly excluded from backend persistence 
+    # to prevent 400 errors and state corruption. 
+    # Analysis is transient and used for FSM routing only.
 
-        async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
-            await client.post(
-                f"{BACKEND_URL}/chat/sessions/{session_id}/messages",
-                json=payload
-            )
-    except Exception as e:
-        logger.error(f"❌ DB Save Error: {e}")
+    async with httpx.AsyncClient(headers={"x-internal-api-key": INTERNAL_API_KEY}) as client:
+        resp = await client.post(
+            f"{BACKEND_URL}/chat/sessions/{session_id}/messages",
+            json=payload
+        )
+        if resp.status_code >= 400:
+            raise Exception(f"Backend persistence failed: {resp.status_code} {resp.text}")
 
 # --- HTTP Endpoints ---
 
@@ -142,36 +145,46 @@ async def interact(
             if scenario_id in SCENARIO_REGISTRY:
                 logger.info(f"🚀 Using Engine Orchestrator for {scenario_id}")
                 full_content = ""
-                analysis_payload: Optional[Dict[str, Any]] = None
                 
+                # NOTE: We consume the generator. If persistence fails inside, we break.
                 async for chunk in orchestrator.process_turn(str(session_id), scenario_id, text, history):
                      if isinstance(chunk, dict):
                          # Metadata / Analysis
                          if "type" in chunk and chunk["type"] == "analysis":
-                             analysis_payload = chunk
                              # Map new engine fields to legacy schema for frontend
                              if not is_cold_start:
-                                 # FIX: Check for skip_persist flag
-                                 should_persist_analysis = not chunk.get("skip_persist", False)
-                                 
-                                 await _save_message(
-                                    session_id,
-                                    "user",
-                                    text,
-                                    sentiment=chunk.get("sentiment", "neutral"),
-                                    analysis=chunk if should_persist_analysis else None
-                                )
+                                 # CRITICAL: Save user message BEFORE processing further
+                                 # If this fails, we MUST ABORT to keep DB and FSM in sync.
+                                 try:
+                                     await _save_message(
+                                        session_id,
+                                        "user",
+                                        text,
+                                        sentiment=chunk.get("sentiment", "neutral")
+                                    )
+                                 except Exception as e:
+                                     logger.error(f"❌ FATAL: User Message Persistence Failed. Aborting Turn. {e}")
+                                     yield _sse_event("error", "System Error: Message persistence failed. Turn aborted.")
+                                     return # Stop generator, do not update state, do not generate response.
+
+                             # Yield metrics to frontend (frontend uses them for UI, backend doesn't store them)
                              yield _sse_event("metrics", json.dumps(chunk, ensure_ascii=False))
                      elif isinstance(chunk, str):
                          # Tokens
                          full_content += chunk
                          yield _sse_event("transcript", json.dumps({"role": "assistant", "text": chunk, "partial": True}))
                 
-                if analysis_payload is None and not is_cold_start:
-                    # Fallback save if analysis failed
-                    await _save_message(session_id, "user", text)
-                
-                await _save_message(session_id, "assistant", full_content)
+                # If we reached here, orchestrator finished successfully (State updated internally)
+                # Now save the AI response.
+                try:
+                    await _save_message(session_id, "assistant", full_content)
+                except Exception as e:
+                     logger.error(f"❌ FATAL: AI Message Persistence Failed. History may be inconsistent. {e}")
+                     # We can't "undo" the FSM state update easily here without transactionality,
+                     # but we at least signal error.
+                     yield _sse_event("error", "System Error: Response persistence failed.")
+                     return
+
                 yield _sse_event("status", "done")
                 yield _sse_event("done", "[DONE]")
                 return

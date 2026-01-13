@@ -1,16 +1,23 @@
 import logging
 import time
+import os
 from typing import Dict, Any, List
 from app.engine.schema import InteractionFeatures
 
 logger = logging.getLogger("FeatureExtractor")
+
+# 3. Add a single DEBUG_MODE flag (environment variable or constant)
+# Default: true
+DEBUG_MODE = os.getenv("DEBUG_MODE", "true").lower() == "true"
 
 try:
     import stanza
     _STANZA_AVAILABLE = True
 except ImportError:
     _STANZA_AVAILABLE = False
-    logger.warning("Stanza not installed. Feature extraction will be limited.")
+    # Log Stanza unavailable warning (Phase 1)
+    if DEBUG_MODE:
+        logger.warning("[FEATURES] Stanza not installed. Feature extraction will be limited.")
 
 class FeatureExtractor:
     _pipeline = None
@@ -26,9 +33,10 @@ class FeatureExtractor:
                 # Note: In a real deployment, ensure models are downloaded during build/startup.
                 # stanza.download('he') 
                 cls._pipeline = stanza.Pipeline(lang='he', processors='tokenize,pos,lemma,depparse,ner,sentiment', logging_level='WARN')
-                logger.info("Stanza Hebrew pipeline initialized.")
+                if DEBUG_MODE:
+                    logger.info("[FEATURES] Stanza Hebrew pipeline initialized.")
             except Exception as e:
-                logger.error(f"Failed to initialize Stanza pipeline: {e}")
+                logger.error(f"[FEATURES] Failed to initialize Stanza pipeline: {e}")
                 cls._pipeline = None
         return cls._pipeline
 
@@ -40,6 +48,10 @@ class FeatureExtractor:
         """
         start_time = time.time()
         
+        # Log raw user text (Phase 1)
+        if DEBUG_MODE:
+            logger.info(f"[FEATURES] Raw User Text: '{text}'")
+
         features = InteractionFeatures(
             text=text,
             wpm=audio_meta.get("wpm", 0.0),
@@ -92,7 +104,7 @@ class FeatureExtractor:
                 features.named_entities = ents
 
             except Exception as e:
-                logger.error(f"Error during Stanza processing: {e}")
+                logger.error(f"[FEATURES] Error during Stanza processing: {e}")
         
         # Fallback/heuristic for sentiment if Stanza failed or missing
         if not _STANZA_AVAILABLE or pipeline is None:
@@ -109,4 +121,13 @@ class FeatureExtractor:
             elif score < 0: features.sentiment_label = "negative"
 
         features.processing_latency_ms = (time.time() - start_time) * 1000
+        
+        # Log extracted features (Phase 1)
+        if DEBUG_MODE:
+            logger.info(
+                f"[FEATURES] Extracted: WPM={features.wpm}, Pauses={features.silence_duration}s, "
+                f"Fillers={features.filler_word_count}, Sentiment={features.sentiment_label} ({features.sentiment_score:.2f}), "
+                f"Entities={features.named_entities}, Root={features.dependency_root}"
+            )
+            
         return features

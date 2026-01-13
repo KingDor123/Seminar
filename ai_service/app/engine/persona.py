@@ -1,9 +1,13 @@
 import logging
+import os
 from typing import List, Dict, AsyncGenerator
 from app.engine.schema import ScenarioState, SituationState
 from app.engine.llm import llm_client
 
 logger = logging.getLogger("PersonaAgent")
+
+# 3. Add a single DEBUG_MODE flag
+DEBUG_MODE = os.getenv("DEBUG_MODE", "true").lower() == "true"
 
 class PersonaAgent:
     """
@@ -34,9 +38,6 @@ class PersonaAgent:
         )
 
         # Add dynamic direction from Analyzer (Diagnostic)
-        # Note: 'situation' reflects the PAST turn analysis.
-        # 'target_state' is where we are NOW (which might be the same if user failed, or next if passed).
-
         system_prompt += (
             f"Context from last turn: {situation.general_summary}\n"
             f"Acting Guidance: {situation.guidance_directive}\n"
@@ -45,11 +46,16 @@ class PersonaAgent:
 
         system_prompt += (
             "\nRULES:\n"
-            "1. Output Language: Hebrew.\n"
+            "1. Output Language: Hebrew. (עברית בלבד)\n"
             "2. Keep it concise (1-2 sentences). Do not monologue.\n"
             "3. Stay 100% in character. Never mention you are an AI or actor.\n"
             "4. Respond naturally to the user's last message."
         )
+
+        # Log System Prompt (Phase 4)
+        if DEBUG_MODE:
+            logger.info(f"[PERSONA] Target State: {target_state.id}")
+            logger.info(f"[PERSONA] System Prompt:\n{system_prompt}")
 
         # 2. History Management (Simple Trimming)
         MAX_CHARS = 4000
@@ -67,8 +73,12 @@ class PersonaAgent:
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(reversed(trimmed_history))
 
-        logger.info(f"🎭 Persona generating for State {target_state.id}")
+        if DEBUG_MODE:
+            logger.info(f"[PERSONA] Generation Starting...")
 
         # 3. Stream
         async for token in llm_client.generate_stream(messages):
             yield token
+            
+        if DEBUG_MODE:
+            logger.info(f"[PERSONA] Generation Complete.")

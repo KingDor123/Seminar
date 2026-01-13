@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 from typing import AsyncGenerator, Dict, Any, List, Optional, Callable
 
 from app.engine.schema import (
@@ -16,6 +17,9 @@ from app.engine.analyzer import AnalyzerAgent
 from app.engine.persona import PersonaAgent
 
 logger = logging.getLogger("Orchestrator")
+
+# 3. Add a single DEBUG_MODE flag
+DEBUG_MODE = os.getenv("DEBUG_MODE", "true").lower() == "true"
 
 # --- 3. Generalized Signal Guards ---
 # Predicates: (features) -> bool
@@ -60,7 +64,8 @@ class ScenarioOrchestrator:
         
         # --- PHASE 0: COLD START HANDLING ---
         if user_text.strip() == "[START]":
-            logger.info("🎬 Cold Start detected.")
+            if DEBUG_MODE:
+                logger.info("🎬 [ROUTING] Cold Start detected.")
             state_manager.update_state(session_id, scenario_id, graph.initial_state_id)
             
             # Synthetic situation for start
@@ -85,7 +90,8 @@ class ScenarioOrchestrator:
             return
 
         # --- PHASE 1: FEATURE EXTRACTION (Deterministic) ---
-        logger.info("Phase 1: Feature Extraction")
+        if DEBUG_MODE:
+            logger.info("Phase 1: Feature Extraction")
         features = FeatureExtractor.extract(user_text, audio_meta)
         
         yield {
@@ -96,7 +102,8 @@ class ScenarioOrchestrator:
         }
 
         # --- PHASE 2: ANALYSIS (Analyzer LLM - Diagnostic Only) ---
-        logger.info(f"Phase 2: Analysis (Current: {current_node_id})")
+        if DEBUG_MODE:
+            logger.info(f"Phase 2: Analysis (Current: {current_node_id})")
         situation = await AnalyzerAgent.analyze(
             session_id,
             scenario_id,
@@ -111,22 +118,26 @@ class ScenarioOrchestrator:
         raw_signals = set(situation.signals)
         allowed_signals = set(current_state_obj.evaluation.allowed_signals)
         
+        if DEBUG_MODE:
+            logger.info(f"[ROUTING] Allowed Signals for {current_node_id}: {allowed_signals}")
+            logger.info(f"[ROUTING] Raw Signals from Analyzer: {raw_signals}")
+        
         # FIX: Deterministic Signal Injection for "start" state
         # If we are in "start" and user said something (not [START]), force USER_RESPONDED
         if current_node_id == graph.initial_state_id and user_text.strip() != "[START]":
-            logger.info("⚡ Injecting USER_RESPONDED signal for start state exit.")
+            if DEBUG_MODE:
+                logger.info("⚡ [ROUTING] Injecting USER_RESPONDED signal for start state exit.")
             raw_signals.add("USER_RESPONDED")
             # Ensure it is allowed (we updated scenarios to allow it, but safety check)
             if "USER_RESPONDED" not in allowed_signals:
                 # This should not happen if scenarios.py was updated correctly, but good for debug
-                logger.warning("USER_RESPONDED injected but not in allowed_signals! Check scenarios.py")
-                # We add it to allowed temporarily to force transition if critical?
-                # No, strictness is better. If missing, it will be filtered out next.
+                logger.warning("[ROUTING] USER_RESPONDED injected but not in allowed_signals! Check scenarios.py")
 
         # 2. Unknown Signals Reporting
         unknown_signals = raw_signals - allowed_signals
         if unknown_signals:
-            logger.warning(f"⚠️ Unknown signals detected in state {current_node_id}: {unknown_signals}. Ignoring.")
+            if DEBUG_MODE:
+                logger.warning(f"⚠️ [ROUTING] Unknown signals detected in state {current_node_id}: {unknown_signals}. Ignoring.")
         
         # Filter to allowed only
         valid_signals = raw_signals.intersection(allowed_signals)
@@ -139,9 +150,13 @@ class ScenarioOrchestrator:
                 if guard(features):
                     filtered_signals.add(sig)
                 else:
-                    logger.warning(f"🛡️ Security: Guard blocked signal '{sig}' based on features.")
+                    if DEBUG_MODE:
+                        logger.warning(f"🛡️ [ROUTING] Security: Guard blocked signal '{sig}' based on features.")
             else:
                 filtered_signals.add(sig)
+        
+        if DEBUG_MODE:
+            logger.info(f"[ROUTING] Final Filtered Signals: {filtered_signals}")
         
         # 4. Select Transition with Ambiguity Check
         sorted_transitions = sorted(current_state_obj.transitions, key=lambda t: t.priority, reverse=True)
@@ -163,20 +178,23 @@ class ScenarioOrchestrator:
         
         # 1. Ambiguity Detection
         if len(matches) > 1:
-            logger.warning(
-                f"⚠️ Ambiguous Transitions in {current_node_id}: "
-                f"Multiple transitions matched signals {filtered_signals} at priority {matches[0].priority}. "
-                f"Targets: {[m.target_state_id for m in matches]}. "
-                f"Defaulting to first match: {matches[0].target_state_id}"
-            )
+            if DEBUG_MODE:
+                logger.warning(
+                    f"⚠️ [ROUTING] Ambiguous Transitions in {current_node_id}: "
+                    f"Multiple transitions matched signals {filtered_signals} at priority {matches[0].priority}. "
+                    f"Targets: {[m.target_state_id for m in matches]}. "
+                    f"Defaulting to first match: {matches[0].target_state_id}"
+                )
 
         if matches:
             chosen = matches[0]
             next_node_id = chosen.target_state_id
-            transition_reason = f"Signal '{chosen.condition_id}' matched."
-            logger.info(f"🚀 Routing: {transition_reason} -> {next_node_id}")
+            transition_reason = f"Signal '{chosen.condition_id}' matched priority {chosen.priority}"
+            if DEBUG_MODE:
+                logger.info(f"🚀 [ROUTING] Decision: Transition to '{next_node_id}'. Reason: {transition_reason}")
         else:
-            logger.info(f"🛑 Routing: Stay. (Signals: {filtered_signals})")
+            if DEBUG_MODE:
+                logger.info(f"🛑 [ROUTING] Decision: Stay in '{current_node_id}'. Reason: {transition_reason}")
 
         # Yield analysis result for dashboard
         # FIX: Add skip_persist flag if no transition occurred
@@ -207,7 +225,9 @@ class ScenarioOrchestrator:
         generation_history = history.copy()
         generation_history.append({"role": "user", "content": user_text})
 
-        logger.info(f"Phase 4: Generating Response for {next_node_id}")
+        if DEBUG_MODE:
+            logger.info(f"Phase 4: Generating Response for {next_node_id}")
+        
         async for token in PersonaAgent.generate(
             graph.base_persona,
             target_state_obj,

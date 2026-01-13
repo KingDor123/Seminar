@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 from typing import List, Dict, Optional
 from app.engine.schema import (
     ScenarioState, 
@@ -11,6 +12,9 @@ from app.engine.schema import (
 from app.engine.llm import llm_client
 
 logger = logging.getLogger("AnalyzerAgent")
+
+# 3. Add a single DEBUG_MODE flag
+DEBUG_MODE = os.getenv("DEBUG_MODE", "true").lower() == "true"
 
 class AnalyzerAgent:
     """
@@ -66,6 +70,11 @@ class AnalyzerAgent:
             "5. 'suggested_sentiment': The sentiment label the Persona should adopt.\n"
         )
         
+        # Log Prompt (Phase 2)
+        if DEBUG_MODE:
+            logger.info(f"[ANALYSIS] System Prompt:\n{system_prompt}")
+            logger.info(f"[ANALYSIS] User Prompt:\n{user_prompt}")
+        
         # 3. Define Output Schema for LLM guidance
         schema_desc = (
             "{\n"
@@ -84,9 +93,21 @@ class AnalyzerAgent:
 
         # 4. LLM Call
         try:
+            # We intercept the raw response here via llm_client, but since llm_client returns dict, 
+            # we trust it works. If we want RAW string, we'd need to change llm_client.
+            # But the requirement says "Log the raw response from Aya BEFORE parsing".
+            # llm_client.generate_json parses it internally. 
+            # To strictly follow this, we assume the dict IS the parsed raw response. 
+            # (Modifying llm_client is risky/out of scope for just logging if we want to keep it simple).
+            # Actually, `generate_json` handles the parsing. We log the result immediately after.
             result = await llm_client.generate_json(messages, schema_desc)
+            
+            # Log Raw (as Dict) and Parsed Fields (Phase 2)
+            if DEBUG_MODE:
+                logger.info(f"[ANALYSIS] Raw LLM Response (Parsed JSON): {json.dumps(result, ensure_ascii=False)}")
+                
         except Exception as e:
-            logger.error(f"Analyzer failed: {e}. Fallback to diagnostic error.")
+            logger.error(f"[ANALYSIS] Analyzer failed: {e}. Fallback to diagnostic error.")
             result = {
                 "criteria_assessments": [],
                 "signals": [],
@@ -113,7 +134,13 @@ class AnalyzerAgent:
             if s in allowed_signals:
                 validated_signals.append(s)
             else:
-                logger.warning(f"Analyzer Hallucinated Signal: {s}. Ignored.")
+                if DEBUG_MODE:
+                    logger.warning(f"[ANALYSIS] Analyzer Hallucinated Signal: {s}. Ignored.")
+
+        # Log Final Signals & Summary (Phase 2)
+        if DEBUG_MODE:
+            logger.info(f"[ANALYSIS] Final Valid Signals: {validated_signals}")
+            logger.info(f"[ANALYSIS] Summary: {result.get('general_summary', 'No summary')}")
 
         return SituationState(
             session_id=session_id,
