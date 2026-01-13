@@ -151,12 +151,15 @@ async def interact(
                              analysis_payload = chunk
                              # Map new engine fields to legacy schema for frontend
                              if not is_cold_start:
+                                 # FIX: Check for skip_persist flag
+                                 should_persist_analysis = not chunk.get("skip_persist", False)
+                                 
                                  await _save_message(
                                     session_id,
                                     "user",
                                     text,
                                     sentiment=chunk.get("sentiment", "neutral"),
-                                    analysis=chunk
+                                    analysis=chunk if should_persist_analysis else None
                                 )
                              yield _sse_event("metrics", json.dumps(chunk, ensure_ascii=False))
                      elif isinstance(chunk, str):

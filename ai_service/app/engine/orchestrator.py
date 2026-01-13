@@ -111,6 +111,18 @@ class ScenarioOrchestrator:
         raw_signals = set(situation.signals)
         allowed_signals = set(current_state_obj.evaluation.allowed_signals)
         
+        # FIX: Deterministic Signal Injection for "start" state
+        # If we are in "start" and user said something (not [START]), force USER_RESPONDED
+        if current_node_id == graph.initial_state_id and user_text.strip() != "[START]":
+            logger.info("⚡ Injecting USER_RESPONDED signal for start state exit.")
+            raw_signals.add("USER_RESPONDED")
+            # Ensure it is allowed (we updated scenarios to allow it, but safety check)
+            if "USER_RESPONDED" not in allowed_signals:
+                # This should not happen if scenarios.py was updated correctly, but good for debug
+                logger.warning("USER_RESPONDED injected but not in allowed_signals! Check scenarios.py")
+                # We add it to allowed temporarily to force transition if critical?
+                # No, strictness is better. If missing, it will be filtered out next.
+
         # 2. Unknown Signals Reporting
         unknown_signals = raw_signals - allowed_signals
         if unknown_signals:
@@ -140,13 +152,7 @@ class ScenarioOrchestrator:
         # Find potential matches at the highest priority level
         matches = []
         if sorted_transitions:
-            # Group by priority
-            # Since sorted, we can just find the highest priority that has ANY match
-            # But correct ambiguity check means: if multiple transitions match at the SAME highest priority level.
-            
-            # Simple single-pass approach:
             highest_pri_match = -9999
-            
             for transition in sorted_transitions:
                 if transition.condition_id in filtered_signals:
                     if not matches:
@@ -154,7 +160,6 @@ class ScenarioOrchestrator:
                         highest_pri_match = transition.priority
                     elif transition.priority == highest_pri_match:
                         matches.append(transition)
-                    # Else (priority < highest_pri_match): we can ignore (already found better)
         
         # 1. Ambiguity Detection
         if len(matches) > 1:
@@ -174,13 +179,17 @@ class ScenarioOrchestrator:
             logger.info(f"🛑 Routing: Stay. (Signals: {filtered_signals})")
 
         # Yield analysis result for dashboard
+        # FIX: Add skip_persist flag if no transition occurred
+        skip_persist = (next_node_id == current_node_id)
+        
         yield {
             "type": "analysis",
             "passed": next_node_id != current_node_id,
             "reasoning": f"{situation.general_summary} ({transition_reason})", 
             "sentiment": features.sentiment_label,
             "next_state": next_node_id,
-            "signals": list(filtered_signals)
+            "signals": list(filtered_signals),
+            "skip_persist": skip_persist # Backend hint
         }
 
         # Update State

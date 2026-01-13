@@ -21,7 +21,7 @@ interview_graph = ScenarioGraph(
             actor_instruction="הציגי את עצמך כשרה. ברכי את המועמד לשלום. הזמיני אותו לשבת ושאלי אם הוא מוכן.",
             evaluation=EvaluationCriteria(
                 criteria=["המשתמש עונה לברכה"],
-                allowed_signals=["GREETING_RETURNED"],
+                allowed_signals=["GREETING_RETURNED", "USER_RESPONDED"],
                 pass_condition="המשתמש מאשר את הברכה בנימוס.",
                 failure_feedback_guidance="המשתמש צריך פשוט לומר שלום או לאשר שהוא מוכן."
             ),
@@ -30,6 +30,12 @@ interview_graph = ScenarioGraph(
                     target_state_id="ask_intro", 
                     condition="המשתמש ענה לברכה",
                     condition_id="GREETING_RETURNED"
+                ),
+                Transition(
+                    target_state_id="ask_intro",
+                    condition="המשתמש הגיב",
+                    condition_id="USER_RESPONDED",
+                    priority=10
                 )
             ]
         ),
@@ -157,7 +163,7 @@ bank_graph = ScenarioGraph(
             actor_instruction="הצג/י את עצמך כדנה מהבנק. שאל/י כיצד ניתן לסייע היום בתהליך בקשת ההלוואה. סימולציה בלבד; אין לבקש מידע אישי או מזהה.",
             evaluation=EvaluationCriteria(
                 criteria=["המשתמש מציין כוונה להגיש בקשה להלוואה"],
-                allowed_signals=["INTENT_CONFIRMED"],
+                allowed_signals=["INTENT_CONFIRMED", "USER_RESPONDED"],
                 pass_condition="המשתמש מאשר שהוא מעוניין להגיש בקשה להלוואה.",
                 failure_feedback_guidance="המשתמש צריך לציין שהוא כאן לצורך בקשת הלוואה."
             ),
@@ -166,6 +172,12 @@ bank_graph = ScenarioGraph(
                     target_state_id="ask_amount", 
                     condition="המשתמש אישר כוונה",
                     condition_id="INTENT_CONFIRMED"
+                ),
+                Transition(
+                    target_state_id="ask_amount",
+                    condition="המשתמש הגיב",
+                    condition_id="USER_RESPONDED",
+                    priority=10
                 )
             ]
         ),
@@ -307,7 +319,7 @@ grocery_graph = ScenarioGraph(
             actor_instruction="אמרי: 'היי! ברוכים הבאים לפרש-מרקט. מצאתם את כל מה שהייתם צריכים?'",
             evaluation=EvaluationCriteria(
                 criteria=["המשתמש עונה לברכה"],
-                allowed_signals=["GREETING_RETURNED"],
+                allowed_signals=["GREETING_RETURNED", "USER_RESPONDED"],
                 pass_condition="המשתמש מאשר שמצא פריטים או מבקש משהו.",
                 failure_feedback_guidance="המשתמש צריך לענות כן או לא."
             ),
@@ -316,6 +328,12 @@ grocery_graph = ScenarioGraph(
                     target_state_id="ask_club_card", 
                     condition="המשתמש ענה",
                     condition_id="GREETING_RETURNED"
+                ),
+                Transition(
+                    target_state_id="ask_club_card",
+                    condition="המשתמש הגיב",
+                    condition_id="USER_RESPONDED",
+                    priority=10
                 )
             ]
         ),
@@ -431,7 +449,7 @@ date_graph = ScenarioGraph(
             actor_instruction="אמרי: 'היי! איזה כיף סוף סוף להיפגש. איך עבר היום שלך?'",
             evaluation=EvaluationCriteria(
                 criteria=["המשתמש מחזיר ברכה", "המשתמש ענה איך הוא מרגיש"],
-                allowed_signals=["GREETING_RETURNED"],
+                allowed_signals=["GREETING_RETURNED", "USER_RESPONDED"],
                 pass_condition="המשתמש מברך בחזרה ועונה.",
                 failure_feedback_guidance="המשתמש צריך להיות מנומס ולענות על השאלה."
             ),
@@ -440,6 +458,12 @@ date_graph = ScenarioGraph(
                     target_state_id="ask_hobby", 
                     condition="המשתמש ענה",
                     condition_id="GREETING_RETURNED"
+                ),
+                Transition(
+                    target_state_id="ask_hobby",
+                    condition="המשתמש הגיב",
+                    condition_id="USER_RESPONDED",
+                    priority=10
                 )
             ]
         ),
@@ -532,7 +556,7 @@ conflict_graph = ScenarioGraph(
             actor_instruction="התחלה כועסת: 'סליחה! אנחנו צריכים לדבר. הרעש מהדירה שלך אתמול בלילה היה בלתי נסבל.'",
             evaluation=EvaluationCriteria(
                 criteria=["המשתמש מקשיב", "המשתמש לא תוקף בחזרה"],
-                allowed_signals=["LISTENING_CONFIRMED"],
+                allowed_signals=["LISTENING_CONFIRMED", "USER_RESPONDED"],
                 pass_condition="המשתמש מבין שהשכנה כועסת.",
                 failure_feedback_guidance="המשתמש צריך לשאול מה קרה או להתנצל, לא להילחם בחזרה."
             ),
@@ -541,6 +565,12 @@ conflict_graph = ScenarioGraph(
                     target_state_id="express_frustration", 
                     condition="המשתמש הודה",
                     condition_id="LISTENING_CONFIRMED"
+                ),
+                Transition(
+                    target_state_id="express_frustration",
+                    condition="המשתמש הגיב",
+                    condition_id="USER_RESPONDED",
+                    priority=10
                 )
             ]
         ),
