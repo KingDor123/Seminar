@@ -64,6 +64,11 @@ class AnalyzerAgent:
             "   - Mark 'low' IF: Imperative verbs (ציווי like 'give me'), blunt commands without 'please', or rude tone.\n"
             "   - Example: 'Give me money' -> Sentiment: Neutral, Appropriateness: Low.\n\n"
             
+            "3. Special Signal: FINANCIAL_INELIGIBLE (Bank Scenario ONLY)\n"
+            "   - Emit this signal IF user states: No income, inability to repay, or explicit refusal to pay back.\n"
+            "   - This is NOT an emotional sentiment. It is an objective financial status.\n"
+            "   - Example: 'I don't have a job' -> Signal: FINANCIAL_INELIGIBLE (Sentiment: Neutral).\n\n"
+            
             f"--- CURRENT CONTEXT: {state.id} ---\n"
             f"Description: {state.description}\n"
             f"Expected Criteria:\n{criteria_list}\n"
@@ -113,6 +118,7 @@ class AnalyzerAgent:
         try:
             result = await llm_client.generate_json(messages, schema_desc)
             
+            # Log Raw (as Dict) and Parsed Fields (Phase 2)
             if DEBUG_MODE:
                 logger.info(f"[ANALYSIS] Raw LLM Response (Parsed JSON): {json.dumps(result, ensure_ascii=False)}")
                 
@@ -138,6 +144,7 @@ class AnalyzerAgent:
                 reasoning=raw.get("reasoning", "")
             ))
             
+        # Validate Signals (Injection Hardening Step 1)
         raw_signals = result.get("signals", [])
         validated_signals = []
         for s in raw_signals:
@@ -147,6 +154,7 @@ class AnalyzerAgent:
                 if DEBUG_MODE:
                     logger.warning(f"[ANALYSIS] Analyzer Hallucinated Signal: {s}. Ignored.")
 
+        # Log Final Signals & Summary (Phase 2)
         if DEBUG_MODE:
             logger.info(f"[ANALYSIS] Final Valid Signals: {validated_signals}")
             logger.info(f"[ANALYSIS] Appropriateness: {result.get('social_appropriateness', 'medium')}")

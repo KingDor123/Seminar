@@ -222,16 +222,23 @@ bank_graph = ScenarioGraph(
             description="בקשת פרטי הכנסה",
             actor_instruction="שאל/י לגבי טווח הכנסה חודשית משוער והאם קיימות התחייבויות נוספות. שמור/י על משפט קצר והימנע/י מכל מזהה אישי או מסמכים. סימולציה בלבד.",
             evaluation=EvaluationCriteria(
-                criteria=["המשתמש מספק פרטי הכנסה"],
-                allowed_signals=["INCOME_GIVEN"],
-                pass_condition="המשתמש מציין הכנסה משוערת.",
+                criteria=["המשתמש מספק פרטי הכנסה תקינים", "המשתמש אינו חסר יכולת החזר"],
+                allowed_signals=["INCOME_GIVEN", "FINANCIAL_INELIGIBLE"],
+                pass_condition="המשתמש מציין הכנסה משוערת שמאפשרת החזר.",
                 failure_feedback_guidance="המשתמש צריך לספק מידע על הכנסה לצורך הבקשה."
             ),
             transitions=[
                 Transition(
                     target_state_id="present_terms", 
-                    condition="המשתמש סיפק הכנסה",
+                    condition="המשתמש סיפק הכנסה תקינה",
                     condition_id="INCOME_GIVEN"
+                ),
+                # New transition for financial ineligibility (High Priority)
+                Transition(
+                    target_state_id="ineligible_financially", 
+                    condition="המשתמש הצהיר על אי-יכולת החזר",
+                    condition_id="FINANCIAL_INELIGIBLE",
+                    priority=5
                 )
             ]
         ),
@@ -280,6 +287,27 @@ bank_graph = ScenarioGraph(
                     target_state_id="closing", 
                     condition="המשתמש ויתר",
                     condition_id="TERMS_REJECTED"
+                )
+            ]
+        ),
+        # New State: Financial Ineligibility
+        # This state handles cases where the loan cannot be processed due to objective financial reasons
+        # (e.g., no income, refusal to repay). It is distinct from behavioral failure.
+        "ineligible_financially": ScenarioState(
+            id="ineligible_financially",
+            description="דחיית בקשה על רקע כלכלי",
+            actor_instruction="הסבירי בעדינות ובכבוד שללא הכנסה או יכולת החזר, הבנק לא יוכל לאשר את ההלוואה כרגע. הציעי לבדוק שוב בעתיד כשהמצב ישתנה. היי אמפתית אך מקצועית.",
+            evaluation=EvaluationCriteria(
+                criteria=["המשתמש מבין את הסירוב ונפרד"],
+                allowed_signals=["GOODBYE"],
+                pass_condition="המשתמש מסיים את השיחה.",
+                failure_feedback_guidance="היפרדי לשלום."
+            ),
+            transitions=[
+                Transition(
+                    target_state_id="closing", 
+                    condition="המשתמש הבין ונפרד",
+                    condition_id="GOODBYE"
                 )
             ]
         ),
