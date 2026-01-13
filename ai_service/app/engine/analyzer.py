@@ -74,7 +74,9 @@ class AnalyzerAgent:
             f"Expected Criteria:\n{criteria_list}\n"
             f"Pass Condition (Reference): {state.evaluation.pass_condition}\n"
             f"ALLOWED SIGNALS: [{signals_text}]\n\n"
-            "Analyze the User Input below against these criteria."
+            "Analyze the User Input below against these criteria.\n"
+            "IMPORTANT: If the user input meets the criteria to advance the conversation, you MUST include the relevant signal from the ALLOWED SIGNALS list in your 'signals' output field.\n"
+            "For example, if the criterion is 'User provides amount' and the user says '500 dollars', you MUST output 'signals': ['AMOUNT_GIVEN']."
         )
         
         user_prompt = (

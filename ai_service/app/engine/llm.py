@@ -25,7 +25,7 @@ class LLMClient:
             "No markdown, no preambles. "
             f"Target Schema: {schema}"
         )
-        
+
         # Append instruction to the last system message or add one
         if messages[0]["role"] == "system":
             messages[0]["content"] += system_suffix
@@ -38,7 +38,8 @@ class LLMClient:
                 messages=messages,
                 temperature=0.1,
                 max_tokens=300,
-                response_format={"type": "json_object"} # Ollama supports this for some models
+                response_format={"type": "json_object"}, # Ollama supports this for some models
+                extra_body={"options": {"num_ctx": 8192}} # Explicitly request 8k context
             )
             content = response.choices[0].message.content
             return json.loads(content)
@@ -55,8 +56,9 @@ class LLMClient:
             stream = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=0.7,
-                stream=True
+                temperature=0.2,
+                stream=True,
+                extra_body={"options": {"num_ctx": 8192}} # Explicitly request 8k context
             )
             async for chunk in stream:
                 content = chunk.choices[0].delta.content
