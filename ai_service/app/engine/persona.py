@@ -44,9 +44,11 @@ class PersonaAgent:
             f"Sentiment to project: {situation.suggested_sentiment}\n"
         )
 
+        # STRICT LANGUAGE ENFORCEMENT
+        # We explicitly forbid any other language to prevent model drifting.
         system_prompt += (
             "\nRULES:\n"
-            "1. Output Language: Hebrew. (עברית בלבד)\n"
+            "1. Output Language: Hebrew ONLY. (עברית בלבד)\n"
             "2. Keep it concise (1-2 sentences). Do not monologue.\n"
             "3. Stay 100% in character. Never mention you are an AI or actor.\n"
             "4. Respond naturally to the user's last message."

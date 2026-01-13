@@ -156,6 +156,7 @@ async def interact(
                                  # CRITICAL: Save user message BEFORE processing further
                                  # If this fails, we MUST ABORT to keep DB and FSM in sync.
                                  try:
+                                     # We do NOT pass analysis payload here anymore.
                                      await _save_message(
                                         session_id,
                                         "user",
@@ -165,7 +166,7 @@ async def interact(
                                  except Exception as e:
                                      logger.error(f"❌ FATAL: User Message Persistence Failed. Aborting Turn. {e}")
                                      yield _sse_event("error", "System Error: Message persistence failed. Turn aborted.")
-                                     return # Stop generator, do not update state, do not generate response.
+                                     return # Stop generator, do not update state, do not generate response. 
 
                              # Yield metrics to frontend (frontend uses them for UI, backend doesn't store them)
                              yield _sse_event("metrics", json.dumps(chunk, ensure_ascii=False))

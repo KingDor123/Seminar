@@ -22,6 +22,11 @@ class AnalyzerAgent:
     Responsibility: Analyze the user's input based on deterministic features and state criteria.
     Output: Strict structural state (SituationState) - DIAGNOSTIC ONLY.
     NO Routing decisions here.
+    
+    IMPORTANT: This agent distinguishes between 'Emotional Sentiment' and 'Social Appropriateness'.
+    - Sentiment: Internal emotional state (anger, joy, sadness).
+    - Appropriateness: Adherence to social norms (politeness, role awareness).
+    This separation allows the system to correct impolite behavior without mislabeling it as 'angry'.
     """
 
     @staticmethod
@@ -40,7 +45,6 @@ class AnalyzerAgent:
         # 2. Build Prompt
         criteria_list = "\n".join([f"- {c}" for c in state.evaluation.criteria])
         
-        # New: List allowed signals
         allowed_signals = state.evaluation.allowed_signals
         signals_text = ", ".join(allowed_signals) if allowed_signals else "NONE (No signals available)"
 
@@ -48,6 +52,18 @@ class AnalyzerAgent:
             "You are the STATE ANALYZER for a social skills training simulation.\n"
             "Your job is to DIAGNOSE the interaction. You do NOT decide the next state.\n"
             "You DO NOT generate dialogue.\n\n"
+            
+            "--- DEFINITIONS (CRITICAL) ---\n"
+            "1. Emotional Sentiment: Refers ONLY to expressed emotion (anger, frustration, joy). \n"
+            "   - Imperative language alone is NOT emotional negative sentiment.\n"
+            "   - Financial need or factual statements are NOT emotional negativity.\n"
+            "   - 'negative' sentiment implies EXPLICIT emotional words (e.g. 'I am angry', 'This is frustrating').\n\n"
+            
+            "2. Social Appropriateness: Refers to politeness, role awareness, and pragmatic norms.\n"
+            "   - Values: 'high', 'medium', 'low'.\n"
+            "   - Mark 'low' IF: Imperative verbs (ציווי like 'give me'), blunt commands without 'please', or rude tone.\n"
+            "   - Example: 'Give me money' -> Sentiment: Neutral, Appropriateness: Low.\n\n"
+            
             f"--- CURRENT CONTEXT: {state.id} ---\n"
             f"Description: {state.description}\n"
             f"Expected Criteria:\n{criteria_list}\n"
@@ -65,9 +81,10 @@ class AnalyzerAgent:
             "Provide the following strictly in JSON:\n"
             "1. 'criteria_assessments': List of objects { 'criterion_text': string, 'met': boolean, 'reasoning': string }.\n"
             f"2. 'signals': List of strings from the ALLOWED SIGNALS list above that apply. If none apply, return empty list [].\n"
-            "3. 'general_summary': A brief neutral summary of what the user did.\n"
-            "4. 'guidance_directive': Instructions for the Persona Actor on how to react tone-wise.\n"
-            "5. 'suggested_sentiment': The sentiment label the Persona should adopt.\n"
+            "3. 'social_appropriateness': One of 'high', 'medium', 'low'. (Assess politeness/norms separately from emotion).\n"
+            "4. 'general_summary': A brief neutral summary of what the user did.\n"
+            "5. 'guidance_directive': Instructions for the Persona Actor on how to react tone-wise.\n"
+            "6. 'suggested_sentiment': The sentiment label the Persona should adopt.\n"
         )
         
         # Log Prompt (Phase 2)
@@ -80,6 +97,7 @@ class AnalyzerAgent:
             "{\n"
             "  \"criteria_assessments\": [{ \"criterion_text\": \"...\", \"met\": true/false, \"reasoning\": \"...\" }],\n"
             "  \"signals\": [\"SIGNAL_NAME\"],\n"
+            "  \"social_appropriateness\": \"high|medium|low\",\n"
             "  \"general_summary\": \"...\",\n"
             "  \"guidance_directive\": \"...\",\n"
             "  \"suggested_sentiment\": \"...\"\n"
@@ -93,16 +111,8 @@ class AnalyzerAgent:
 
         # 4. LLM Call
         try:
-            # We intercept the raw response here via llm_client, but since llm_client returns dict, 
-            # we trust it works. If we want RAW string, we'd need to change llm_client.
-            # But the requirement says "Log the raw response from Aya BEFORE parsing".
-            # llm_client.generate_json parses it internally. 
-            # To strictly follow this, we assume the dict IS the parsed raw response. 
-            # (Modifying llm_client is risky/out of scope for just logging if we want to keep it simple).
-            # Actually, `generate_json` handles the parsing. We log the result immediately after.
             result = await llm_client.generate_json(messages, schema_desc)
             
-            # Log Raw (as Dict) and Parsed Fields (Phase 2)
             if DEBUG_MODE:
                 logger.info(f"[ANALYSIS] Raw LLM Response (Parsed JSON): {json.dumps(result, ensure_ascii=False)}")
                 
@@ -111,6 +121,7 @@ class AnalyzerAgent:
             result = {
                 "criteria_assessments": [],
                 "signals": [],
+                "social_appropriateness": "medium", # Fallback safe default
                 "general_summary": "System Analysis Error",
                 "guidance_directive": "Apologize and ask the user to repeat.",
                 "suggested_sentiment": "neutral"
@@ -127,7 +138,6 @@ class AnalyzerAgent:
                 reasoning=raw.get("reasoning", "")
             ))
             
-        # Validate Signals (Injection Hardening Step 1)
         raw_signals = result.get("signals", [])
         validated_signals = []
         for s in raw_signals:
@@ -137,9 +147,9 @@ class AnalyzerAgent:
                 if DEBUG_MODE:
                     logger.warning(f"[ANALYSIS] Analyzer Hallucinated Signal: {s}. Ignored.")
 
-        # Log Final Signals & Summary (Phase 2)
         if DEBUG_MODE:
             logger.info(f"[ANALYSIS] Final Valid Signals: {validated_signals}")
+            logger.info(f"[ANALYSIS] Appropriateness: {result.get('social_appropriateness', 'medium')}")
             logger.info(f"[ANALYSIS] Summary: {result.get('general_summary', 'No summary')}")
 
         return SituationState(
@@ -148,6 +158,7 @@ class AnalyzerAgent:
             current_node_id=current_node_id,
             criteria_assessments=assessments,
             signals=validated_signals,
+            social_appropriateness=result.get("social_appropriateness", "medium"), # New Field
             general_summary=result.get("general_summary", "No summary provided."),
             guidance_directive=result.get("guidance_directive", "Continue naturally."),
             suggested_sentiment=result.get("suggested_sentiment", "neutral"),

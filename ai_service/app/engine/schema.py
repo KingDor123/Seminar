@@ -92,6 +92,10 @@ class SituationState(BaseModel):
     # NEW: Emitted Signals (Diagnostic tags for routing)
     signals: List[str] = Field(default_factory=list, description="Detected signals (e.g. ['CONFIRMED', 'POLITE'])")
     
+    # NEW: Social Appropriateness (Separated from emotional sentiment)
+    # Values: "high", "medium", "low"
+    social_appropriateness: str = Field("medium", description="Pragmatic appropriateness (politeness/norms), distinct from emotion.")
+
     general_summary: str = Field(..., description="Summary of user's action and intent")
     
     # Directives for the Persona (Acting cues, not routing)
