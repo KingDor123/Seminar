@@ -2,23 +2,29 @@ import logging
 import json
 import httpx
 import os
+import sys
 from fastapi import APIRouter, HTTPException, Form
 from fastapi.responses import StreamingResponse
 from typing import Optional, AsyncGenerator, List, Dict, Any
 
-import sys
-
-# Robust import to handle both Docker (/app root) and Local (parent root) paths
+# Robust import strategy
+# 1. Try direct import (works in Docker if PYTHONPATH=/app)
 try:
-    from ai_service.app.engine.orchestrator import orchestrator
-    from ai_service.app.engine.scenarios import SCENARIO_REGISTRY
-except ImportError:
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    pipeline_dir = os.path.abspath(os.path.join(current_dir, '../..'))
-    if pipeline_dir not in sys.path:
-        sys.path.append(pipeline_dir)
     from app.engine.orchestrator import orchestrator
     from app.engine.scenarios import SCENARIO_REGISTRY
+except ImportError:
+    # 2. Try parent package import (works in local dev if running from root)
+    try:
+        from ai_service.app.engine.orchestrator import orchestrator
+        from ai_service.app.engine.scenarios import SCENARIO_REGISTRY
+    except ImportError:
+         # 3. Path hack fallback
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        pipeline_dir = os.path.abspath(os.path.join(current_dir, '../..'))
+        if pipeline_dir not in sys.path:
+            sys.path.append(pipeline_dir)
+        from app.engine.orchestrator import orchestrator
+        from app.engine.scenarios import SCENARIO_REGISTRY
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
