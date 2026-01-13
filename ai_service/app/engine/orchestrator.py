@@ -1,120 +1,209 @@
 import logging
 import json
-from typing import AsyncGenerator, Dict, Any, List
+from typing import AsyncGenerator, Dict, Any, List, Optional, Callable
 
-from app.engine.schema import ScenarioGraph
+from app.engine.schema import (
+    ScenarioGraph, 
+    InteractionFeatures, 
+    SituationState
+)
 from app.engine.scenarios import get_scenario_graph
 from app.engine.state_manager import state_manager
-from app.engine.agents import EvaluatorAgent, RolePlayAgent
+
+# New Components
+from app.engine.features import FeatureExtractor
+from app.engine.analyzer import AnalyzerAgent
+from app.engine.persona import PersonaAgent
 
 logger = logging.getLogger("Orchestrator")
 
+# --- 3. Generalized Signal Guards ---
+# Predicates: (features) -> bool
+# If predicate returns False, the signal is rejected even if LLM emitted it.
+SIGNAL_GUARDS: Dict[str, Callable[[InteractionFeatures], bool]] = {
+    "AMOUNT_GIVEN": lambda f: any(char.isdigit() for char in f.text), # Heuristic: needs digits
+    # Add more as needed, e.g. "GREETING" -> lambda f: f.text.len < 10 ...
+}
+
 class ScenarioOrchestrator:
+    """
+    The Central Controller of the AI Pipeline.
+    Enforces the strict flow:
+    Input -> Features -> Analyzer (LLM 1) -> Routing Logic (Code) -> State Update -> Persona (LLM 2) -> Output
+    """
     
     async def process_turn(
         self,
         session_id: str,
         scenario_id: str,
         user_text: str,
-        history: List[Dict[str, str]]
+        history: List[Dict[str, str]],
+        audio_meta: Dict[str, Any] = {}
     ) -> AsyncGenerator[Any, None]:
         
-        # 1. Load Graph
+        # 0. Load Context
         graph = get_scenario_graph(scenario_id)
         if not graph:
             yield f"Error: Scenario '{scenario_id}' not found."
             return
 
-        # 2. Load State
-        is_cold_start = user_text.strip() == "[START]"
+        # Load current pointer (or init)
         session_data = state_manager.get_state(session_id)
-
-        if is_cold_start:
+        current_node_id = session_data.current_node_id if session_data else graph.initial_state_id
+        
+        # Validate node existence
+        if current_node_id not in graph.states:
+            logger.warning(f"State {current_node_id} invalid. Resetting.")
             current_node_id = graph.initial_state_id
-            state_manager.update_state(session_id, scenario_id, current_node_id)
-        elif session_data:
-            if session_data.scenario_id != scenario_id:
-                logger.warning(
-                    f"Session {session_id} scenario mismatch ({session_data.scenario_id} != {scenario_id}); resetting state."
-                )
-                current_node_id = graph.initial_state_id
-                state_manager.update_state(session_id, scenario_id, current_node_id)
-            else:
-                current_node_id = session_data.current_node_id
-        else:
-            current_node_id = graph.initial_state_id
-            state_manager.update_state(session_id, scenario_id, current_node_id)
-
-        current_state = graph.states.get(current_node_id)
-        if not current_state:
-            logger.warning(
-                f"Invalid state '{current_node_id}' for scenario '{scenario_id}'; resetting to initial state."
+            
+        current_state_obj = graph.states[current_node_id]
+        
+        # --- PHASE 0: COLD START HANDLING ---
+        if user_text.strip() == "[START]":
+            logger.info("🎬 Cold Start detected.")
+            state_manager.update_state(session_id, scenario_id, graph.initial_state_id)
+            
+            # Synthetic situation for start
+            initial_situation = SituationState(
+                session_id=session_id,
+                scenario_id=scenario_id,
+                current_node_id=graph.initial_state_id,
+                criteria_assessments=[],
+                signals=[],
+                general_summary="Session started.",
+                guidance_directive="Start the conversation. Introduce yourself.",
+                suggested_sentiment="welcoming"
             )
-            current_node_id = graph.initial_state_id
-            state_manager.update_state(session_id, scenario_id, current_node_id)
-            current_state = graph.states.get(current_node_id)
-            if not current_state:
-                yield "Error: Invalid state configuration."
-                return
-
-        # --- SPECIAL CASE: INITIALIZATION ---
-        if is_cold_start:
-            logger.info(f"🎬 Initializing conversation in state: {current_node_id}")
-            # Skip evaluation, just act out the initial state
-            async for token in RolePlayAgent.generate_response(
-                user_text="[START]", # Pass strict signal
-                base_persona=graph.base_persona,
-                state=current_state,
-                history=[], # No history for start
-                eval_result=None
+            
+            async for token in PersonaAgent.generate(
+                graph.base_persona,
+                current_state_obj, 
+                initial_situation,
+                [] 
             ):
                 yield token
             return
 
-        # 3. Evaluate User Input (The "Coach")
-        logger.info(f"🧐 Evaluating turn in state: {current_node_id}")
-        eval_result = await EvaluatorAgent.evaluate(user_text, current_state, history)
+        # --- PHASE 1: FEATURE EXTRACTION (Deterministic) ---
+        logger.info("Phase 1: Feature Extraction")
+        features = FeatureExtractor.extract(user_text, audio_meta)
         
-        # Yield metadata about the evaluation
         yield {
-            "type": "analysis",
-            "sentiment": eval_result.sentiment, 
-            "confidence": 1.0 if eval_result.passed else 0.5,
-            "detected_intent": "next_step" if eval_result.passed else "retry",
-            "social_impact": "progress" if eval_result.passed else "stagnation",
-            "reasoning": eval_result.reasoning,
-            "passed": eval_result.passed,
-            "current_state": current_node_id
+            "type": "debug_features",
+            "sentiment": features.sentiment_score,
+            "wpm": features.wpm,
+            "entities": features.named_entities
         }
 
-        # 4. State Transition Logic
-        target_state = current_state # Default: stay put
+        # --- PHASE 2: ANALYSIS (Analyzer LLM - Diagnostic Only) ---
+        logger.info(f"Phase 2: Analysis (Current: {current_node_id})")
+        situation = await AnalyzerAgent.analyze(
+            session_id,
+            scenario_id,
+            current_node_id,
+            current_state_obj,
+            features,
+            history
+        )
         
-        if eval_result.passed and eval_result.next_state_id:
-            next_id = eval_result.next_state_id
-            if next_id in graph.states:
-                logger.info(f"🚀 Transitioning: {current_node_id} -> {next_id}")
-                current_node_id = next_id
-                target_state = graph.states[next_id]
-                state_manager.update_state(session_id, scenario_id, current_node_id)
-                
-                # Notify frontend of transition (optional)
-                yield {"type": "transition", "from": current_state.id, "to": next_id}
-            else:
-                logger.warning(f"⚠️ Invalid transition target: {next_id}")
+        # --- PHASE 3: ROUTING LOGIC (Orchestrator Exclusive) ---
+        
+        raw_signals = set(situation.signals)
+        allowed_signals = set(current_state_obj.evaluation.allowed_signals)
+        
+        # 2. Unknown Signals Reporting
+        unknown_signals = raw_signals - allowed_signals
+        if unknown_signals:
+            logger.warning(f"⚠️ Unknown signals detected in state {current_node_id}: {unknown_signals}. Ignoring.")
+        
+        # Filter to allowed only
+        valid_signals = raw_signals.intersection(allowed_signals)
 
-        # 5. Generate Response (The "Actor")
-        # The actor generates response based on the TARGET state (where we are now)
-        # Exception: If we failed, we are still in the old state, and the prompt includes "Guidance".
+        # 3. Guard Application (Generalized)
+        filtered_signals = set()
+        for sig in valid_signals:
+            guard = SIGNAL_GUARDS.get(sig)
+            if guard:
+                if guard(features):
+                    filtered_signals.add(sig)
+                else:
+                    logger.warning(f"🛡️ Security: Guard blocked signal '{sig}' based on features.")
+            else:
+                filtered_signals.add(sig)
         
-        logger.info(f"🎭 Generating response for state: {target_state.id}")
+        # 4. Select Transition with Ambiguity Check
+        sorted_transitions = sorted(current_state_obj.transitions, key=lambda t: t.priority, reverse=True)
         
-        async for token in RolePlayAgent.generate_response(
-            user_text,
+        next_node_id = current_node_id
+        transition_reason = "No matching signal"
+        
+        # Find potential matches at the highest priority level
+        matches = []
+        if sorted_transitions:
+            # Group by priority
+            # Since sorted, we can just find the highest priority that has ANY match
+            # But correct ambiguity check means: if multiple transitions match at the SAME highest priority level.
+            
+            # Simple single-pass approach:
+            highest_pri_match = -9999
+            
+            for transition in sorted_transitions:
+                if transition.condition_id in filtered_signals:
+                    if not matches:
+                        matches.append(transition)
+                        highest_pri_match = transition.priority
+                    elif transition.priority == highest_pri_match:
+                        matches.append(transition)
+                    # Else (priority < highest_pri_match): we can ignore (already found better)
+        
+        # 1. Ambiguity Detection
+        if len(matches) > 1:
+            logger.warning(
+                f"⚠️ Ambiguous Transitions in {current_node_id}: "
+                f"Multiple transitions matched signals {filtered_signals} at priority {matches[0].priority}. "
+                f"Targets: {[m.target_state_id for m in matches]}. "
+                f"Defaulting to first match: {matches[0].target_state_id}"
+            )
+
+        if matches:
+            chosen = matches[0]
+            next_node_id = chosen.target_state_id
+            transition_reason = f"Signal '{chosen.condition_id}' matched."
+            logger.info(f"🚀 Routing: {transition_reason} -> {next_node_id}")
+        else:
+            logger.info(f"🛑 Routing: Stay. (Signals: {filtered_signals})")
+
+        # Yield analysis result for dashboard
+        yield {
+            "type": "analysis",
+            "passed": next_node_id != current_node_id,
+            "reasoning": f"{situation.general_summary} ({transition_reason})", 
+            "sentiment": features.sentiment_label,
+            "next_state": next_node_id,
+            "signals": list(filtered_signals)
+        }
+
+        # Update State
+        if next_node_id != current_node_id:
+            state_manager.update_state(session_id, scenario_id, next_node_id)
+            yield {
+                "type": "transition",
+                "from": current_node_id,
+                "to": next_node_id
+            }
+
+        # --- PHASE 4: RESPONSE GENERATION (Persona LLM) ---
+        target_state_obj = graph.states.get(next_node_id, current_state_obj)
+        
+        generation_history = history.copy()
+        generation_history.append({"role": "user", "content": user_text})
+
+        logger.info(f"Phase 4: Generating Response for {next_node_id}")
+        async for token in PersonaAgent.generate(
             graph.base_persona,
-            target_state,
-            history,
-            eval_result # Pass result so actor knows if user failed
+            target_state_obj,
+            situation,
+            generation_history
         ):
             yield token
 
