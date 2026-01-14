@@ -36,6 +36,11 @@ Before the LLM sees any message, HeBERT scores the user input for sentiment. Tha
 - Live analytics dashboard with sentiment trends and global session stats.
 - Master-detail session history with per-message sentiment badges.
 
+## Bank Loan FSM (Dana)
+The bank scenario is deterministic and FSM-driven. The analyzer in `ai_service/app/engine/bank/` extracts slots (amount, purpose, income, confirmation, id details) and emits discrete signals (rude/refusal/repay, relevance/clarity/appropriateness). The FSM applies slot-skip rules to jump ahead when data is provided early and enforces a two-strike policy for rude language, refusal to provide info, or refusal to repay. The LLM only renders the final response based on the FSM decision object and never changes state.
+
+State flow: `start → ask_amount → ask_purpose → check_income → sign_confirm → goodbye` (or `terminate` on strike rules).
+
 ## Installation
 ### Prerequisites
 - Docker + Docker Compose.

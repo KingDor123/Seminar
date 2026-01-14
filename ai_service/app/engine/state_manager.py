@@ -3,6 +3,7 @@ import os
 import logging
 from typing import Dict, Optional
 from pydantic import BaseModel
+from app.engine.bank.types import BankSessionState
 
 logger = logging.getLogger("SessionStateManager")
 
@@ -10,6 +11,7 @@ class SessionStateData(BaseModel):
     scenario_id: str
     current_node_id: str
     variables: Dict[str, str] = {} # For future use (e.g. name, collected info)
+    bank_state: Optional[BankSessionState] = None
 
 class SessionStateManager:
     """
@@ -46,9 +48,34 @@ class SessionStateManager:
 
     def update_state(self, session_id: str, scenario_id: str, node_id: str):
         sid = str(session_id)
+        existing = self.sessions.get(sid)
         self.sessions[sid] = SessionStateData(
             scenario_id=scenario_id,
-            current_node_id=node_id
+            current_node_id=node_id,
+            bank_state=existing.bank_state if existing else None,
+        )
+        self._save()
+
+    def get_or_create_bank_state(self, session_id: str, scenario_id: str) -> BankSessionState:
+        sid = str(session_id)
+        existing = self.sessions.get(sid)
+        if existing and existing.bank_state and existing.scenario_id == scenario_id:
+            return existing.bank_state
+        bank_state = BankSessionState()
+        self.sessions[sid] = SessionStateData(
+            scenario_id=scenario_id,
+            current_node_id=bank_state.current_state_id,
+            bank_state=bank_state,
+        )
+        self._save()
+        return bank_state
+
+    def update_bank_state(self, session_id: str, scenario_id: str, bank_state: BankSessionState):
+        sid = str(session_id)
+        self.sessions[sid] = SessionStateData(
+            scenario_id=scenario_id,
+            current_node_id=bank_state.current_state_id,
+            bank_state=bank_state,
         )
         self._save()
 

@@ -147,53 +147,47 @@ interview_graph = ScenarioGraph(
 # --- Bank Scenario Definition ---
 
 _BANK_PERSONA = """
-את דנה, נציגת בנק רגועה ומקצועית בשיחת וידאו לבקשת הלוואה.
-סגנון דיבור: חמימה, פשוטה, תומכת ומעודדת. משפט קצר אחד בכל תשובה.
+את דנה, נציגת בנק מקצועית בסימולציה להלוואה.
+סגנון דיבור: קצר, ענייני, תומך וללא שיחת חולין.
 """
 bank_graph = ScenarioGraph(
     id="bank",
     name="בקשת הלוואה - בנק",
     base_persona=_BANK_PERSONA,
-    goal="לנהל בקשת הלוואה בצורה מקצועית: איסוף נתונים פיננסיים, הסבר תנאים ושמירה על תקשורת ברורה.",
+    goal="לנהל בקשת הלוואה בצורה מקצועית: איסוף סכום, מטרה, הכנסה, ואישור סופי.",
     initial_state_id="start",
     states={
         "start": ScenarioState(
             id="start",
-            description="פתיחת השיחה (סימולציה בלבד)",
-            actor_instruction="הצג/י את עצמך כדנה מהבנק. שאל/י כיצד ניתן לסייע היום בתהליך בקשת ההלוואה. סימולציה בלבד; אין לבקש מידע אישי או מזהה.",
+            description="פתיחת השיחה",
+            actor_instruction="ברכי כדנה מהבנק ושאלי כיצד אפשר לסייע בתהליך בקשת הלוואה.",
             evaluation=EvaluationCriteria(
-                criteria=["המשתמש מציין כוונה להגיש בקשה להלוואה"],
-                allowed_signals=["INTENT_CONFIRMED", "USER_RESPONDED"],
-                pass_condition="המשתמש מאשר שהוא מעוניין להגיש בקשה להלוואה.",
-                failure_feedback_guidance="המשתמש צריך לציין שהוא כאן לצורך בקשת הלוואה."
+                criteria=["המשתמש מגיב לפתיחה"],
+                allowed_signals=["USER_RESPONDED"],
+                pass_condition="המשתמש מגיב.",
+                failure_feedback_guidance="המשתמש צריך להגיב לפתיחה."
             ),
             transitions=[
                 Transition(
-                    target_state_id="ask_amount", 
-                    condition="המשתמש אישר כוונה",
-                    condition_id="INTENT_CONFIRMED"
-                ),
-                Transition(
                     target_state_id="ask_amount",
                     condition="המשתמש הגיב",
-                    condition_id="USER_RESPONDED",
-                    priority=10
+                    condition_id="USER_RESPONDED"
                 )
             ]
         ),
         "ask_amount": ScenarioState(
             id="ask_amount",
             description="בקשת סכום ההלוואה",
-            actor_instruction="שאל/י מהו סכום ההלוואה המשוער שבו הוא/היא מעוניין/ת. סימולציה בלבד; ללא מידע אישי או מזהה.",
+            actor_instruction="שאלי מה סכום ההלוואה המשוער.",
             evaluation=EvaluationCriteria(
                 criteria=["המשתמש מספק סכום מספרי"],
                 allowed_signals=["AMOUNT_GIVEN"],
-                pass_condition="המשתמש מציין סכום הלוואה ברור.",
-                failure_feedback_guidance="המשתמש חייב לציין כמה כסף הוא צריך."
+                pass_condition="המשתמש מספק סכום.",
+                failure_feedback_guidance="המשתמש צריך לציין סכום."
             ),
             transitions=[
                 Transition(
-                    target_state_id="ask_purpose", 
+                    target_state_id="ask_purpose",
                     condition="המשתמש סיפק סכום",
                     condition_id="AMOUNT_GIVEN"
                 )
@@ -202,127 +196,81 @@ bank_graph = ScenarioGraph(
         "ask_purpose": ScenarioState(
             id="ask_purpose",
             description="בקשת מטרת ההלוואה",
-            actor_instruction="שאל/י בקצרה מהי מטרת ההלוואה.",
+            actor_instruction="שאלי מה מטרת ההלוואה.",
             evaluation=EvaluationCriteria(
-                criteria=["המשתמש מציין מטרה תקפה (רכב, שיפוץ וכו')"],
+                criteria=["המשתמש מציין מטרה"],
                 allowed_signals=["PURPOSE_GIVEN"],
-                pass_condition="המשתמש מסביר לשם מה נדרש הכסף.",
-                failure_feedback_guidance="המשתמש צריך לומר מדוע הוא זקוק לכסף."
+                pass_condition="המשתמש מסביר את המטרה.",
+                failure_feedback_guidance="המשתמש צריך לציין מטרה."
             ),
             transitions=[
                 Transition(
-                    target_state_id="ask_income", 
+                    target_state_id="check_income",
                     condition="המשתמש סיפק מטרה",
                     condition_id="PURPOSE_GIVEN"
                 )
             ]
         ),
-        "ask_income": ScenarioState(
-            id="ask_income",
-            description="בקשת פרטי הכנסה",
-            actor_instruction="שאל/י לגבי טווח הכנסה חודשית משוער והאם קיימות התחייבויות נוספות. שמור/י על משפט קצר והימנע/י מכל מזהה אישי או מסמכים. סימולציה בלבד.",
+        "check_income": ScenarioState(
+            id="check_income",
+            description="בקשת הכנסה",
+            actor_instruction="שאלי מה ההכנסה החודשית המשוערת.",
             evaluation=EvaluationCriteria(
-                criteria=["המשתמש מספק פרטי הכנסה תקינים", "המשתמש אינו חסר יכולת החזר"],
-                allowed_signals=["INCOME_GIVEN", "FINANCIAL_INELIGIBLE"],
-                pass_condition="המשתמש מציין הכנסה משוערת שמאפשרת החזר.",
-                failure_feedback_guidance="המשתמש צריך לספק מידע על הכנסה לצורך הבקשה."
+                criteria=["המשתמש מספק הכנסה"],
+                allowed_signals=["INCOME_GIVEN"],
+                pass_condition="המשתמש מספק הכנסה.",
+                failure_feedback_guidance="המשתמש צריך לציין הכנסה."
             ),
             transitions=[
                 Transition(
-                    target_state_id="present_terms", 
-                    condition="המשתמש סיפק הכנסה תקינה",
+                    target_state_id="sign_confirm",
+                    condition="המשתמש סיפק הכנסה",
                     condition_id="INCOME_GIVEN"
-                ),
-                # New transition for financial ineligibility (High Priority)
-                Transition(
-                    target_state_id="ineligible_financially", 
-                    condition="המשתמש הצהיר על אי-יכולת החזר",
-                    condition_id="FINANCIAL_INELIGIBLE",
-                    priority=5
                 )
             ]
         ),
-        "present_terms": ScenarioState(
-            id="present_terms",
-            description="הצגת תנאי הלוואה (סימולציה בלבד)",
-            actor_instruction="ציין/י שעל סמך המידע שנמסר המשתמש זכאי להלוואה. הצג/י ריבית סטנדרטית (לדוגמה: פריים + 2%). שאל/י האם התנאים מתאימים. סימולציה בלבד.",
+        "sign_confirm": ScenarioState(
+            id="sign_confirm",
+            description="אישור ופרטי זיהוי מינימליים",
+            actor_instruction="בקש/י אישור ואת פרטי הזיהוי המינימליים (שם מלא ומספר תעודת זהות בלבד).",
             evaluation=EvaluationCriteria(
-                criteria=["המשתמש מאשר את התנאים או מסרב"],
-                allowed_signals=["TERMS_ACCEPTED", "TERMS_REJECTED"],
-                pass_condition="המשתמש מגיב לתנאים.",
-                failure_feedback_guidance="המשתמש צריך לאשר אם הוא מסכים לתנאים או לא."
+                criteria=["המשתמש מאשר ומוסר פרטי זיהוי מינימליים"],
+                allowed_signals=["CONFIRM_GIVEN"],
+                pass_condition="המשתמש מאשר ומוסר שם ומספר ת.ז.",
+                failure_feedback_guidance="המשתמש צריך לאשר ולציין שם ומספר ת.ז."
             ),
             transitions=[
                 Transition(
-                    target_state_id="closing", 
-                    condition="המשתמש אישר את התנאים",
-                    condition_id="TERMS_ACCEPTED",
-                    priority=1
-                ),
-                Transition(
-                    target_state_id="negotiate", 
-                    condition="המשתמש דחה את התנאים",
-                    condition_id="TERMS_REJECTED",
-                    priority=1
+                    target_state_id="goodbye",
+                    condition="המשתמש אישר",
+                    condition_id="CONFIRM_GIVEN"
                 )
             ]
         ),
-        "negotiate": ScenarioState(
-            id="negotiate",
-            description="משא ומתן על ריביות (סימולציה)",
-            actor_instruction="הסבירי בנימוס שאלו הריביות הקבועות כרגע, אך ניתן לבדוק זכאות להטבה בעתיד. שאלי אם ירצה להמשיך כך.",
-            evaluation=EvaluationCriteria(
-                criteria=["המשתמש מחליט אם להמשיך או לוותר"],
-                allowed_signals=["TERMS_ACCEPTED", "TERMS_REJECTED"],
-                pass_condition="המשתמש מקבל החלטה סופית.",
-                failure_feedback_guidance="המשתמש צריך להחליט אם הוא לוקח את ההלוואה."
-            ),
-            transitions=[
-                Transition(
-                    target_state_id="closing", 
-                    condition="המשתמש הסכים",
-                    condition_id="TERMS_ACCEPTED"
-                ),
-                Transition(
-                    target_state_id="closing", 
-                    condition="המשתמש ויתר",
-                    condition_id="TERMS_REJECTED"
-                )
-            ]
-        ),
-        # New State: Financial Ineligibility
-        # This state handles cases where the loan cannot be processed due to objective financial reasons
-        # (e.g., no income, refusal to repay). It is distinct from behavioral failure.
-        "ineligible_financially": ScenarioState(
-            id="ineligible_financially",
-            description="דחיית בקשה על רקע כלכלי",
-            actor_instruction="הסבירי בעדינות ובכבוד שללא הכנסה או יכולת החזר, הבנק לא יוכל לאשר את ההלוואה כרגע. הציעי לבדוק שוב בעתיד כשהמצב ישתנה. היי אמפתית אך מקצועית.",
-            evaluation=EvaluationCriteria(
-                criteria=["המשתמש מבין את הסירוב ונפרד"],
-                allowed_signals=["GOODBYE"],
-                pass_condition="המשתמש מסיים את השיחה.",
-                failure_feedback_guidance="היפרדי לשלום."
-            ),
-            transitions=[
-                Transition(
-                    target_state_id="closing", 
-                    condition="המשתמש הבין ונפרד",
-                    condition_id="GOODBYE"
-                )
-            ]
-        ),
-        "closing": ScenarioState(
-            id="closing",
+        "goodbye": ScenarioState(
+            id="goodbye",
             description="סיום הבקשה",
-            actor_instruction="אשר/י שהבקשה הוגשה (או בוטלה). הודה/י למשתמש ואחל/י יום טוב.",
+            actor_instruction="הודי למשתמש ואחלי יום טוב.",
             evaluation=EvaluationCriteria(
                 criteria=["המשתמש נפרד"],
                 allowed_signals=["GOODBYE"],
-                pass_condition="המשתמש מסיים את השיחה.",
-                failure_feedback_guidance="להיפרד לשלום."
+                pass_condition="המשתמש נפרד.",
+                failure_feedback_guidance="היפרדי לשלום."
             ),
             is_terminal=True
-        )
+        ),
+        "terminate": ScenarioState(
+            id="terminate",
+            description="סיום כפוי",
+            actor_instruction="סיים בנימוס את השיחה.",
+            evaluation=EvaluationCriteria(
+                criteria=["השיחה מסתיימת"],
+                allowed_signals=["GOODBYE"],
+                pass_condition="השיחה מסתיימת.",
+                failure_feedback_guidance="סיים בנימוס."
+            ),
+            is_terminal=True
+        ),
     }
 )
 

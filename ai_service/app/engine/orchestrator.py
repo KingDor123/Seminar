@@ -15,6 +15,7 @@ from app.engine.state_manager import state_manager
 from app.engine.features import FeatureExtractor
 from app.engine.analyzer import AnalyzerAgent
 from app.engine.persona import PersonaAgent
+from app.engine.bank.orchestrator import bank_orchestrator
 
 logger = logging.getLogger("Orchestrator")
 
@@ -44,6 +45,11 @@ class ScenarioOrchestrator:
         history: List[Dict[str, str]],
         audio_meta: Dict[str, Any] = {}
     ) -> AsyncGenerator[Any, None]:
+
+        if scenario_id == "bank":
+            async for chunk in bank_orchestrator.process_turn(session_id, scenario_id, user_text, history, audio_meta):
+                yield chunk
+            return
         
         # 0. Load Context
         graph = get_scenario_graph(scenario_id)
