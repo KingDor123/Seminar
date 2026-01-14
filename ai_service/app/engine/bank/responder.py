@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from typing import AsyncGenerator, List
 
@@ -8,6 +9,7 @@ from .templates import SIGN_CONFIRM_QUESTION
 from .types import BankDecision
 
 logger = logging.getLogger("BankResponder")
+DEBUG_LOGS = os.getenv("BANK_DEBUG_LOGS", "false").lower() in ("1", "true", "yes")
 
 
 def _build_response_lines(decision: BankDecision) -> List[str]:
@@ -44,10 +46,15 @@ def _violates_sign_confirm(text: str) -> bool:
         r"\bשמי\b",
         r"\bאני מאשר\b",
         r"\bאני מאשרת\b",
+        r"\bאני מסכים\b",
+        r"\bאני מסכימה\b",
     ]
     if any(re.search(pattern, text) for pattern in patterns):
         return True
-    return re.search(r"\b\d{7,9}\b", text) is not None
+    if re.search(r"\d(?:[\s.-]?\d){6,8}", text):
+        return True
+    digits_only = re.sub(r"\D", "", text)
+    return 7 <= len(digits_only) <= 9
 
 
 async def _generate_llm_text(messages: List[dict]) -> str:
@@ -69,6 +76,7 @@ class BankResponder:
             "את דנה, נציגת בנק מקצועית בסימולציה. "
             "עליך להחזיר תשובה בעברית בלבד ובהתאם מלא לתכנית התגובה. "
             "אל תוסיף טקסט, שאלות, או פרטים מעבר למה שמופיע בתכנית. "
+            "אסור לך לאשר בשם המשתמש או לתת פרטים אישיים שלך. "
             "אם יש שורות בתכנית — החזר אותן בדיוק, אחת בשורה."
         )
 
@@ -83,8 +91,14 @@ class BankResponder:
         ]
 
         try:
+            if DEBUG_LOGS:
+                logger.info("[BANK][RESPONDER] Response plan:\n%s", response_plan)
+                logger.info("[BANK][RESPONDER] System prompt:\n%s", system_prompt)
+                logger.info("[BANK][RESPONDER] User prompt:\n%s", user_prompt)
             if _needs_sign_confirm_guardrail(decision):
                 text = await _generate_llm_text(messages)
+                if DEBUG_LOGS:
+                    logger.info("[BANK][RESPONDER] Raw response:\n%s", text)
                 if _violates_sign_confirm(text):
                     logger.warning("[BANK][GUARDRAIL] blocked self-identification in sign_confirm")
                     yield _fallback_text(lines)
