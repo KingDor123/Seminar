@@ -14,6 +14,7 @@ from .constants import (
 )
 from .templates import (
     OPENING_GREETING,
+    GREETING_REPLY,
     REQUIRED_QUESTIONS,
     RUDE_FIRST_WARNING,
     RUDE_SECOND_TERMINATION,
@@ -70,6 +71,8 @@ def _required_question(state_id: str) -> str:
 
 
 def _needs_coach(signals: List[str]) -> Tuple[bool, str | None]:
+    if "GREETING" in signals:
+        return False, None
     if "MISSING_GREETING" in signals:
         return True, COACH_TIPS["missing_greeting"]
     if "COMMANDING_TONE" in signals:
@@ -111,6 +114,8 @@ def decide_next_action(
                 parts.append(f"הכנסה חודשית {slots.income:,}")
             if parts:
                 decision.acknowledgement_line = "קיבלתי: " + ", ".join(parts) + "."
+    if "GREETING" in signals and not decision.greeting_line:
+        decision.greeting_line = GREETING_REPLY
 
     if "RUDE_LANGUAGE" in signals:
         new_count = updated_strikes.rude_strikes + (0 if suppress_strike_increment else 1)

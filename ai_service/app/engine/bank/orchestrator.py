@@ -96,12 +96,13 @@ class BankOrchestrator:
         state_manager.update_bank_state(session_id, scenario_id, bank_state)
 
         logger.info(
-            "[BANK] state=%s signals=%s slots=%s strikes=%s next_state=%s words=%s",
+            "[BANK] state=%s signals=%s slots=%s strikes=%s next_state=%s action=%s words=%s",
             current_state,
             analysis.signals,
             _masked_slots(merged_slots.model_dump()),
             updated_strikes.model_dump(),
             decision.next_state,
+            decision.next_action,
             features.word_count,
         )
 

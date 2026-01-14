@@ -80,7 +80,7 @@ CLARIFICATION_PATTERNS = [
     "למה צריך",
 ]
 
-GREETING_WORDS = ["שלום", "היי", "הי", "בוקר טוב", "ערב טוב", "צהריים טובים"]
+GREETING_WORDS = ["שלום", "היי", "הי", "בוקר טוב", "ערב טוב", "צהריים טובים", "מה שלומך"]
 
 POLITE_MARKERS = ["בבקשה", "אפשר", "אם אפשר", "אשמח", "הייתי שמח", "תודה"]
 
@@ -272,7 +272,8 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
         ]
     )
 
-    missing_greeting = current_state == STATE_START and not _detect_greeting(normalized)
+    greeting_present = _detect_greeting(normalized)
+    missing_greeting = current_state == STATE_START and not greeting_present
 
     refusal_to_provide = False
     if not clarification_needed and _detect_refusal_to_provide(normalized):
@@ -280,7 +281,10 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
 
     relevance = "LOW"
     clarity = "AMBIGUOUS"
-    if clarification_needed:
+    if greeting_present and not any_slot_present and not clarification_needed:
+        relevance = "MED"
+        clarity = "CLEAR"
+    elif clarification_needed:
         relevance = "MED"
         clarity = "AMBIGUOUS"
     elif required_present:
@@ -308,6 +312,8 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
         signals.append("CLARIFICATION_NEEDED")
     if missing_greeting:
         signals.append("MISSING_GREETING")
+    if greeting_present:
+        signals.append("GREETING")
 
     if slots.amount is not None:
         signals.append("HAS_AMOUNT")

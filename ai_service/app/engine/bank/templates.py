@@ -7,12 +7,13 @@ from .constants import (
 )
 
 OPENING_GREETING = "שלום, אני דנה מהבנק."
+GREETING_REPLY = "היי, תודה ששאלת."
 OPENING_QUESTION = "איך אפשר לעזור לך בתהליך בקשת הלוואה?"
 
 ASK_AMOUNT_QUESTION = "מה סכום ההלוואה המשוער שתרצה לבקש?"
 ASK_PURPOSE_QUESTION = "מה מטרת ההלוואה?"
 CHECK_INCOME_QUESTION = "מה ההכנסה החודשית המשוערת שלך?"
-SIGN_CONFIRM_QUESTION = "כדי להמשיך, האם אתה מאשר את הבקשה? נא ציין שם מלא ומספר תעודת זהות בלבד."
+SIGN_CONFIRM_QUESTION = "כדי להמשיך, האם אתה מאשר את הבקשה? נא ציין שם מלא ומספר תעודת זהות שלך בלבד."
 GOODBYE_TEXT = "תודה, הבקשה הושלמה. יום טוב."
 TERMINATION_LOCK_TEXT = "השיחה הסתיימה. תודה."
 
@@ -34,7 +35,7 @@ REFUSAL_EXAMPLES = {
     STATE_ASK_AMOUNT: "דוגמה: \"אני צריך סכום של 20,000 ש\"ח\".",
     STATE_ASK_PURPOSE: "דוגמה: \"אני צריך הלוואה לרכב\".",
     STATE_CHECK_INCOME: "דוגמה: \"ההכנסה שלי 10,000 ש\"ח בחודש\".",
-    STATE_SIGN_CONFIRM: "דוגמה: \"אני מאשר, שמי דנה לוי ות.ז 123456789\".",
+    STATE_SIGN_CONFIRM: "דוגמה: \"אני מאשר ומוסר שם מלא ומספר תעודת זהות\".",
 }
 
 REPAY_FIRST_EXPLANATION = "הלוואה מחייבת כוונה להחזיר את הכסף."
