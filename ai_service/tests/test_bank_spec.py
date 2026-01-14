@@ -8,9 +8,12 @@ from app.engine.bank.constants import (
     STATE_ASK_AMOUNT,
     STATE_ASK_PURPOSE,
     STATE_CHECK_INCOME,
+    STATE_INELIGIBLE_FINANCIAL,
     STATE_SIGN_CONFIRM,
     STATE_GOODBYE,
     STATE_TERMINATE,
+    ACTION_BOUNDARY_AND_OFFER_RESTART,
+    ACTION_OFFER_RESTART,
 )
 from app.engine.bank.fsm import merge_slots, decide_next_action
 from app.engine.bank.types import BankSessionState, BankStrikes
@@ -118,7 +121,7 @@ SPEC_JSON = r'''
         { "user": "[START]", "expect": { "state_after": "start" } },
         { "user": "אני צריך הלוואה", "expect": { "state_after": "ask_amount" } },
         { "user": "לא אומר לך כמה", "expect": { "state_after": "ask_amount", "strikes": { "refusal_strikes": 1 } } },
-        { "user": "עזבי אותי", "expect": { "state_after": "terminate", "strikes": { "refusal_strikes": 2 } } }
+        { "user": "עזבי אותי", "expect": { "state_after": "ask_amount", "strikes": { "refusal_strikes": 2 } } }
       ]
     },
 
@@ -183,7 +186,7 @@ SPEC_JSON = r'''
         { "user": "[START]", "expect": { "state_after": "start" } },
         { "user": "הלוואה", "expect": { "state_after": "ask_amount" } },
         { "user": "מה את רוצה יא מטומטמת", "expect": { "state_after": "ask_amount", "strikes": { "rude_strikes": 1 } } },
-        { "user": "סתמי כבר", "expect": { "state_after": "terminate", "strikes": { "rude_strikes": 2 } } }
+        { "user": "סתמי כבר", "expect": { "state_after": "ask_amount", "strikes": { "rude_strikes": 2 } } }
       ]
     },
 
@@ -243,7 +246,7 @@ SPEC_JSON = r'''
         { "user": "[START]", "expect": { "state_after": "start" } },
         { "user": "10000 לרכב הכנסה 15000", "expect": { "state_after": "sign_confirm" } },
         { "user": "לא עכשיו", "expect": { "state_after": "sign_confirm", "strikes": { "refusal_strikes": 1 } } },
-        { "user": "עזבי", "expect": { "state_after": "terminate", "strikes": { "refusal_strikes": 2 } } }
+        { "user": "עזבי", "expect": { "state_after": "sign_confirm", "strikes": { "refusal_strikes": 2 } } }
       ]
     },
 
@@ -254,8 +257,9 @@ SPEC_JSON = r'''
         { "user": "[START]", "expect": { "state_after": "start" } },
         { "user": "הלוואה", "expect": { "state_after": "ask_amount" } },
         { "user": "לא אומר", "expect": { "state_after": "ask_amount", "strikes": { "refusal_strikes": 1 } } },
-        { "user": "עזבי", "expect": { "state_after": "terminate", "strikes": { "refusal_strikes": 2 } } },
-        { "user": "טוב אז 10000", "expect": { "state_after": "terminate", "strikes": { "refusal_strikes": 2 } } }
+        { "user": "עזבי", "expect": { "state_after": "ask_amount", "strikes": { "refusal_strikes": 2 } } },
+        { "user": "לא רוצה לענות", "expect": { "state_after": "terminate", "strikes": { "refusal_strikes": 3 } } },
+        { "user": "טוב אז 10000", "expect": { "state_after": "terminate", "strikes": { "refusal_strikes": 3 } } }
       ]
     },
 
@@ -330,7 +334,7 @@ SPEC_JSON = r'''
       "steps": [
         { "user": "[START]", "expect": { "state_after": "start" } },
         { "user": "10000 לרכב הכנסה 15000", "expect": { "state_after": "sign_confirm" } },
-        { "user": "כן מאשר", "expect": { "state_after_any_of": ["goodbye", "sign_confirm"], "must_not": { "state_after": "terminate" } } }
+        { "user": "כן מאשר", "expect": { "state_after": "goodbye", "must_not": { "state_after": "terminate" } } }
       ]
     },
 
@@ -389,9 +393,7 @@ def _simulate_turn(state: BankSessionState, user_text: str) -> BankSessionState:
         return state
 
     if user_text.strip() == "[START]":
-        state.current_state_id = STATE_START
-        state.greeted = True
-        return state
+        return BankSessionState(current_state_id=STATE_START, greeted=True)
 
     current_state = state.current_state_id or STATE_START
     is_duplicate = state.last_user_text == user_text and state.last_state_id == current_state
@@ -399,13 +401,15 @@ def _simulate_turn(state: BankSessionState, user_text: str) -> BankSessionState:
     analysis = analyze_turn(user_text, current_state)
     merged_slots = merge_slots(state.slots, analysis.slots)
 
-    decision, updated_strikes = decide_next_action(
+    retry_count = state.retry_counts.get(current_state, 0)
+    decision, updated_strikes, next_retry = decide_next_action(
         current_state=current_state,
         slots=merged_slots,
         signals=analysis.signals,
         strikes=state.strikes,
         is_first_turn=state.turn_count == 0,
         already_greeted=state.greeted,
+        retry_count=retry_count,
         suppress_strike_increment=is_duplicate,
     )
 
@@ -417,6 +421,15 @@ def _simulate_turn(state: BankSessionState, user_text: str) -> BankSessionState:
         state.greeted = True
     state.last_user_text = user_text
     state.last_state_id = current_state
+    state.restart_offered = decision.next_action in {
+        ACTION_BOUNDARY_AND_OFFER_RESTART,
+        ACTION_OFFER_RESTART,
+    } or decision.next_state == STATE_INELIGIBLE_FINANCIAL
+    state.ineligible_prompted = decision.next_state == STATE_INELIGIBLE_FINANCIAL
+    if decision.next_state != current_state:
+        state.retry_counts[current_state] = 0
+    else:
+        state.retry_counts[current_state] = next_retry
     return state
 
 

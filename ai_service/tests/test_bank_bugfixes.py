@@ -5,6 +5,9 @@ from app.engine.bank.analyzer import analyze_turn
 from app.engine.bank.constants import (
     ACTION_ASK_REQUIRED,
     ACTION_COACH_AND_ASK_REQUIRED,
+    ACTION_WARN_AND_REDIRECT,
+    ACTION_BOUNDARY_AND_OFFER_RESTART,
+    ACTION_END_CONVERSATION_SAFELY,
     STATE_ASK_AMOUNT,
     STATE_START,
     STATE_SIGN_CONFIRM,
@@ -44,6 +47,8 @@ def test_bugA_no_hardcoded_dana_id():
     assert "דנה כהן" not in SIGN_CONFIRM_QUESTION
     assert "123456789" not in SIGN_CONFIRM_QUESTION
     assert "123456789" not in REFUSAL_EXAMPLES.get("sign_confirm", "")
+    assert "תעודת זהות" not in SIGN_CONFIRM_QUESTION
+    assert "בדוי" in SIGN_CONFIRM_QUESTION
 
 
 @pytest.mark.asyncio
@@ -58,13 +63,14 @@ async def test_bug_greeting_polite_ack_then_question(monkeypatch):
     analysis = analyze_turn("היי דנה מה שלומך?", STATE_START)
     slots = merge_slots(BankSlots(), analysis.slots)
 
-    decision, strikes = decide_next_action(
+    decision, strikes, _ = decide_next_action(
         current_state=STATE_START,
         slots=slots,
         signals=analysis.signals,
         strikes=BankStrikes(),
         is_first_turn=True,
         already_greeted=True,
+        retry_count=0,
     )
 
     assert decision.next_action == ACTION_ASK_REQUIRED
@@ -85,13 +91,14 @@ async def test_bug_greeting_polite_ack_then_question(monkeypatch):
 def test_regression_commanding_tone_still_coaches():
     analysis = analyze_turn("תביאי לי 20000 עכשיו", STATE_ASK_AMOUNT)
     slots = merge_slots(BankSlots(), analysis.slots)
-    decision, _ = decide_next_action(
+    decision, _, _ = decide_next_action(
         current_state=STATE_ASK_AMOUNT,
         slots=slots,
         signals=analysis.signals,
         strikes=BankStrikes(),
         is_first_turn=False,
         already_greeted=True,
+        retry_count=0,
     )
     assert decision.next_action == ACTION_COACH_AND_ASK_REQUIRED
 
@@ -99,24 +106,38 @@ def test_regression_commanding_tone_still_coaches():
 def test_regression_rude_twice_terminates():
     strikes = BankStrikes()
     analysis = analyze_turn("מה את רוצה יא מטומטמת", STATE_ASK_AMOUNT)
-    decision, strikes = decide_next_action(
+    decision, strikes, _ = decide_next_action(
         current_state=STATE_ASK_AMOUNT,
         slots=merge_slots(BankSlots(), analysis.slots),
         signals=analysis.signals,
         strikes=strikes,
         is_first_turn=False,
         already_greeted=True,
+        retry_count=0,
     )
-    assert decision.next_action == "WARN_AND_ASK_REQUIRED"
+    assert decision.next_action == ACTION_WARN_AND_REDIRECT
     analysis = analyze_turn("סתמי כבר", STATE_ASK_AMOUNT)
-    decision, strikes = decide_next_action(
+    decision, strikes, _ = decide_next_action(
         current_state=STATE_ASK_AMOUNT,
         slots=merge_slots(BankSlots(), analysis.slots),
         signals=analysis.signals,
         strikes=strikes,
         is_first_turn=False,
         already_greeted=True,
+        retry_count=0,
     )
+    assert decision.next_action == ACTION_BOUNDARY_AND_OFFER_RESTART
+    analysis = analyze_turn("סתמי כבר", STATE_ASK_AMOUNT)
+    decision, strikes, _ = decide_next_action(
+        current_state=STATE_ASK_AMOUNT,
+        slots=merge_slots(BankSlots(), analysis.slots),
+        signals=analysis.signals,
+        strikes=strikes,
+        is_first_turn=False,
+        already_greeted=True,
+        retry_count=0,
+    )
+    assert decision.next_action == ACTION_END_CONVERSATION_SAFELY
     assert decision.next_state == STATE_TERMINATE
 
 

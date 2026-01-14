@@ -10,17 +10,24 @@ from .constants import (
     STATE_TERMINATE,
     ACTION_ASK_REQUIRED,
     ACTION_COACH_AND_ASK_REQUIRED,
-    ACTION_WARN_AND_ASK_REQUIRED,
+    ACTION_WARN_AND_REDIRECT,
+    ACTION_BOUNDARY_AND_OFFER_RESTART,
+    ACTION_END_CONVERSATION_SAFELY,
+    ACTION_OFFER_RESTART,
     ACTION_TERMINATE,
 )
 from .templates import (
     OPENING_GREETING,
     GREETING_REPLY,
     REQUIRED_QUESTIONS,
-    RUDE_FIRST_WARNING,
-    RUDE_SECOND_TERMINATION,
-    REFUSAL_FIRST_EXPLANATION,
-    REFUSAL_SECOND_TERMINATION,
+    RETRY_QUESTIONS,
+    WARN_RUDE_TEXT,
+    WARN_REDIRECT_PREFIX,
+    BOUNDARY_RESTART_TEXT,
+    END_CONVERSATION_SAFE,
+    WARN_REFUSAL_TEXT,
+    RESTART_OFFER_TEXT,
+    RESTART_OPTIONS,
     REFUSAL_EXAMPLES,
     REPAY_FIRST_EXPLANATION,
     REPAY_FIRST_EXAMPLE,
@@ -28,6 +35,7 @@ from .templates import (
     REPAY_SECOND_TERMINATION,
     COACH_TIPS,
     CLARIFICATION_TIPS,
+    INELIGIBLE_OPTIONS,
 )
 from .types import BankDecision, BankSlots, BankStrikes
 
@@ -62,15 +70,18 @@ def farthest_state(slots: BankSlots) -> str:
         return STATE_CHECK_INCOME
     if slots.income <= 0:
         return STATE_INELIGIBLE_FINANCIAL
-    if slots.confirm_accepted is False:
-        return STATE_GOODBYE
-    if slots.confirm_accepted is not True or not (slots.id_details and slots.id_details.id_number):
+    if slots.confirm_accepted is None:
         return STATE_SIGN_CONFIRM
     return STATE_GOODBYE
 
 
 def _required_question(state_id: str) -> str:
     return REQUIRED_QUESTIONS.get(state_id, "")
+
+def _question_for_state(state_id: str, retry_index: int) -> str:
+    if state_id in RETRY_QUESTIONS:
+        return RETRY_QUESTIONS[state_id].get(retry_index, RETRY_QUESTIONS[state_id][2])
+    return _required_question(state_id)
 
 
 def _needs_coach(signals: List[str]) -> Tuple[bool, str | None]:
@@ -80,7 +91,7 @@ def _needs_coach(signals: List[str]) -> Tuple[bool, str | None]:
         return True, COACH_TIPS["missing_greeting"]
     if "COMMANDING_TONE" in signals:
         return True, COACH_TIPS["commanding_tone"]
-    if "RELEVANCE:LOW" in signals or "APPROPRIATE_FOR_BANK:COACH" in signals:
+    if "IRRELEVANT" in signals or "RELEVANCE:LOW" in signals or "APPROPRIATE_FOR_BANK:COACH" in signals:
         return True, COACH_TIPS["low_relevance"]
     return False, None
 
@@ -92,10 +103,14 @@ def decide_next_action(
     strikes: BankStrikes,
     is_first_turn: bool,
     already_greeted: bool,
+    retry_count: int,
     suppress_strike_increment: bool = False,
-) -> Tuple[BankDecision, BankStrikes]:
+) -> Tuple[BankDecision, BankStrikes, int]:
     next_state = farthest_state(slots)
-    required_question = _required_question(next_state)
+    is_retry = next_state == current_state
+    retry_next = retry_count + 1 if is_retry else 0
+    retry_index = min(retry_next, 2) if is_retry else 0
+    required_question = _question_for_state(current_state if is_retry else next_state, retry_index)
 
     updated_strikes = BankStrikes(**strikes.model_dump())
 
@@ -104,6 +119,9 @@ def decide_next_action(
         next_action=ACTION_ASK_REQUIRED,
         required_question=required_question,
     )
+    if next_state == STATE_INELIGIBLE_FINANCIAL:
+        decision.next_action = ACTION_OFFER_RESTART
+        decision.options = INELIGIBLE_OPTIONS
 
     if is_first_turn and not already_greeted:
         decision.greeting_line = OPENING_GREETING
@@ -120,18 +138,32 @@ def decide_next_action(
     if "GREETING" in signals and not decision.greeting_line:
         decision.greeting_line = GREETING_REPLY
 
-    if "RUDE_LANGUAGE" in signals:
+    if "THREAT" in signals:
+        new_count = updated_strikes.threat_strikes + (0 if suppress_strike_increment else 1)
+        updated_strikes.threat_strikes = new_count
+        decision.next_action = ACTION_END_CONVERSATION_SAFELY
+        decision.next_state = STATE_TERMINATE
+        decision.termination_text = END_CONVERSATION_SAFE
+        return decision, updated_strikes, retry_count
+
+    if "RUDE" in signals or "RUDE_LANGUAGE" in signals:
         new_count = updated_strikes.rude_strikes + (0 if suppress_strike_increment else 1)
         updated_strikes.rude_strikes = new_count
-        if new_count >= 2:
-            decision.next_action = ACTION_TERMINATE
+        if new_count >= 3:
+            decision.next_action = ACTION_END_CONVERSATION_SAFELY
             decision.next_state = STATE_TERMINATE
-            decision.termination_text = RUDE_SECOND_TERMINATION
-            return decision, updated_strikes
-        decision.next_action = ACTION_WARN_AND_ASK_REQUIRED
-        decision.warning_text = RUDE_FIRST_WARNING
-        decision.coach_tip = COACH_TIPS["commanding_tone"]
-        return decision, updated_strikes
+            decision.termination_text = END_CONVERSATION_SAFE
+            return decision, updated_strikes, retry_count
+        if new_count == 2:
+            decision.next_action = ACTION_BOUNDARY_AND_OFFER_RESTART
+            decision.warning_text = BOUNDARY_RESTART_TEXT
+            decision.required_question = RESTART_OFFER_TEXT
+            decision.options = RESTART_OPTIONS
+            return decision, updated_strikes, retry_count
+        decision.next_action = ACTION_WARN_AND_REDIRECT
+        decision.warning_text = WARN_RUDE_TEXT
+        decision.required_question = f"{WARN_REDIRECT_PREFIX} {required_question}"
+        return decision, updated_strikes, retry_count
 
     if "REFUSES_TO_REPAY" in signals:
         new_count = updated_strikes.repay_strikes + (0 if suppress_strike_increment else 1)
@@ -140,35 +172,48 @@ def decide_next_action(
             decision.next_action = ACTION_TERMINATE
             decision.next_state = STATE_TERMINATE
             decision.termination_text = REPAY_SECOND_TERMINATION
-            return decision, updated_strikes
-        decision.next_action = ACTION_WARN_AND_ASK_REQUIRED
+            return decision, updated_strikes, retry_count
+        decision.next_action = ACTION_WARN_AND_REDIRECT
         decision.warning_text = REPAY_FIRST_EXPLANATION
         decision.coach_tip = REPAY_FIRST_EXAMPLE
         decision.required_question = REPAY_QUESTION
-        return decision, updated_strikes
+        return decision, updated_strikes, retry_count
 
-    if "REFUSES_TO_PROVIDE_INFO" in signals:
+    if "REFUSAL" in signals or "REFUSES_TO_PROVIDE_INFO" in signals:
         new_count = updated_strikes.refusal_strikes + (0 if suppress_strike_increment else 1)
         updated_strikes.refusal_strikes = new_count
-        if new_count >= 2:
-            decision.next_action = ACTION_TERMINATE
+        if new_count >= 3:
+            decision.next_action = ACTION_END_CONVERSATION_SAFELY
             decision.next_state = STATE_TERMINATE
-            decision.termination_text = REFUSAL_SECOND_TERMINATION
-            return decision, updated_strikes
-        decision.next_action = ACTION_WARN_AND_ASK_REQUIRED
-        decision.warning_text = REFUSAL_FIRST_EXPLANATION
+            decision.termination_text = END_CONVERSATION_SAFE
+            return decision, updated_strikes, retry_count
+        if new_count == 2:
+            decision.next_action = ACTION_BOUNDARY_AND_OFFER_RESTART
+            decision.warning_text = WARN_REFUSAL_TEXT
+            decision.required_question = RESTART_OFFER_TEXT
+            decision.options = RESTART_OPTIONS
+            return decision, updated_strikes, retry_count
+        decision.next_action = ACTION_WARN_AND_REDIRECT
+        decision.warning_text = WARN_REFUSAL_TEXT
         decision.coach_tip = REFUSAL_EXAMPLES.get(next_state)
-        return decision, updated_strikes
+        decision.required_question = f"{WARN_REDIRECT_PREFIX} {required_question}"
+        return decision, updated_strikes, retry_count
 
     if "CLARIFICATION_NEEDED" in signals:
         decision.next_action = ACTION_COACH_AND_ASK_REQUIRED
         decision.clarification_text = CLARIFICATION_TIPS.get(next_state)
-        return decision, updated_strikes
+        return decision, updated_strikes, retry_count
 
     needs_coach, coach_tip = _needs_coach(signals)
     if needs_coach:
         decision.next_action = ACTION_COACH_AND_ASK_REQUIRED
         decision.coach_tip = coach_tip
-        return decision, updated_strikes
+        return decision, updated_strikes, retry_count
 
-    return decision, updated_strikes
+    if is_retry and retry_next >= 3:
+        decision.next_action = ACTION_OFFER_RESTART
+        decision.required_question = RESTART_OFFER_TEXT
+        decision.options = RESTART_OPTIONS
+        return decision, updated_strikes, retry_next
+
+    return decision, updated_strikes, retry_next

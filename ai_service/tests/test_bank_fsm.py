@@ -9,7 +9,9 @@ from app.engine.bank.constants import (
     STATE_SIGN_CONFIRM,
     STATE_TERMINATE,
     ACTION_COACH_AND_ASK_REQUIRED,
-    ACTION_WARN_AND_ASK_REQUIRED,
+    ACTION_WARN_AND_REDIRECT,
+    ACTION_BOUNDARY_AND_OFFER_RESTART,
+    ACTION_END_CONVERSATION_SAFELY,
 )
 from app.engine.bank.fsm import merge_slots, farthest_state, decide_next_action
 from app.engine.bank.templates import SIGN_CONFIRM_QUESTION
@@ -22,13 +24,14 @@ def test_early_slots_skip_to_sign_confirm():
     merged = merge_slots(BankSlots(), analysis.slots)
     assert farthest_state(merged) == STATE_SIGN_CONFIRM
 
-    decision, strikes = decide_next_action(
+    decision, strikes, _ = decide_next_action(
         current_state=STATE_START,
         slots=merged,
         signals=analysis.signals,
         strikes=BankStrikes(),
         is_first_turn=True,
         already_greeted=False,
+        retry_count=0,
     )
     assert decision.next_state == STATE_SIGN_CONFIRM
     assert decision.greeting_line is not None
@@ -40,55 +43,72 @@ def test_rude_twice_terminates():
     strikes = BankStrikes()
 
     analysis1 = analyze_turn("אתם חרא", STATE_ASK_AMOUNT)
-    decision1, strikes = decide_next_action(
+    decision1, strikes, _ = decide_next_action(
         current_state=STATE_ASK_AMOUNT,
         slots=merge_slots(BankSlots(), analysis1.slots),
         signals=analysis1.signals,
         strikes=strikes,
         is_first_turn=False,
         already_greeted=True,
+        retry_count=0,
     )
-    assert decision1.next_action == ACTION_WARN_AND_ASK_REQUIRED
+    assert decision1.next_action == ACTION_WARN_AND_REDIRECT
     assert strikes.rude_strikes == 1
 
     analysis2 = analyze_turn("חרא", STATE_ASK_AMOUNT)
-    decision2, strikes = decide_next_action(
+    decision2, strikes, _ = decide_next_action(
         current_state=STATE_ASK_AMOUNT,
         slots=merge_slots(BankSlots(), analysis2.slots),
         signals=analysis2.signals,
         strikes=strikes,
         is_first_turn=False,
         already_greeted=True,
+        retry_count=0,
     )
-    assert decision2.next_state == STATE_TERMINATE
+    assert decision2.next_action == ACTION_BOUNDARY_AND_OFFER_RESTART
     assert strikes.rude_strikes == 2
+    analysis3 = analyze_turn("חרא", STATE_ASK_AMOUNT)
+    decision3, strikes, _ = decide_next_action(
+        current_state=STATE_ASK_AMOUNT,
+        slots=merge_slots(BankSlots(), analysis3.slots),
+        signals=analysis3.signals,
+        strikes=strikes,
+        is_first_turn=False,
+        already_greeted=True,
+        retry_count=0,
+    )
+    assert decision3.next_action == ACTION_END_CONVERSATION_SAFELY
+    assert decision3.next_state == STATE_TERMINATE
+    assert strikes.rude_strikes == 3
 
 
 def test_refusal_twice_terminates():
     strikes = BankStrikes()
 
     analysis1 = analyze_turn("לא רוצה לענות", STATE_ASK_AMOUNT)
-    decision1, strikes = decide_next_action(
+    decision1, strikes, _ = decide_next_action(
         current_state=STATE_ASK_AMOUNT,
         slots=merge_slots(BankSlots(), analysis1.slots),
         signals=analysis1.signals,
         strikes=strikes,
         is_first_turn=False,
         already_greeted=True,
+        retry_count=0,
     )
-    assert decision1.next_action == ACTION_WARN_AND_ASK_REQUIRED
+    assert decision1.next_action == ACTION_WARN_AND_REDIRECT
     assert strikes.refusal_strikes == 1
 
     analysis2 = analyze_turn("לא רוצה לענות", STATE_ASK_AMOUNT)
-    decision2, strikes = decide_next_action(
+    decision2, strikes, _ = decide_next_action(
         current_state=STATE_ASK_AMOUNT,
         slots=merge_slots(BankSlots(), analysis2.slots),
         signals=analysis2.signals,
         strikes=strikes,
         is_first_turn=False,
         already_greeted=True,
+        retry_count=0,
     )
-    assert decision2.next_state == STATE_TERMINATE
+    assert decision2.next_action == ACTION_BOUNDARY_AND_OFFER_RESTART
     assert strikes.refusal_strikes == 2
 
 
@@ -96,13 +116,14 @@ def test_commanding_tone_triggers_coaching():
     analysis = analyze_turn("תני לי 20 אלף", STATE_ASK_AMOUNT)
     merged = merge_slots(BankSlots(), analysis.slots)
 
-    decision, strikes = decide_next_action(
+    decision, strikes, _ = decide_next_action(
         current_state=STATE_ASK_AMOUNT,
         slots=merged,
         signals=analysis.signals,
         strikes=BankStrikes(),
         is_first_turn=False,
         already_greeted=True,
+        retry_count=0,
     )
     assert decision.next_action == ACTION_COACH_AND_ASK_REQUIRED
     assert decision.next_state == STATE_ASK_PURPOSE
@@ -127,13 +148,14 @@ def test_progresses_through_states():
 
 def test_clarification_is_not_refusal():
     analysis = analyze_turn("לא הבנתי", STATE_ASK_AMOUNT)
-    decision, strikes = decide_next_action(
+    decision, strikes, _ = decide_next_action(
         current_state=STATE_ASK_AMOUNT,
         slots=merge_slots(BankSlots(), analysis.slots),
         signals=analysis.signals,
         strikes=BankStrikes(),
         is_first_turn=False,
         already_greeted=True,
+        retry_count=0,
     )
     assert decision.next_action == ACTION_COACH_AND_ASK_REQUIRED
     assert strikes.refusal_strikes == 0

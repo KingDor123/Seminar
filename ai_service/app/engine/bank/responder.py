@@ -27,6 +27,8 @@ def _build_response_lines(decision: BankDecision) -> List[str]:
     ]:
         if line:
             lines.append(line)
+    if decision.options:
+        lines.extend(decision.options)
     return lines
 
 

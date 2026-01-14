@@ -18,6 +18,7 @@ class BankSlots(BaseModel):
 class BankStrikes(BaseModel):
     rude_strikes: int = 0
     refusal_strikes: int = 0
+    threat_strikes: int = 0
     repay_strikes: int = 0
 
 
@@ -38,6 +39,7 @@ class BankDecision(BaseModel):
     termination_text: Optional[str] = None
     greeting_line: Optional[str] = None
     acknowledgement_line: Optional[str] = None
+    options: Optional[List[str]] = None
 
 
 class BankSessionState(BaseModel):
@@ -48,3 +50,7 @@ class BankSessionState(BaseModel):
     greeted: bool = False
     last_user_text: Optional[str] = None
     last_state_id: Optional[str] = None
+    retry_counts: Dict[str, int] = Field(default_factory=dict)
+    restart_offered: bool = False
+    goodbye_prompted: bool = False
+    ineligible_prompted: bool = False

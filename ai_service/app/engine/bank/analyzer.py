@@ -44,6 +44,8 @@ REFUSAL_PATTERNS = [
     "לא אומר",
     "לא עניינך",
     "זה לא עניינך",
+    "לא רוצה",
+    "לא בא לי",
     "אחר כך",
     "לא עכשיו",
     "לא בזמן הזה",
@@ -135,6 +137,24 @@ NO_INCOME_PATTERNS = [
     "מובטלת",
 ]
 
+THREAT_PATTERNS = [
+    "אני אבוא אליכם",
+    "אני אגיע אליכם",
+    "אני אגיע אליך",
+    "אני אבוא אליך",
+    "אני אמצא אותך",
+    "אני אפגע",
+    "אני אפגע בך",
+    "אני ארביץ",
+    "אני אראה לך",
+    "אני אשבור",
+    "אני אדקור",
+    "אני אירה",
+    "אני ארצח",
+    "אני אפרק",
+    "אני אדפוק אותך",
+]
+
 ALLOW_LLM_FALLBACK = os.getenv("BANK_LLM_FALLBACK", "false").lower() in ("1", "true", "yes")
 
 
@@ -165,6 +185,11 @@ def _detect_clarification(text: str) -> bool:
 
 def _detect_greeting(text: str) -> bool:
     return contains_any(text, GREETING_WORDS)
+
+def _detect_threat(text: str) -> bool:
+    if contains_any(text, THREAT_PATTERNS):
+        return True
+    return re.search(r"\bאני א(הרוג|רצח|דקור|כה|רביץ|שבור|שרוף|פגע|ירה)\b", text) is not None
 
 
 def _extract_purpose(text: str) -> str | None:
@@ -264,7 +289,7 @@ def _required_slots_present(current_state: str, slots: BankSlots) -> bool:
     if current_state == STATE_CHECK_INCOME:
         return slots.income is not None
     if current_state == STATE_SIGN_CONFIRM:
-        return slots.confirm_accepted is True and bool(slots.id_details and slots.id_details.id_number)
+        return slots.confirm_accepted is not None
     return False
 
 
@@ -282,6 +307,7 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
     signals: List[str] = []
 
     rude = _detect_rude(normalized)
+    threat = _detect_threat(normalized)
     commanding = _detect_commanding(normalized)
     clarification_needed = _detect_clarification(normalized)
     refuses_repay = _detect_refusal_to_repay(normalized)
@@ -321,16 +347,20 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
         clarity = "AMBIGUOUS"
 
     appropriateness = "OK"
-    if rude:
+    if rude or threat:
         appropriateness = "BAD"
     elif commanding or missing_greeting or relevance == "LOW":
         appropriateness = "COACH"
 
     if rude:
+        signals.append("RUDE")
         signals.append("RUDE_LANGUAGE")
+    if threat:
+        signals.append("THREAT")
     if commanding:
         signals.append("COMMANDING_TONE")
     if refusal_to_provide:
+        signals.append("REFUSAL")
         signals.append("REFUSES_TO_PROVIDE_INFO")
     if refuses_repay:
         signals.append("REFUSES_TO_REPAY")
@@ -354,6 +384,8 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
     if slots.id_details and slots.id_details.id_number:
         signals.append("HAS_ID_DETAILS")
 
+    if relevance == "LOW":
+        signals.append("IRRELEVANT")
     signals.append(f"RELEVANCE:{relevance}")
     signals.append(f"CLARITY:{clarity}")
     signals.append(f"APPROPRIATE_FOR_BANK:{appropriateness}")

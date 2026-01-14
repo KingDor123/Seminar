@@ -5,6 +5,7 @@ from app.engine.bank.constants import (
     STATE_ASK_PURPOSE,
     STATE_CHECK_INCOME,
     STATE_INELIGIBLE_FINANCIAL,
+    STATE_GOODBYE,
 )
 from app.engine.bank.orchestrator import bank_orchestrator
 from app.engine.state_manager import state_manager
@@ -49,4 +50,4 @@ async def test_income_zero_and_purpose_flow():
     assert "FINANCIAL_INELIGIBLE" in signals
 
     next_state, _ = await _next_analysis(session_id, "0")
-    assert next_state == STATE_INELIGIBLE_FINANCIAL
+    assert next_state == STATE_GOODBYE
