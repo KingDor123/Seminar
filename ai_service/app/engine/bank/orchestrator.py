@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from app.engine.state_manager import state_manager
@@ -12,6 +13,22 @@ from .utils import mask_id_number
 from .responder import bank_responder
 
 logger = logging.getLogger("BankOrchestrator")
+DEBUG_LOGS = os.getenv("BANK_DEBUG_LOGS", "false").lower() in ("1", "true", "yes")
+
+
+def _is_reset_command(text: str) -> bool:
+    normalized = text.strip().lower()
+    if normalized == "[start]":
+        return True
+    reset_phrases = (
+        "התחל מחדש",
+        "התחלה מחדש",
+        "להתחיל מחדש",
+        "שיחה חדשה",
+        "reset",
+        "new session",
+    )
+    return any(phrase in normalized for phrase in reset_phrases)
 
 
 def _masked_slots(slots_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -36,6 +53,30 @@ class BankOrchestrator:
         del history
         features = FeatureExtractor.extract(user_text, audio_meta or {})
 
+        reset_requested = _is_reset_command(user_text)
+        loaded_from_disk = state_manager.was_loaded_from_disk(session_id)
+
+        if reset_requested:
+            bank_state = state_manager.reset_bank_state(session_id, scenario_id, reason="start")
+            bank_state.greeted = True
+            state_manager.update_bank_state(session_id, scenario_id, bank_state)
+            if DEBUG_LOGS:
+                logger.info(
+                    "[BANK][DEBUG] session=%s loaded_from_disk=%s reset=%s state=%s next_state=%s slots=amount:%s purpose:%s income:%s confirm_present:%s id_present:%s",
+                    session_id,
+                    loaded_from_disk,
+                    True,
+                    bank_state.current_state_id,
+                    bank_state.current_state_id,
+                    bank_state.slots.amount,
+                    bank_state.slots.purpose,
+                    bank_state.slots.income,
+                    bank_state.slots.confirm_accepted is not None,
+                    bool(bank_state.slots.id_details and bank_state.slots.id_details.id_number),
+                )
+            yield OPENING_GREETING + " " + OPENING_QUESTION
+            return
+
         bank_state = state_manager.get_or_create_bank_state(session_id, scenario_id)
         current_state = bank_state.current_state_id or STATE_START
 
@@ -54,15 +95,22 @@ class BankOrchestrator:
                 "signals": [],
                 "skip_persist": True,
             }
+            if DEBUG_LOGS:
+                logger.info(
+                    "[BANK][DEBUG] session=%s loaded_from_disk=%s reset=%s state=%s next_state=%s slots=amount:%s purpose:%s income:%s confirm_present:%s id_present:%s",
+                    session_id,
+                    loaded_from_disk,
+                    False,
+                    current_state,
+                    STATE_TERMINATE,
+                    bank_state.slots.amount,
+                    bank_state.slots.purpose,
+                    bank_state.slots.income,
+                    bank_state.slots.confirm_accepted is not None,
+                    bool(bank_state.slots.id_details and bank_state.slots.id_details.id_number),
+                )
             async for token in bank_responder.generate(decision):
                 yield token
-            return
-
-        if user_text.strip() == "[START]":
-            bank_state.current_state_id = STATE_START
-            bank_state.greeted = True
-            state_manager.update_bank_state(session_id, scenario_id, bank_state)
-            yield OPENING_GREETING + " " + OPENING_QUESTION
             return
 
         is_duplicate = (
@@ -106,6 +154,20 @@ class BankOrchestrator:
             decision.required_question,
             features.word_count,
         )
+        if DEBUG_LOGS:
+            logger.info(
+                "[BANK][DEBUG] session=%s loaded_from_disk=%s reset=%s state=%s next_state=%s slots=amount:%s purpose:%s income:%s confirm_present:%s id_present:%s",
+                session_id,
+                loaded_from_disk,
+                False,
+                current_state,
+                decision.next_state,
+                bank_state.slots.amount,
+                bank_state.slots.purpose,
+                bank_state.slots.income,
+                bank_state.slots.confirm_accepted is not None,
+                bool(bank_state.slots.id_details and bank_state.slots.id_details.id_number),
+            )
 
         skip_persist = decision.next_state == current_state
         yield {

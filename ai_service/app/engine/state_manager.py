@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from app.engine.bank.types import BankSessionState
 
 logger = logging.getLogger("SessionStateManager")
+DEBUG_LOGS = os.getenv("BANK_DEBUG_LOGS", "false").lower() in ("1", "true", "yes")
 
 class SessionStateData(BaseModel):
     scenario_id: str
@@ -22,6 +23,7 @@ class SessionStateManager:
     def __init__(self, persistence_file: str = "session_store.json"):
         self.persistence_file = persistence_file
         self.sessions: Dict[str, SessionStateData] = {}
+        self._loaded_session_ids: set[str] = set()
         self._load()
 
     def _load(self):
@@ -31,6 +33,7 @@ class SessionStateManager:
                     raw = json.load(f)
                     for sid, data in raw.items():
                         self.sessions[sid] = SessionStateData(**data)
+                        self._loaded_session_ids.add(str(sid))
                 logger.info(f"Loaded {len(self.sessions)} sessions from disk.")
             except Exception as e:
                 logger.error(f"Failed to load session store: {e}")
@@ -45,6 +48,9 @@ class SessionStateManager:
 
     def get_state(self, session_id: str) -> Optional[SessionStateData]:
         return self.sessions.get(str(session_id))
+
+    def was_loaded_from_disk(self, session_id: str) -> bool:
+        return str(session_id) in self._loaded_session_ids
 
     def update_state(self, session_id: str, scenario_id: str, node_id: str):
         sid = str(session_id)
@@ -78,6 +84,19 @@ class SessionStateManager:
             bank_state=bank_state,
         )
         self._save()
+
+    def reset_bank_state(self, session_id: str, scenario_id: str, reason: str = "reset") -> BankSessionState:
+        sid = str(session_id)
+        bank_state = BankSessionState()
+        self.sessions[sid] = SessionStateData(
+            scenario_id=scenario_id,
+            current_node_id=bank_state.current_state_id,
+            bank_state=bank_state,
+        )
+        self._save()
+        if DEBUG_LOGS:
+            logger.info("[BANK][DEBUG] Reset bank state session=%s reason=%s", sid, reason)
+        return bank_state
 
     def clear_session(self, session_id: str):
         sid = str(session_id)
