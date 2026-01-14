@@ -119,7 +119,7 @@ def extract_number(text: str) -> Optional[int]:
         return apply_unit_multiplier(digit_value, text)
     word_value = parse_number_words(text)
     if word_value is not None:
-        return apply_unit_multiplier(word_value, text)
+        return word_value
     return None
 
 
@@ -129,7 +129,7 @@ def contains_any(text: str, patterns: Iterable[str]) -> bool:
 
 def extract_number_near_keywords(text: str, keywords: Iterable[str]) -> Optional[int]:
     for keyword in keywords:
-        pattern = rf"{re.escape(keyword)}[^\dא-ת]*(\d{{1,3}}(?:[\s,\.]\d{{3}})+|\d+)"
+        pattern = rf"{re.escape(keyword)}[^\d]{{0,20}}(\d{{1,3}}(?:[\s,\.]\d{{3}})+|\d+)"
         match = re.search(pattern, text)
         if match:
             value = extract_number(match.group(1))

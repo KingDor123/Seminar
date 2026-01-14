@@ -58,7 +58,9 @@ def farthest_state(slots: BankSlots) -> str:
         return STATE_ASK_PURPOSE
     if slots.income is None:
         return STATE_CHECK_INCOME
-    if slots.confirm_accepted is not True or not (slots.id_details and slots.id_details.full_name and slots.id_details.id_number):
+    if slots.confirm_accepted is False:
+        return STATE_GOODBYE
+    if slots.confirm_accepted is not True or not (slots.id_details and slots.id_details.id_number):
         return STATE_SIGN_CONFIRM
     return STATE_GOODBYE
 
@@ -84,6 +86,7 @@ def decide_next_action(
     strikes: BankStrikes,
     is_first_turn: bool,
     already_greeted: bool,
+    suppress_strike_increment: bool = False,
 ) -> Tuple[BankDecision, BankStrikes]:
     next_state = farthest_state(slots)
     required_question = _required_question(next_state)
@@ -110,8 +113,9 @@ def decide_next_action(
                 decision.acknowledgement_line = "קיבלתי: " + ", ".join(parts) + "."
 
     if "RUDE_LANGUAGE" in signals:
-        updated_strikes.rude_strikes += 1
-        if updated_strikes.rude_strikes >= 2:
+        new_count = updated_strikes.rude_strikes + (0 if suppress_strike_increment else 1)
+        updated_strikes.rude_strikes = new_count
+        if new_count >= 2:
             decision.next_action = ACTION_TERMINATE
             decision.next_state = STATE_TERMINATE
             decision.termination_text = RUDE_SECOND_TERMINATION
@@ -122,8 +126,9 @@ def decide_next_action(
         return decision, updated_strikes
 
     if "REFUSES_TO_REPAY" in signals:
-        updated_strikes.repay_strikes += 1
-        if updated_strikes.repay_strikes >= 2:
+        new_count = updated_strikes.repay_strikes + (0 if suppress_strike_increment else 1)
+        updated_strikes.repay_strikes = new_count
+        if new_count >= 2:
             decision.next_action = ACTION_TERMINATE
             decision.next_state = STATE_TERMINATE
             decision.termination_text = REPAY_SECOND_TERMINATION
@@ -135,8 +140,9 @@ def decide_next_action(
         return decision, updated_strikes
 
     if "REFUSES_TO_PROVIDE_INFO" in signals:
-        updated_strikes.refusal_strikes += 1
-        if updated_strikes.refusal_strikes >= 2:
+        new_count = updated_strikes.refusal_strikes + (0 if suppress_strike_increment else 1)
+        updated_strikes.refusal_strikes = new_count
+        if new_count >= 2:
             decision.next_action = ACTION_TERMINATE
             decision.next_state = STATE_TERMINATE
             decision.termination_text = REFUSAL_SECOND_TERMINATION

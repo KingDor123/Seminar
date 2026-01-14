@@ -14,6 +14,7 @@ ASK_PURPOSE_QUESTION = "מה מטרת ההלוואה?"
 CHECK_INCOME_QUESTION = "מה ההכנסה החודשית המשוערת שלך?"
 SIGN_CONFIRM_QUESTION = "כדי להמשיך, האם אתה מאשר את הבקשה? נא ציין שם מלא ומספר תעודת זהות בלבד."
 GOODBYE_TEXT = "תודה, הבקשה הושלמה. יום טוב."
+TERMINATION_LOCK_TEXT = "השיחה הסתיימה. תודה."
 
 REQUIRED_QUESTIONS = {
     STATE_ASK_AMOUNT: ASK_AMOUNT_QUESTION,

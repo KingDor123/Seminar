@@ -46,3 +46,5 @@ class BankSessionState(BaseModel):
     strikes: BankStrikes = Field(default_factory=BankStrikes)
     turn_count: int = 0
     greeted: bool = False
+    last_user_text: Optional[str] = None
+    last_state_id: Optional[str] = None

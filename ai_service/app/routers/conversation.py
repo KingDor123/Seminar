@@ -10,21 +10,18 @@ from typing import Optional, AsyncGenerator, List, Dict, Any
 # Robust import strategy
 # 1. Try direct import (works in Docker if PYTHONPATH=/app)
 try:
-    from app.engine.orchestrator import orchestrator
-    from app.engine.scenarios import SCENARIO_REGISTRY
+    from app.engine.bank.orchestrator import bank_orchestrator
 except ImportError:
     # 2. Try parent package import (works in local dev if running from root)
     try:
-        from ai_service.app.engine.orchestrator import orchestrator
-        from ai_service.app.engine.scenarios import SCENARIO_REGISTRY
+        from ai_service.app.engine.bank.orchestrator import bank_orchestrator
     except ImportError:
          # 3. Path hack fallback
         current_dir = os.path.dirname(os.path.abspath(__file__))
         pipeline_dir = os.path.abspath(os.path.join(current_dir, '../..'))
         if pipeline_dir not in sys.path:
             sys.path.append(pipeline_dir)
-        from app.engine.orchestrator import orchestrator
-        from app.engine.scenarios import SCENARIO_REGISTRY
+        from app.engine.bank.orchestrator import bank_orchestrator
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -142,12 +139,12 @@ async def interact(
             yield _sse_event("status", "thinking")
 
             # --- BRANCH: NEW ENGINE ---
-            if scenario_id in SCENARIO_REGISTRY:
-                logger.info(f"🚀 Using Engine Orchestrator for {scenario_id}")
+            if scenario_id == "bank":
+                logger.info("🚀 Using Bank Orchestrator")
                 full_content = ""
                 
                 # NOTE: We consume the generator. If persistence fails inside, we break.
-                async for chunk in orchestrator.process_turn(str(session_id), scenario_id, text, history):
+                async for chunk in bank_orchestrator.process_turn(str(session_id), scenario_id, text, history):
                      if isinstance(chunk, dict):
                          # Metadata / Analysis
                          if "type" in chunk and chunk["type"] == "analysis":
@@ -191,8 +188,8 @@ async def interact(
                 return
             
             # --- ERROR: UNKNOWN SCENARIO ---
-            logger.error(f"❌ Scenario '{scenario_id}' not found in registry.")
-            yield _sse_event("error", f"Scenario '{scenario_id}' not found.")
+            logger.error(f"❌ Scenario '{scenario_id}' not supported.")
+            yield _sse_event("error", f"Scenario '{scenario_id}' not supported.")
 
         except Exception as e:
             logger.error(f"❌ SSE Stream Error: {e}")

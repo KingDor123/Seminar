@@ -21,6 +21,7 @@ from app.engine.llm import llm_client
 
 RUDE_WORDS = [
     "מטומטם",
+    "מטומטמת",
     "אידיוט",
     "דביל",
     "מפגר",
@@ -40,12 +41,18 @@ REFUSAL_PATTERNS = [
     "לא מוסר",
     "לא אגיד",
     "לא מתכוון להגיד",
+    "לא אומר",
     "לא עניינך",
     "זה לא עניינך",
     "אחר כך",
     "לא עכשיו",
     "לא בזמן הזה",
     "סודי",
+    "עזוב",
+    "עזבי",
+    "עזבו",
+    "עזוב אותי",
+    "עזבי אותי",
 ]
 
 REFUSAL_REPAY_PATTERNS = [
@@ -55,6 +62,8 @@ REFUSAL_REPAY_PATTERNS = [
     "לא אשלם",
     "לא אשלם חזרה",
     "אין סיכוי שאחזיר",
+    "לא מחזיר",
+    "לא מחזירה",
 ]
 
 CLARIFICATION_PATTERNS = [
@@ -64,8 +73,11 @@ CLARIFICATION_PATTERNS = [
     "תסביר",
     "מה זאת אומרת",
     "מה זה אומר",
+    "מה זה",
+    "מזה",
     "לא ברור",
     "אפשר להסביר",
+    "למה צריך",
 ]
 
 GREETING_WORDS = ["שלום", "היי", "הי", "בוקר טוב", "ערב טוב", "צהריים טובים"]
@@ -86,11 +98,11 @@ COMMANDING_PATTERNS = [
 
 INCOME_KEYWORDS = ["מכניס", "הכנסה", "מרוויח", "שכר", "בחודש", "נטו", "ברוטו"]
 AMOUNT_KEYWORDS = ["הלוואה", "סכום", "צריך", "צריכה", "מבקש", "מבקשת", "רוצה", "מעוניין", "מעוניינת"]
-PURPOSE_KEYWORDS = ["רכב", "שיפוץ", "לימודים", "חתונה", "דירה", "עסק", "חופשה", "משכנתא"]
+PURPOSE_KEYWORDS = ["רכב", "שיפוץ", "לימודים", "חתונה", "דירה", "עסק", "חופשה", "משכנתא", "סלון"]
 BANK_KEYWORDS = ["הלוואה", "בנק", "ריבית", "תנאים", "בקשה"]
 
 CONFIRM_POSITIVE = ["כן", "מאשר", "מאשרת", "מסכים", "מסכימה", "מאושר", "בסדר", "מתאים"]
-CONFIRM_NEGATIVE = ["לא", "לא מסכים", "לא מסכימה", "לא מאשר", "לא מאשרת"]
+CONFIRM_NEGATIVE = ["לא מסכים", "לא מסכימה", "לא מאשר", "לא מאשרת"]
 
 ID_LABELS = [
     "ת.ז",
@@ -99,6 +111,8 @@ ID_LABELS = [
     "מספר זהות",
     "מספר תעודת זהות",
 ]
+
+CURRENCY_MARKERS = ["₪", "שח", "ש\"ח", "ש״ח"]
 
 ALLOW_LLM_FALLBACK = os.getenv("BANK_LLM_FALLBACK", "false").lower() in ("1", "true", "yes")
 
@@ -144,20 +158,30 @@ def _extract_purpose(text: str) -> str | None:
     return None
 
 
+def _has_negative_number(text: str) -> bool:
+    return re.search(r"-\s*\d", text) is not None
+
+
 def _extract_amount(text: str, current_state: str) -> int | None:
+    if _has_negative_number(text):
+        return None
     keyword_amount = extract_number_near_keywords(text, AMOUNT_KEYWORDS)
-    if keyword_amount is not None:
+    if keyword_amount is not None and keyword_amount > 0:
         return keyword_amount
-    if contains_any(text, AMOUNT_KEYWORDS):
+    if contains_any(text, AMOUNT_KEYWORDS) or contains_any(text, CURRENCY_MARKERS):
         value = extract_number(text)
-        if value is not None:
+        if value is not None and value > 0:
             return value
-    if current_state in {STATE_ASK_AMOUNT, STATE_START}:
-        return extract_number(text)
+    if current_state in {STATE_ASK_AMOUNT, STATE_START, STATE_ASK_PURPOSE}:
+        value = extract_number(text)
+        if value is not None and value > 0:
+            return value
     return None
 
 
 def _extract_income(text: str, current_state: str) -> int | None:
+    if _has_negative_number(text):
+        return None
     keyword_income = extract_number_near_keywords(text, INCOME_KEYWORDS)
     if keyword_income is not None:
         return keyword_income
@@ -170,7 +194,9 @@ def _extract_income(text: str, current_state: str) -> int | None:
     return None
 
 
-def _extract_confirm(text: str) -> bool | None:
+def _extract_confirm(text: str, current_state: str) -> bool | None:
+    if current_state != STATE_SIGN_CONFIRM:
+        return None
     for phrase in CONFIRM_NEGATIVE:
         if phrase in text:
             return False
@@ -213,7 +239,7 @@ def _required_slots_present(current_state: str, slots: BankSlots) -> bool:
     if current_state == STATE_CHECK_INCOME:
         return slots.income is not None
     if current_state == STATE_SIGN_CONFIRM:
-        return slots.confirm_accepted is True and bool(slots.id_details and slots.id_details.full_name and slots.id_details.id_number)
+        return slots.confirm_accepted is True and bool(slots.id_details and slots.id_details.id_number)
     return False
 
 
@@ -224,7 +250,7 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
         amount=_extract_amount(normalized, current_state),
         purpose=_extract_purpose(normalized),
         income=_extract_income(normalized, current_state),
-        confirm_accepted=_extract_confirm(normalized),
+        confirm_accepted=_extract_confirm(normalized, current_state),
         id_details=_extract_id_details(normalized),
     )
 
@@ -241,19 +267,16 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
             slots.amount is not None,
             bool(slots.purpose),
             slots.income is not None,
-            slots.confirm_accepted is True,
-            bool(slots.id_details and (slots.id_details.full_name or slots.id_details.id_number)),
+            slots.confirm_accepted is not None,
+            bool(slots.id_details and slots.id_details.id_number),
         ]
     )
 
     missing_greeting = current_state == STATE_START and not _detect_greeting(normalized)
 
     refusal_to_provide = False
-    if not clarification_needed:
-        if _detect_refusal_to_provide(normalized):
-            refusal_to_provide = True
-        elif current_state != STATE_START and not required_present and not any_slot_present:
-            refusal_to_provide = True
+    if not clarification_needed and _detect_refusal_to_provide(normalized):
+        refusal_to_provide = True
 
     relevance = "LOW"
     clarity = "AMBIGUOUS"
@@ -294,7 +317,7 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
         signals.append("HAS_INCOME")
     if slots.confirm_accepted is True:
         signals.append("HAS_CONFIRM")
-    if slots.id_details and slots.id_details.full_name and slots.id_details.id_number:
+    if slots.id_details and slots.id_details.id_number:
         signals.append("HAS_ID_DETAILS")
 
     signals.append(f"RELEVANCE:{relevance}")
