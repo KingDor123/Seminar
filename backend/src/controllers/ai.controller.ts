@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import http from 'http';
 import { URL } from 'url';
 import { AI_SERVICE_BASE_URL, REQUEST_TIMEOUT_MS } from '../config/appConfig.js';
+import * as chatService from '../services/chat.service.js';
 
 interface AudioPayload {
     text: string;
@@ -122,15 +123,30 @@ class AiController {
   }
 
   async generateReport(req: Request, res: Response) {
-    const sessionId = req.params.sessionId;
+    const sessionId = parseInt(req.params.sessionId);
+    if (isNaN(sessionId)) {
+        return res.status(400).json({ error: "Invalid Session ID" });
+    }
+
     try {
-      console.log(`[AiController] Proxying Report Generation for Session ${sessionId}...`);
+      console.log(`[AiController] Fetching history for Session ${sessionId}...`);
+      
+      // 1. Fetch History from DB via ChatService
+      const history = await chatService.getSessionHistory(sessionId, true); // true = include analysis
+      
+      console.log(`[AiController] Sending ${history.length} messages to AI Service for analysis...`);
+
       const controller = new AbortController();
-      // Long timeout for analysis (e.g. 5 minutes)
       const timeout = setTimeout(() => controller.abort(), 300000); 
 
-      const response = await fetch(`${AI_SERVICE_BASE_URL}/report/generate/${sessionId}`, {
+      // 2. Send History to AI Service
+      const response = await fetch(`${AI_SERVICE_BASE_URL}/report/generate`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            sessionId: sessionId,
+            messages: history
+        }),
         signal: controller.signal,
       });
       clearTimeout(timeout);

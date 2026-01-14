@@ -24,6 +24,10 @@ export class Database {
       return;
     }
 
+    if (!process.env.DB_USER || !process.env.DB_PASSWORD) {
+      throw new Error('Missing required database credentials (DB_USER, DB_PASSWORD). Check your .env file.');
+    }
+
     this.pool = new Pool({
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
