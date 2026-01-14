@@ -20,3 +20,4 @@ stanza
 asyncpg
 nvidia-cudnn-cu12
 nvidia-cublas-cu12
+python-dotenv

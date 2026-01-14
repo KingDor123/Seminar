@@ -68,7 +68,7 @@ async def interact(
     """
     Handles the interaction: STT -> Sentiment -> LLM (Streaming) -> TTS
     """
-    
+
     # 1. Get User Input (either from audio or text)
     user_input = text or ""
     if audio:
@@ -99,7 +99,7 @@ async def interact(
         {"role": "system", "content": f"You are an AI trainer for social skills. {scenario_prompt}"},
         {"role": "system", "content": f"Current user sentiment: {sentiment_result['label']}. Adjust your tone accordingly."}
     ]
-    
+
     try:
         history = json.loads(chat_history)
         # Ensure history is in the format expected by LLM (role, content)
@@ -107,19 +107,19 @@ async def interact(
             messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
     except:
         pass
-        
+
     messages.append({"role": "user", "content": user_input})
 
     # 5. Stream LLM Response
     async def response_generator():
         # First yield the recognized text and sentiment for the frontend to update UI
         yield f"data: {json.dumps({'type': 'user_input', 'text': user_input, 'sentiment': sentiment_result})}\\n\n"
-        
+
         full_response = ""
         async for token in llm_service.stream_response(messages):
             full_response += token
             yield f"data: {json.dumps({'type': 'token', 'text': token})}\\n\n"
-        
+
         # Finally, send a completion event with any extra data
         yield f"data: {json.dumps({'type': 'done', 'analysis': nlp_analysis})}\\n\n"
 
@@ -155,14 +155,14 @@ async def generate_report(req: ReportRequest):
     sentiment_score_map = {"positive": 1, "neutral": 0, "negative": -1}
     total_sentiment = 0
     valid_sentiments = 0
-    
+
     for m in user_msgs:
         if m.sentiment and m.sentiment.lower() in sentiment_score_map:
             total_sentiment += sentiment_score_map[m.sentiment.lower()]
             valid_sentiments += 1
-    
+
     avg_sentiment_val = total_sentiment / valid_sentiments if valid_sentiments > 0 else 0
-    
+
     # Map back to string
     avg_sentiment_str = "neutral"
     if avg_sentiment_val > 0.3: avg_sentiment_str = "positive"
@@ -177,16 +177,16 @@ async def generate_report(req: ReportRequest):
     prompt = f"""
     Analyze the following conversation from a social skills training session.
     The user is practicing social interactions.
-    
+
     Conversation:
     {conversation_text}
-    
+
     Task:
     1. Write a brief professional summary of the user's performance (in Hebrew).
     2. List 2 key strengths (in Hebrew).
     3. List 2 tips for improvement (in Hebrew).
     4. Give a score from 0 to 100 based on social appropriateness.
-    
+
     Output strictly in valid JSON format like this:
     {{
         "summary": "...",
@@ -199,12 +199,12 @@ async def generate_report(req: ReportRequest):
     try:
         # Generate full response (not streaming)
         llm_response = await llm_service.generate_response([{"role": "user", "content": prompt}], format="json")
-        
+
         # Parse JSON
         # Note: some LLMs might add markdown backticks, strip them
         clean_json = llm_response.replace("```json", "").replace("```", "").strip()
         analysis_data = json.loads(clean_json)
-        
+
         summary = analysis_data.get("summary", "Analysis completed.")
         strengths = analysis_data.get("strengths", [])
         tips = analysis_data.get("tips", [])
