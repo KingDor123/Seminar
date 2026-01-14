@@ -50,6 +50,7 @@ class BankSessionState(BaseModel):
     greeted: bool = False
     last_user_text: Optional[str] = None
     last_state_id: Optional[str] = None
+    last_question: Optional[str] = None
     retry_counts: Dict[str, int] = Field(default_factory=dict)
     restart_offered: bool = False
     goodbye_prompted: bool = False

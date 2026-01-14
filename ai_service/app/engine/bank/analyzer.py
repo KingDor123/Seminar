@@ -82,6 +82,18 @@ CLARIFICATION_PATTERNS = [
     "למה צריך",
 ]
 
+REPEAT_PATTERNS = [
+    "מה שאלת",
+    "מה שאלת אותי",
+    "איזו שאלה",
+    "לא הבנתי",
+    "אני לא מבין מה השאלה",
+    "אני לא מבינה מה השאלה",
+    "תחזור על השאלה",
+    "תחזרי על השאלה",
+    "תזכיר לי מה שאלת",
+]
+
 GREETING_WORDS = [
     "שלום",
     "היי",
@@ -185,6 +197,9 @@ def _detect_clarification(text: str) -> bool:
 
 def _detect_greeting(text: str) -> bool:
     return contains_any(text, GREETING_WORDS)
+
+def _detect_repeat_request(text: str) -> bool:
+    return contains_any(text, REPEAT_PATTERNS)
 
 def _detect_threat(text: str) -> bool:
     if contains_any(text, THREAT_PATTERNS):
@@ -310,6 +325,7 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
     threat = _detect_threat(normalized)
     commanding = _detect_commanding(normalized)
     clarification_needed = _detect_clarification(normalized)
+    repeat_requested = _detect_repeat_request(normalized)
     refuses_repay = _detect_refusal_to_repay(normalized)
     no_income_detected = contains_any(normalized, NO_INCOME_PATTERNS)
 
@@ -325,7 +341,7 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
     )
 
     greeting_present = _detect_greeting(normalized)
-    missing_greeting = current_state == STATE_START and not greeting_present
+    missing_greeting = current_state == STATE_START and not greeting_present and not repeat_requested
 
     refusal_to_provide = False
     if not clarification_needed and _detect_refusal_to_provide(normalized):
@@ -333,7 +349,10 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
 
     relevance = "LOW"
     clarity = "AMBIGUOUS"
-    if greeting_present and not any_slot_present and not clarification_needed:
+    if repeat_requested:
+        relevance = "MED"
+        clarity = "CLEAR"
+    elif greeting_present and not any_slot_present and not clarification_needed:
         relevance = "MED"
         clarity = "CLEAR"
     elif clarification_needed:
@@ -347,7 +366,9 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
         clarity = "AMBIGUOUS"
 
     appropriateness = "OK"
-    if rude or threat:
+    if repeat_requested:
+        appropriateness = "OK"
+    elif rude or threat:
         appropriateness = "BAD"
     elif commanding or missing_greeting or relevance == "LOW":
         appropriateness = "COACH"
@@ -366,6 +387,8 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
         signals.append("REFUSES_TO_REPAY")
     if clarification_needed:
         signals.append("CLARIFICATION_NEEDED")
+    if repeat_requested:
+        signals.append("REPEAT_LAST_QUESTION")
     if missing_greeting:
         signals.append("MISSING_GREETING")
     if greeting_present:
@@ -384,7 +407,7 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
     if slots.id_details and slots.id_details.id_number:
         signals.append("HAS_ID_DETAILS")
 
-    if relevance == "LOW":
+    if relevance == "LOW" and not repeat_requested:
         signals.append("IRRELEVANT")
     signals.append(f"RELEVANCE:{relevance}")
     signals.append(f"CLARITY:{clarity}")

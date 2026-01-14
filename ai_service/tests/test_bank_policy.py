@@ -18,8 +18,10 @@ from app.engine.bank.templates import (
     ASK_AMOUNT_QUESTION,
     MISSING_GREETING_COACH,
     RESTART_OPTIONS,
+    ASK_PURPOSE_QUESTION,
 )
-from app.engine.bank.types import BankSlots, BankStrikes
+from app.engine.bank.types import BankSlots, BankStrikes, BankDecision
+from app.engine.bank.responder import bank_responder
 from app.engine.bank.orchestrator import bank_orchestrator
 from app.engine.state_manager import state_manager
 
@@ -103,6 +105,59 @@ def test_purpose_not_invented_when_missing():
     analysis = analyze_turn("לא יודע עדיין", STATE_ASK_PURPOSE)
     assert analysis.slots.purpose is None
     assert "HAS_PURPOSE" not in analysis.signals
+
+
+@pytest.mark.asyncio
+async def test_repeat_last_question_repeats_exact(monkeypatch):
+    async def echo_plan(messages):
+        plan = messages[1]["content"]
+        for line in plan.split("\n")[1:]:
+            yield line.replace("- ", "")
+
+    monkeypatch.setattr("app.engine.bank.responder.llm_client.generate_stream", echo_plan)
+
+    session_id = "policy-repeat"
+    state_manager.clear_session(session_id)
+
+    gen = bank_orchestrator.process_turn(session_id, "bank", "[START]", [])
+    async for _ in gen:
+        break
+    await gen.aclose()
+
+    await _next_analysis(session_id, "שלום")
+
+    chunks = []
+    gen = bank_orchestrator.process_turn(session_id, "bank", "טוב מה שאלת אותי?", [])
+    async for item in gen:
+        if isinstance(item, str):
+            chunks.append(item)
+    await gen.aclose()
+    output = "".join(chunks)
+    assert ASK_AMOUNT_QUESTION in output
+    assert "דוגמה: 20,000" in output
+    assert "כדי להתקדם" not in output
+
+
+@pytest.mark.asyncio
+async def test_responder_blocks_invented_purpose(monkeypatch):
+    async def fake_stream(_messages):
+        yield "מטרת ההלוואה היא רכב."
+
+    monkeypatch.setattr("app.engine.bank.responder.llm_client.generate_stream", fake_stream)
+
+    decision = BankDecision(
+        next_state=STATE_ASK_PURPOSE,
+        next_action="ASK_REQUIRED",
+        required_question=ASK_PURPOSE_QUESTION,
+    )
+
+    chunks = []
+    async for chunk in bank_responder.generate(decision):
+        chunks.append(chunk)
+    output = "".join(chunks)
+
+    assert "מטרת ההלוואה היא" not in output
+    assert ASK_PURPOSE_QUESTION in output
 
 
 @pytest.mark.asyncio

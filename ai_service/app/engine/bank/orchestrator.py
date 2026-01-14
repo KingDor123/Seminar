@@ -16,6 +16,7 @@ from .constants import (
     ACTION_OFFER_RESTART,
     ACTION_BOUNDARY_AND_OFFER_RESTART,
     ACTION_END_CONVERSATION_SAFELY,
+    ACTION_REPEAT_AND_EXPLAIN,
 )
 from .fsm import decide_next_action, merge_slots
 from .templates import (
@@ -25,6 +26,8 @@ from .templates import (
     GOODBYE_RESTART_PROMPT,
     GOODBYE_TEXT,
     END_CONVERSATION_SAFE,
+    REPEAT_EXAMPLES,
+    RETRY_QUESTIONS,
 )
 from .types import BankDecision
 from .utils import mask_id_number
@@ -76,6 +79,17 @@ def _is_continue_command(text: str) -> bool:
     return any(phrase in normalized for phrase in ("נמשיך", "בוא נמשיך", "להמשיך", "נמשיך בבקשת הלוואה"))
 
 
+def _should_store_last_question(state_id: str) -> bool:
+    return state_id in {"ask_amount", "ask_purpose", "check_income", "sign_confirm"}
+
+
+def _fallback_question_for_state(state_id: str) -> str | None:
+    if state_id in RETRY_QUESTIONS:
+        return RETRY_QUESTIONS[state_id][0]
+    if state_id == STATE_START:
+        return OPENING_QUESTION
+    return None
+
 def _masked_slots(slots_dict: Dict[str, Any]) -> Dict[str, Any]:
     masked = dict(slots_dict)
     id_details = masked.get("id_details")
@@ -104,6 +118,7 @@ class BankOrchestrator:
         if reset_requested:
             bank_state = state_manager.reset_bank_state(session_id, scenario_id, reason="start")
             bank_state.greeted = True
+            bank_state.last_question = OPENING_QUESTION
             state_manager.update_bank_state(session_id, scenario_id, bank_state)
             if DEBUG_LOGS:
                 logger.info(
@@ -282,6 +297,32 @@ class BankOrchestrator:
         analysis = await analyze_turn_async(user_text, current_state)
         merged_slots = merge_slots(bank_state.slots, analysis.slots)
 
+        if "REPEAT_LAST_QUESTION" in analysis.signals:
+            last_question = bank_state.last_question or _fallback_question_for_state(current_state)
+            example = REPEAT_EXAMPLES.get(current_state)
+            decision = BankDecision(
+                next_state=current_state,
+                next_action=ACTION_REPEAT_AND_EXPLAIN,
+                required_question=last_question,
+                coach_tip=example,
+            )
+            bank_state.turn_count += 1
+            bank_state.last_user_text = user_text
+            bank_state.last_state_id = current_state
+            state_manager.update_bank_state(session_id, scenario_id, bank_state)
+            yield {
+                "type": "analysis",
+                "passed": False,
+                "reasoning": "Repeat last question",
+                "sentiment": "neutral",
+                "next_state": current_state,
+                "signals": analysis.signals,
+                "skip_persist": True,
+            }
+            async for token in bank_responder.generate(decision):
+                yield token
+            return
+
         retry_count = bank_state.retry_counts.get(current_state, 0)
         decision, updated_strikes, next_retry = decide_next_action(
             current_state=current_state,
@@ -317,6 +358,11 @@ class BankOrchestrator:
             bank_state.retry_counts[current_state] = 0
         else:
             bank_state.retry_counts[current_state] = next_retry
+
+        if decision.required_question and _should_store_last_question(
+            current_state if decision.next_state == current_state else decision.next_state
+        ):
+            bank_state.last_question = decision.required_question
 
         state_manager.update_bank_state(session_id, scenario_id, bank_state)
 

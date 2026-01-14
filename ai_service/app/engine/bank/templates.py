@@ -66,6 +66,13 @@ RETRY_QUESTIONS = {
     },
 }
 
+REPEAT_EXAMPLES = {
+    STATE_ASK_AMOUNT: "דוגמה: 20,000",
+    STATE_ASK_PURPOSE: "דוגמה: רכב",
+    STATE_CHECK_INCOME: "דוגמה: 10,000",
+    STATE_SIGN_CONFIRM: "דוגמה: מאשר/ת",
+}
+
 WARN_RUDE_TEXT = "אני כאן כדי לעזור, אבל לא אוכל להמשיך אם יש קללות או עלבונות."
 WARN_REDIRECT_PREFIX = "אם תרצה/י, נמשיך. השאלה:"
 BOUNDARY_RESTART_TEXT = "כדי שנוכל להתקדם, בוא ננסה ניסוח מכבד."

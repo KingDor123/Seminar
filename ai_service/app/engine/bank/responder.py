@@ -4,7 +4,7 @@ import re
 from typing import AsyncGenerator, List
 
 from app.engine.llm import llm_client
-from .constants import STATE_SIGN_CONFIRM
+from .constants import STATE_SIGN_CONFIRM, STATE_ASK_PURPOSE, ACTION_REPEAT_AND_EXPLAIN
 from .templates import SIGN_CONFIRM_QUESTION
 from .types import BankDecision
 
@@ -17,14 +17,24 @@ def _build_response_lines(decision: BankDecision) -> List[str]:
         return [decision.termination_text]
 
     lines: List[str] = []
-    for line in [
-        decision.greeting_line,
-        decision.acknowledgement_line,
-        decision.warning_text,
-        decision.clarification_text,
-        decision.coach_tip,
-        decision.required_question,
-    ]:
+    if decision.next_action == ACTION_REPEAT_AND_EXPLAIN:
+        order = [
+            decision.greeting_line,
+            decision.acknowledgement_line,
+            decision.warning_text,
+            decision.required_question,
+            decision.coach_tip,
+        ]
+    else:
+        order = [
+            decision.greeting_line,
+            decision.acknowledgement_line,
+            decision.warning_text,
+            decision.clarification_text,
+            decision.coach_tip,
+            decision.required_question,
+        ]
+    for line in order:
         if line:
             lines.append(line)
     if decision.options:
@@ -38,6 +48,15 @@ def _fallback_text(lines: List[str]) -> str:
 
 def _needs_sign_confirm_guardrail(decision: BankDecision) -> bool:
     return decision.next_state == STATE_SIGN_CONFIRM or decision.required_question == SIGN_CONFIRM_QUESTION
+
+def _violates_purpose_hallucination(text: str, decision: BankDecision) -> bool:
+    if "מטרת ההלוואה היא" not in text:
+        return False
+    if decision.acknowledgement_line:
+        return False
+    if decision.next_state == STATE_ASK_PURPOSE:
+        return True
+    return True
 
 
 def _violates_sign_confirm(text: str) -> bool:
@@ -97,20 +116,25 @@ class BankResponder:
                 logger.info("[BANK][RESPONDER] Response plan:\n%s", response_plan)
                 logger.info("[BANK][RESPONDER] System prompt:\n%s", system_prompt)
                 logger.info("[BANK][RESPONDER] User prompt:\n%s", user_prompt)
-            if _needs_sign_confirm_guardrail(decision):
+            needs_guardrail = _needs_sign_confirm_guardrail(decision) or decision.next_state == STATE_ASK_PURPOSE
+            if needs_guardrail:
                 text = await _generate_llm_text(messages)
                 if DEBUG_LOGS:
                     logger.info("[BANK][RESPONDER] Raw response:\n%s", text)
-                if _violates_sign_confirm(text):
+                if _needs_sign_confirm_guardrail(decision) and _violates_sign_confirm(text):
                     logger.warning("[BANK][GUARDRAIL] blocked self-identification in sign_confirm")
                     yield _fallback_text(lines)
-                else:
-                    yield text
-            else:
-                async for token in llm_client.generate_stream(messages):
-                    if token.startswith("[Error:"):
-                        raise RuntimeError(token)
-                    yield token
+                    return
+                if _violates_purpose_hallucination(text, decision):
+                    logger.warning("[BANK][GUARDRAIL] blocked hallucinated purpose")
+                    yield _fallback_text(lines)
+                    return
+                yield text
+                return
+            async for token in llm_client.generate_stream(messages):
+                if token.startswith("[Error:"):
+                    raise RuntimeError(token)
+                yield token
         except Exception as exc:
             logger.error(f"[BankResponder] LLM failure, using fallback: {exc}")
             yield _fallback_text(lines)
