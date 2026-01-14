@@ -37,24 +37,6 @@ services:
     networks:
       - web
 
-  ai_service:
-    build: ./ai_service
-    container_name: ai_service
-    env_file:
-      - .env
-    environment:
-      MODEL_NAME: ${LLM_MODEL}
-    ports:
-      - "8000:8000"
-    volumes:
-      - huggingface_cache:/root/.cache/huggingface
-      - ./ai_service:/app
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    runtime: nvidia
-    networks:
-      - web
-
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
@@ -76,7 +58,6 @@ services:
       - .env
     depends_on:
       - backend
-      - ai_service
       - ollama
     ports:
       - "3000:3000"

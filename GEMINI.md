@@ -1,41 +1,66 @@
-# GEMINI Context: SoftSkill AI Trainer
+# GEMINI.md - Project Overview & Quick Start
 
-## Purpose
-This file is a high-signal context brief for future AI interactions in this repo. It reflects the current, production-style architecture and data flow.
+## Project Overview
+**SoftSkill v2** (Seminar / AI Coaching) is a full-stack platform designed for social skills training. It allows users to engage in role-play scenarios with AI personas to improve their communication skills. The system features real-time chat, voice interaction (TTS/STT), 3D avatars, and post-session analytics.
 
-## Architecture Diagram (Text)
-Frontend (Next.js)
-  -> FastAPI AI Service (/ai, /analytics)
-     -> HybridPipeline (HeBERT sentiment + Aya LLM via Ollama)
-        -> PostgreSQL (sessions, messages)
+## Tech Stack Summary
+- **Frontend:** Next.js 16, React 19, Tailwind CSS, Three.js (3D Avatars).
+- **Backend:** Node.js (Express), TypeScript, PostgreSQL.
+- **AI Engine:** Ollama (running locally via Docker) serving the `aya:8b` model.
+- **Infrastructure:** Docker & Docker Compose.
 
-Note: A separate Node/Express backend handles core APIs and DB initialization. The analytics endpoints in `ai_service` query Postgres directly.
+## Quick Start
 
-## Data Flow (Message Lifecycle)
-1. A user sends a message from the React UI.
-2. FastAPI receives the request and normalizes text.
-3. HeBERT runs sentiment analysis and tags the user message.
-4. The Sandwich prompt is assembled (system rules + persona + dynamic safety/sentiment).
-5. Aya streams the assistant response token-by-token from Ollama.
-6. User message, sentiment label, and assistant reply are persisted to Postgres.
-7. Dashboard endpoints aggregate sessions and sentiment trends for the UI.
+### Prerequisites
+- Docker & Docker Compose
+- `npm` (optional, for local development outside Docker)
 
-## The Sandwich Prompt Structure
-1. System Rules: global constraints (output language, short replies, stay in character).
-2. User Persona: scenario prompt provided by the frontend.
-3. Dynamic Safety/Sentiment: HeBERT-based instruction plus guardrails for impossible content.
+### Running the Full Stack
+The project is orchestrated via Docker Compose.
 
-## Database Schema (High Level)
-- sessions: id, scenario_id, start_time, user_id (optional), ...
-- messages: id, session_id, role (user/ai), content, sentiment (text), ...
-- Relationship: a session has many messages; sentiment is stored per user message and surfaced in analytics.
+1.  **Environment Setup:**
+    Ensure a `.env` file exists in the root (or is sourced by the containers). Key variables include `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `LLM_MODEL` (default: `aya:8b`).
 
-## Analytics & Dashboard
-- `GET /analytics/dashboard` aggregates totals and sentiment distribution from the messages table.
-- `GET /analytics/sessions_list` returns recent sessions with message counts and last-known sentiment.
-- The sessions page renders overview metrics, sentiment bars, and per-message sentiment badges.
+2.  **Start the Application:**
+    Run the provided helper script:
+    ```bash
+    ./start.sh
+    ```
+    This script builds the images and starts all services (`frontend`, `backend`, `db`, `ollama`).
 
-## Current Status
-- Docker Compose orchestrates frontend, backend, ai_service, Postgres, and Ollama.
-- HeBERT loads on AI service startup; aya:8b is pulled by Ollama.
-- Real analytics are live and wired to the dashboard.
+    *Alternatively, run manually:*
+    ```bash
+    docker-compose up --build
+    ```
+
+3.  **Access the App:**
+    - **Frontend:** [http://localhost:3000](http://localhost:3000)
+    - **Backend API:** [http://localhost:5001](http://localhost:5001)
+    - **Ollama:** [http://localhost:11434](http://localhost:11434)
+
+## System Architecture
+
+The system consists of four main containers:
+
+| Service | Internal Port | External Port | Description |
+| :--- | :--- | :--- | :--- |
+| **frontend** | 3000 | 3000 | Next.js App Router application (Hebrew UI). |
+| **backend** | 5001 | 5001 | Express.js API, handles business logic & DB. |
+| **db** | 5432 | 5432 | PostgreSQL 16 database. |
+| **ollama** | 11434 | 11434 | Local LLM inference server (default: `aya:8b`). |
+
+## Directory Structure
+
+- **`backend/`**: Node.js/Express API server.
+    - See [`backend/GEMINI.md`](backend/GEMINI.md) for detailed backend architecture, commands, and conventions.
+- **`frontend/`**: Next.js React application.
+    - See [`frontend/GEMINI.md`](frontend/GEMINI.md) for frontend component structure, hooks, and UI details.
+- **`docs/`**: Project documentation (UI blueprints, migration checklists).
+- **`UML/`**: Architecture and sequence diagrams (`.puml`).
+- **`db/`**: Database initialization scripts (mounted to `db` container).
+
+## Development Notes
+
+- **Ollama Model:** The `ollama` container is configured to pull the model specified in `LLM_MODEL` (default `aya:8b`) on startup.
+- **Database Persistence:** Data is persisted in the `db_data` Docker volume.
+- **Shared Configuration:** Review `.env` usage across `docker-compose.yml` to ensure consistency between services.

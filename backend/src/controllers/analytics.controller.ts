@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import * as analyticsService from '../services/analytics.service.js';
-import { AI_SERVICE_BASE_URL, REQUEST_TIMEOUT_MS } from '../config/appConfig.js';
 
 export const saveMetric = async (req: Request, res: Response) => {
     try {
@@ -60,24 +59,23 @@ export const getSessionsSummary = async (req: Request, res: Response) => {
             return;
         }
 
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-        const aiBase = AI_SERVICE_BASE_URL.replace(/\/ai$/, '');
-        const url = `${aiBase}/analytics/sessions/summary?user_id=${userId}`;
+        const summaries = await analyticsService.getSessionsSummary(userId);
+        
+        // Transform to match frontend expectation if needed (e.g. map fields)
+        // Frontend expects: [{ session_id, score, fluency, fillers, date }]
+        // Our repo returns: [{ session_id, scenario_id, start_time, score }]
+        
+        const data = summaries.map(s => ({
+            session_id: s.session_id,
+            score: s.score || 0,
+            fluency: 0, // Placeholder as detailed metrics logic was in AI service sql
+            fillers: 0, // Placeholder
+            date: s.start_time
+        }));
 
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`AI service responded ${response.status}: ${errText}`);
-        }
-
-        const data = await response.json();
         res.json(data);
     } catch (error: any) {
-        const status = error.name === 'AbortError' ? 504 : 502;
         console.error('Get Sessions Summary Error:', error);
-        res.status(status).json({ error: 'Failed to fetch session summary', details: error.message });
+        res.status(500).json({ error: 'Failed to fetch session summary', details: error.message });
     }
 };

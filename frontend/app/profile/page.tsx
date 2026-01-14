@@ -58,24 +58,24 @@ export default function ProfilePage() {
       }
 
       await authService.updateUser(user.id, updatePayload);
-      
+
       setSuccess(he.profile.updatedSuccess);
       await checkAuth(); // Refresh global auth state
-      
+
       // Clear password fields
       setValue('password', '');
       setValue('confirmPassword', '');
 
     } catch (err: unknown) {
       console.error(err);
-      let errorMessage = he.profile.updateFailed;
+      let errorMessage: string = he.profile.updateFailed;
       if (err && typeof err === 'object' && 'response' in err) {
          // eslint-disable-next-line @typescript-eslint/no-explicit-any
          errorMessage = (err as any).response?.data?.message || errorMessage;
       } else if (err instanceof Error) {
          errorMessage = err.message;
       }
-      setError(ensureHebrew(errorMessage, he.profile.updateFailed));
+      setError(ensureHebrew(errorMessage, he.profile.updateFailed)||null);
     }
   };
 

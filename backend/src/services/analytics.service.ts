@@ -21,3 +21,7 @@ export const getSessionMetrics = async (sessionId: number) => {
 export const getSessionReport = async (sessionId: number) => {
     return await analyticsRepo.getReportBySession(sessionId);
 };
+
+export const getSessionsSummary = async (userId: number) => {
+    return await analyticsRepo.getSessionsSummary(userId);
+};

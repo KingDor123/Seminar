@@ -50,4 +50,20 @@ export class AnalyticsRepo {
         const result = await this.db.execute<SocialReport>(sql, params);
         return result[0];
     }
+
+    async getSessionsSummary(userId: number): Promise<any[]> {
+        const sql = `
+            SELECT 
+                s.id AS session_id,
+                s.scenario_id,
+                s.start_time,
+                COALESCE(sr.overall_score, 0) as score
+            FROM sessions s
+            LEFT JOIN social_reports sr ON sr.session_id = s.id
+            WHERE s.user_id = $1
+            ORDER BY s.start_time DESC
+        `;
+        const params = [userId];
+        return await this.db.execute(sql, params);
+    }
 }

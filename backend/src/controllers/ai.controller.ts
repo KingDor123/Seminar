@@ -1,127 +1,147 @@
 import { Request, Response } from 'express';
-import http from 'http';
-import { URL } from 'url';
-import { AI_SERVICE_BASE_URL, REQUEST_TIMEOUT_MS } from '../config/appConfig.js';
+import { ttsService } from '../services/ai/tts.service.js';
+import { llmService } from '../services/ai/llm.service.js';
+import { sentimentService } from '../services/ai/sentiment.service.js';
+import { sttService } from '../services/ai/stt.service.js';
+import { promptService } from '../services/ai/prompt.service.js';
 import * as chatService from '../services/chat.service.js';
+import logger from '../utils/logger.js';
+import fs from 'fs';
 
-interface AudioPayload {
-    text: string;
-    voice?: string;
-}
-
-const validateMediaPayload = (body: any): string | null => {
-  if (!body || typeof body !== "object") {
-    return "Request body must be a JSON object.";
-  }
-
-  if (typeof body.text !== "string" || body.text.trim().length === 0) {
-    return "Field 'text' is required and must be a non-empty string.";
-  }
-
-  if (body.voice && typeof body.voice !== "string") {
-    return "Field 'voice', when provided, must be a string.";
-  }
-
-  return null;
-};
-
-const proxyWithTimeout = async (url: string, payload: AudioPayload) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      let errorDetail = "";
-      try {
-        const errBody = await response.json();
-        errorDetail = errBody.detail || JSON.stringify(errBody);
-      } catch (e) {
-        errorDetail = await response.text();
-      }
-      throw new Error(`${url} responded with status ${response.status}: ${errorDetail}`);
-    }
-
-    return await response.json();
-  } finally {
-    clearTimeout(timeout);
-  }
-};
-
+/**
+ * Controller for AI-related endpoints.
+ * Handles Text-to-Speech, User Interactions (Chat), and Report Generation.
+ */
 class AiController {
+  
+  /**
+   * Generates audio from text.
+   * POST /api/tts
+   */
   async tts(req: Request, res: Response) {
-    const validationError = validateMediaPayload(req.body);
-    if (validationError) {
-      return res.status(400).json({ error: validationError });
+    const { text } = req.body;
+    
+    if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: "Text is required" });
     }
 
     try {
-      const data = await proxyWithTimeout(
-        `${AI_SERVICE_BASE_URL}/tts`,
-        req.body
-      );
-
-      res.json(data);
+      const audioContent = await ttsService.generateAudioBase64(text, 'he');
+      res.json({ audioContent });
     } catch (error: any) {
-      const status = error.name === "AbortError" ? 504 : 502;
-      console.error("TTS Proxy Error:", error);
-      res.status(status).json({ error: "TTS Generation Failed", details: error.message });
+      logger.error("TTS Generation Failed:", error);
+      res.status(500).json({ error: "TTS Generation Failed", details: error.message });
     }
   }
 
+  /**
+   * Handles the main chat interaction flow.
+   * 1. Transcribes audio (if provided) [Placeholder].
+   * 2. Analyzes sentiment & Turn Analysis.
+   * 3. Streams an LLM response back to the client via SSE.
+   * 4. Saves the conversation to the database.
+   * 
+   * POST /api/interact
+   */
   async interact(req: Request, res: Response) {
+    let audioPath: string | null = null;
     try {
-        const targetUrl = new URL(`${AI_SERVICE_BASE_URL}/interact`);
+        // Multer puts the file in req.file and text fields in req.body
+        const { session_id, scenario_id } = req.body;
+        let text = req.body.text;
+
+        // 1. STT if audio provided
+        if (req.file) {
+            audioPath = req.file.path;
+            const transcribedText = await sttService.transcribe(audioPath);
+            if (transcribedText) {
+                text = transcribedText;
+            }
+        }
+
+        if (!text) {
+             return res.status(400).json({ error: "Input text or audio required" });
+        }
+
+        logger.info(`Interact: session=${session_id} text="${text}"`);
+
+        // 2. Analyze Sentiment
+        const sentimentResult = await sentimentService.analyzeSentiment(text);
         
-        const options = {
-            hostname: targetUrl.hostname,
-            port: targetUrl.port,
-            path: targetUrl.pathname,
-            method: 'POST',
-            headers: req.headers, // Forward headers (Content-Type, Content-Length, etc.)
-        };
+        // 2b. Start Turn Analysis (Parallel)
+        // We start this now but await it before saving the user message.
+        const analysisPromise = promptService.analyzeTurn(text, sentimentResult.label);
 
-        // Remove host header to avoid confusion
-        delete options.headers['host'];
+        // 3. Prepare SSE
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
 
-        const proxyReq = http.request(options, (proxyRes) => {
-            // Forward status and headers
-            res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
-            
-            // Pipe response stream (SSE)
-            proxyRes.pipe(res);
-        });
+        // 4. Update Frontend with transcribed text & sentiment
+        // The frontend useStreamingConversation expects "event: transcript" or just data
+        // Matching the frontend hook logic:
+        res.write(`event: transcript\ndata: ${JSON.stringify({ role: 'user', text: text, sentiment: sentimentResult.label })}\n\n`);
 
-        proxyReq.on('error', (err) => {
-            console.error("Interact Proxy Error:", err);
-            if (!res.headersSent) {
-                res.status(502).json({ error: "AI Service Unavailable", details: err.message });
-            }
-        });
+        // 5. Construct LLM Messages
+        // Fetch history for context
+        const history = await chatService.getSessionHistory(Number(session_id));
+        const historyMessages = history.slice(-10).map(m => ({
+            role: m.role,
+            content: m.content
+        }));
+        
+        const finalMessages = await promptService.buildChatMessages(
+            scenario_id,
+            sentimentResult.label,
+            historyMessages,
+            text
+        );
 
-        // Set timeout
-        proxyReq.setTimeout(REQUEST_TIMEOUT_MS || 60000, () => {
-            proxyReq.destroy();
-            if (!res.headersSent) {
-                 res.status(504).json({ error: "Gateway Timeout" });
-            }
-        });
+        // 6. Stream Response
+        let fullAiResponse = "";
+        for await (const token of llmService.streamResponse(finalMessages)) {
+            fullAiResponse += token;
+            res.write(`event: transcript\ndata: ${JSON.stringify({ role: 'assistant', text: token, partial: true })}\n\n`);
+        }
 
-        // Pipe incoming request (Multipart) to proxy request
-        req.pipe(proxyReq);
+        // 7. Save to DB
+        // Await the analysis now
+        const turnAnalysis = await analysisPromise;
+
+        await chatService.saveMessage(
+            Number(session_id), 
+            'user', 
+            text, 
+            sentimentResult.label,
+            turnAnalysis
+        );
+        await chatService.saveMessage(Number(session_id), 'ai', fullAiResponse);
+
+        // 8. Done
+        res.write(`event: status\ndata: done\n\n`);
+        res.end();
 
     } catch (error: any) {
-        console.error("Interact Error:", error);
-        res.status(500).json({ error: "Internal Proxy Error" });
+        logger.error("Interact Error:", error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: "Interaction Failed", details: error.message });
+        } else {
+            res.write(`event: error\ndata: ${error.message}\n\n`);
+            res.end();
+        }
+    } finally {
+        if (audioPath && fs.existsSync(audioPath)) {
+            fs.unlinkSync(audioPath); // Clean up temp file
+        }
     }
   }
 
+  /**
+   * Generates a behavioral report for a session.
+   * Aggregates stats and uses the LLM to provide qualitative feedback.
+   * 
+   * POST /api/report/generate/:sessionId
+   */
   async generateReport(req: Request, res: Response) {
     const sessionId = parseInt(req.params.sessionId);
     if (isNaN(sessionId)) {
@@ -129,38 +149,36 @@ class AiController {
     }
 
     try {
-      console.log(`[AiController] Fetching history for Session ${sessionId}...`);
+      const history = await chatService.getSessionHistory(sessionId, true);
       
-      // 1. Fetch History from DB via ChatService
-      const history = await chatService.getSessionHistory(sessionId, true); // true = include analysis
+      let conversationText = "";
+      history.forEach(m => conversationText += `${m.role.toUpperCase()}: ${m.content}\n`);
+
+      const prompt = `
+      Analyze this conversation.
+      Role: Professional Behavioral Therapist.
+      Conversation:
+      ${conversationText}
       
-      console.log(`[AiController] Sending ${history.length} messages to AI Service for analysis...`);
+      Provide a JSON summary with keys: summary, strengths (array), tips (array), score (0-100).
+      Return JSON only.
+      `;
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 300000); 
+      const llmRaw = await llmService.generateResponse([{ role: 'user', content: prompt }], 'json');
+      const analysis = JSON.parse(llmRaw);
 
-      // 2. Send History to AI Service
-      const response = await fetch(`${AI_SERVICE_BASE_URL}/report/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            sessionId: sessionId,
-            messages: history
-        }),
-        signal: controller.signal,
+      res.json({
+          sessionId,
+          ...analysis,
+          metrics: {
+              average_sentiment: "analyzed", // Simplified
+              social_impact_score: analysis.score || 0
+          }
       });
-      clearTimeout(timeout);
 
-      if (!response.ok) {
-         const err = await response.text();
-         throw new Error(`AI Service returned ${response.status}: ${err}`);
-      }
-
-      const data = await response.json();
-      res.json(data);
     } catch (error: any) {
-        console.error("Report Generation Proxy Error:", error);
-        res.status(502).json({ error: "Report Generation Failed", details: error.message });
+        logger.error("Report Generation Error:", error);
+        res.status(500).json({ error: "Report Generation Failed" });
     }
   }
 }
