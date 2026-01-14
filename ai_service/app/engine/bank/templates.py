@@ -2,6 +2,7 @@ from .constants import (
     STATE_ASK_AMOUNT,
     STATE_ASK_PURPOSE,
     STATE_CHECK_INCOME,
+    STATE_INELIGIBLE_FINANCIAL,
     STATE_SIGN_CONFIRM,
     STATE_GOODBYE,
 )
@@ -13,6 +14,7 @@ OPENING_QUESTION = "איך אפשר לעזור לך בתהליך בקשת הלו
 ASK_AMOUNT_QUESTION = "מה סכום ההלוואה המשוער שתרצה לבקש?"
 ASK_PURPOSE_QUESTION = "מה מטרת ההלוואה?"
 CHECK_INCOME_QUESTION = "מה ההכנסה החודשית המשוערת שלך?"
+INELIGIBLE_FINANCIAL_TEXT = "לצערי בלי הכנסה חודשית אי אפשר להמשיך בבקשת הלוואה."
 SIGN_CONFIRM_QUESTION = "כדי להמשיך, האם אתה מאשר את הבקשה? נא ציין שם מלא ומספר תעודת זהות שלך בלבד."
 GOODBYE_TEXT = "תודה, הבקשה הושלמה. יום טוב."
 TERMINATION_LOCK_TEXT = "השיחה הסתיימה. תודה."
@@ -21,6 +23,7 @@ REQUIRED_QUESTIONS = {
     STATE_ASK_AMOUNT: ASK_AMOUNT_QUESTION,
     STATE_ASK_PURPOSE: ASK_PURPOSE_QUESTION,
     STATE_CHECK_INCOME: CHECK_INCOME_QUESTION,
+    STATE_INELIGIBLE_FINANCIAL: INELIGIBLE_FINANCIAL_TEXT,
     STATE_SIGN_CONFIRM: SIGN_CONFIRM_QUESTION,
     STATE_GOODBYE: GOODBYE_TEXT,
 }

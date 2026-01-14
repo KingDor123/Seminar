@@ -125,6 +125,16 @@ ID_LABELS = [
 
 CURRENCY_MARKERS = ["₪", "שח", "ש\"ח", "ש״ח"]
 
+NO_INCOME_PATTERNS = [
+    "אין לי הכנסה",
+    "אין לי",
+    "בלי הכנסה",
+    "לא עובד",
+    "לא עובדת",
+    "מובטל",
+    "מובטלת",
+]
+
 ALLOW_LLM_FALLBACK = os.getenv("BANK_LLM_FALLBACK", "false").lower() in ("1", "true", "yes")
 
 
@@ -158,6 +168,8 @@ def _detect_greeting(text: str) -> bool:
 
 
 def _extract_purpose(text: str) -> str | None:
+    if re.search(r"\bשיפוצ", text) or re.search(r"\bלשפץ", text):
+        return "שיפוץ"
     for keyword in PURPOSE_KEYWORDS:
         if keyword in text:
             return keyword
@@ -193,6 +205,8 @@ def _extract_amount(text: str, current_state: str) -> int | None:
 def _extract_income(text: str, current_state: str) -> int | None:
     if _has_negative_number(text):
         return None
+    if contains_any(text, NO_INCOME_PATTERNS):
+        return 0
     keyword_income = extract_number_near_keywords(text, INCOME_KEYWORDS)
     if keyword_income is not None:
         return keyword_income
@@ -271,6 +285,7 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
     commanding = _detect_commanding(normalized)
     clarification_needed = _detect_clarification(normalized)
     refuses_repay = _detect_refusal_to_repay(normalized)
+    no_income_detected = contains_any(normalized, NO_INCOME_PATTERNS)
 
     required_present = _required_slots_present(current_state, slots)
     any_slot_present = any(
@@ -332,6 +347,8 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
         signals.append("HAS_PURPOSE")
     if slots.income is not None:
         signals.append("HAS_INCOME")
+        if slots.income <= 0 or no_income_detected:
+            signals.append("FINANCIAL_INELIGIBLE")
     if slots.confirm_accepted is True:
         signals.append("HAS_CONFIRM")
     if slots.id_details and slots.id_details.id_number:

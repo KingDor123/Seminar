@@ -20,8 +20,8 @@ SPEC_JSON = r'''
   "meta": {
     "scenario": "bank",
     "currency": "ILS",
-    "notes": [
-      "States: start -> ask_amount -> ask_purpose -> check_income -> sign_confirm -> goodbye -> terminate",
+      "notes": [
+      "States: start -> ask_amount -> ask_purpose -> check_income -> ineligible_financially -> sign_confirm -> goodbye -> terminate",
       "Slots: amount, purpose, income, confirm_accepted, id_details",
       "Strikes: rude_strikes, refusal_strikes, repay_strikes"
     ]
@@ -161,7 +161,7 @@ SPEC_JSON = r'''
       "description": "הכנסה 0 => FINANCIAL_INELIGIBLE או terminate flow ייעודי (אם קיים)",
       "steps": [
         { "user": "[START]", "expect": { "state_after": "start" } },
-        { "user": "הלוואה 10000 לסלון הכנסה 0", "expect": { "state_after": "sign_confirm", "slots": { "income": 0 } } }
+        { "user": "הלוואה 10000 לסלון הכנסה 0", "expect": { "state_after": "ineligible_financially", "slots": { "income": 0 } } }
       ]
     },
 

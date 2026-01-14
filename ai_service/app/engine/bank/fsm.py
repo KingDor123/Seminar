@@ -4,6 +4,7 @@ from .constants import (
     STATE_ASK_AMOUNT,
     STATE_ASK_PURPOSE,
     STATE_CHECK_INCOME,
+    STATE_INELIGIBLE_FINANCIAL,
     STATE_SIGN_CONFIRM,
     STATE_GOODBYE,
     STATE_TERMINATE,
@@ -59,6 +60,8 @@ def farthest_state(slots: BankSlots) -> str:
         return STATE_ASK_PURPOSE
     if slots.income is None:
         return STATE_CHECK_INCOME
+    if slots.income <= 0:
+        return STATE_INELIGIBLE_FINANCIAL
     if slots.confirm_accepted is False:
         return STATE_GOODBYE
     if slots.confirm_accepted is not True or not (slots.id_details and slots.id_details.id_number):
