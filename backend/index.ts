@@ -28,7 +28,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use('/api', authRouter);
-app.use('/api', router); 
+app.use('/api', router);
 app.use('/api', aiRouter);
 app.use('/api/chat', chatRouter); // Register chat routes (e.g. /api/chat/sessions)
 app.use('/api/analytics', analyticsRouter);
@@ -40,7 +40,7 @@ const server = http.createServer(app);
 // WebSocket proxy removed (no active /ai/stream endpoint in ai_service).
 
 // Pick port from environment (Docker injects PORT)
-const port = process.env.PORT || 5000;
+const port = process.env.BACKEND_PORT ;
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(port, () => {

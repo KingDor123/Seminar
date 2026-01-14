@@ -40,7 +40,7 @@ The application follows a layered architecture:
 
 ### Environment Variables (.env)
 Create a `.env` file with the following keys (inferred):
-- `PORT` (default: 5000)
+- `PORT` (default: 5001)
 - `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`
 - `JWT_SECRET`
 - `OLLAMA_BASE_URL` (default: `http://ollama:11434`)
@@ -58,7 +58,7 @@ Create a `.env` file with the following keys (inferred):
 ### Docker
 The project includes a `Dockerfile` for production-ready images.
 - **Build:** `docker build -t backend .`
-- **Run:** `docker run -p 5000:5000 --env-file .env backend`
+- **Run:** `docker run -p 5001:5001 --env-file .env backend`
 
 ## Project Structure
 - `src/config/`: Configuration (DB connection).
