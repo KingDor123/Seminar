@@ -61,21 +61,34 @@ export const getSessionsSummary = async (req: Request, res: Response) => {
 
         const summaries = await analyticsService.getSessionsSummary(userId);
         
-        // Transform to match frontend expectation if needed (e.g. map fields)
-        // Frontend expects: [{ session_id, score, fluency, fillers, date }]
-        // Our repo returns: [{ session_id, scenario_id, start_time, score }]
-        
+        // Frontend expects: SessionListItem { session_id, created_at, scenario_id, message_count, overall_sentiment }
         const data = summaries.map(s => ({
             session_id: s.session_id,
-            score: s.score || 0,
-            fluency: 0, // Placeholder as detailed metrics logic was in AI service sql
-            fillers: 0, // Placeholder
-            date: s.start_time
+            created_at: s.created_at,
+            scenario_id: s.scenario_id,
+            message_count: parseInt(s.message_count || '0'),
+            overall_sentiment: s.score > 8 ? 'Positive' : (s.score < 5 ? 'Negative' : 'Neutral') // Infer sentiment from score if not stored
         }));
 
         res.json(data);
     } catch (error: any) {
         console.error('Get Sessions Summary Error:', error);
         res.status(500).json({ error: 'Failed to fetch session summary', details: error.message });
+    }
+};
+
+export const getDashboardStats = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ error: 'Authentication required' });
+            return;
+        }
+
+        const stats = await analyticsService.getDashboardStats(userId);
+        res.json(stats);
+    } catch (error: any) {
+        console.error('Get Dashboard Stats Error:', error);
+        res.status(500).json({ error: 'Failed to fetch dashboard stats', details: error.message });
     }
 };

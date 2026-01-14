@@ -40,7 +40,7 @@ const server = http.createServer(app);
 // WebSocket proxy removed (no active /ai/stream endpoint in ai_service).
 
 // Pick port from environment (Docker injects PORT)
-const port = process.env.BACKEND_PORT ;
+const port = process.env.PORT || process.env.BACKEND_PORT || 5001;
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(port, () => {

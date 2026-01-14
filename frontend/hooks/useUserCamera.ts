@@ -42,7 +42,7 @@ export const useUserCamera = (isInCall: boolean) => {
               stream.getTracks().forEach(track => track.stop());
               return;
           }
-          
+
           if (userVideoRef.current) {
             userVideoRef.current.srcObject = stream;
           }
@@ -53,7 +53,7 @@ export const useUserCamera = (isInCall: boolean) => {
             if (!isActive) return;
 
             let errorMsg = he.errors.cameraMicFailed;
-            
+
             if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
               errorMsg = he.errors.noCameraMicFound;
               console.warn("No camera/microphone device found.");
@@ -63,14 +63,14 @@ export const useUserCamera = (isInCall: boolean) => {
             } else {
               console.error("Camera/Mic Access Error:", err);
             }
-            
+
             // Fallback 1: Try Audio Only (User might have no camera)
             navigator.mediaDevices.getUserMedia({ video: false, audio: true })
                 .then(stream => {
                     console.log("Fallback to Audio-only stream");
                     localStreamRef.current = stream;
                     setMediaStream(stream);
-                    setError(null); 
+                    setError(null);
                 })
                 .catch(() => {
                      // Fallback 2: Try Video Only (User might have no mic)

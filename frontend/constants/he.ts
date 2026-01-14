@@ -1,6 +1,7 @@
 export const he = {
   app: {
     name: "softskills",
+    shortName: "",
     description: "אימון מיומנויות רכות בעזרת בינה מלאכותית",
   },
   nav: {

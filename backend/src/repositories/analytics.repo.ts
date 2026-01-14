@@ -56,8 +56,9 @@ export class AnalyticsRepo {
             SELECT 
                 s.id AS session_id,
                 s.scenario_id,
-                s.start_time,
-                COALESCE(sr.overall_score, 0) as score
+                s.start_time AS created_at,
+                COALESCE(sr.overall_score, 0) as score,
+                (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) as message_count
             FROM sessions s
             LEFT JOIN social_reports sr ON sr.session_id = s.id
             WHERE s.user_id = $1
@@ -65,5 +66,48 @@ export class AnalyticsRepo {
         `;
         const params = [userId];
         return await this.db.execute(sql, params);
+    }
+
+    async getDashboardStats(userId: number): Promise<any> {
+        // Overview stats
+        const overviewSql = `
+            SELECT 
+                COUNT(DISTINCT s.id) as total_sessions,
+                COUNT(m.id) as total_messages,
+                COALESCE(AVG(sr.overall_score), 0) as avg_score
+            FROM sessions s
+            LEFT JOIN messages m ON m.session_id = s.id
+            LEFT JOIN social_reports sr ON sr.session_id = s.id
+            WHERE s.user_id = $1
+        `;
+        
+        // Sentiment distribution (from messages)
+        const sentimentSql = `
+            SELECT 
+                COALESCE(m.sentiment, 'neutral') as sentiment,
+                COUNT(*) as count
+            FROM sessions s
+            JOIN messages m ON m.session_id = s.id
+            WHERE s.user_id = $1
+            GROUP BY COALESCE(m.sentiment, 'neutral')
+        `;
+
+        const [overviewRes, sentimentRes] = await Promise.all([
+            this.db.execute<any>(overviewSql, [userId]),
+            this.db.execute<any>(sentimentSql, [userId])
+        ]);
+
+        const overview = overviewRes[0] || { total_sessions: 0, total_messages: 0, avg_score: 0 };
+        
+        // Process sentiment into positive/neutral/negative buckets
+        const sentiment = { positive: 0, neutral: 0, negative: 0 };
+        sentimentRes.forEach((row: any) => {
+            const s = row.sentiment.toLowerCase();
+            if (s.includes('positive') || s.includes('joy')) sentiment.positive += parseInt(row.count);
+            else if (s.includes('negative') || s.includes('stress') || s.includes('anger')) sentiment.negative += parseInt(row.count);
+            else sentiment.neutral += parseInt(row.count);
+        });
+
+        return { overview, sentiment };
     }
 }

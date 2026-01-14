@@ -40,7 +40,7 @@ export const useChatSession = () => {
         setError(he.errors.userNotAuthenticated);
         return null;
     }
-    
+
     // Block if already creating or active (using refs for immediate check)
     if (sessionStatusRef.current === 'creating' || sessionStatusRef.current === 'active') {
         console.warn(`[useChatSession:startSession] Already in ${sessionStatusRef.current} state, ignoring duplicate call.`);
@@ -71,7 +71,7 @@ export const useChatSession = () => {
           message = err.message;
       }
       console.error("[useChatSession:startSession] API call failed:", message);
-      setError(ensureHebrew(message, he.errors.startSessionFailed));
+      setError(ensureHebrew(message, he.errors.startSessionFailed)||null);
       setSessionStatus('error'); // Set status to error on failure
       return null;
     } finally {

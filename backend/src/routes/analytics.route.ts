@@ -13,5 +13,7 @@ router.post('/sessions/:sessionId/report', sessionOwnershipMiddleware, analytics
 router.get('/sessions/:sessionId/metrics', sessionOwnershipMiddleware, analyticsController.getMetrics);
 router.get('/sessions/:sessionId/report', sessionOwnershipMiddleware, analyticsController.getReport);
 router.get('/summary', analyticsController.getSessionsSummary);
+router.get('/sessions_list', analyticsController.getSessionsSummary);
+router.get('/dashboard', analyticsController.getDashboardStats);
 
 export default router;
