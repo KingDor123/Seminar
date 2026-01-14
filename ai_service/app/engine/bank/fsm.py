@@ -36,8 +36,15 @@ from .templates import (
     COACH_TIPS,
     CLARIFICATION_TIPS,
     INELIGIBLE_OPTIONS,
+    SUPPORTIVE_LINES,
+    ESCAPE_OPTIONS,
+    ESCAPE_HINTS,
+    PURPOSE_UNREALISTIC_TEXT,
+    PURPOSE_ILLEGAL_TEXT,
 )
 from .types import BankDecision, BankSlots, BankStrikes
+
+ESCAPE_AFTER_RETRIES = 2  # After 2 failed turns, offer quick options to prevent loops.
 
 
 def merge_slots(existing: BankSlots, extracted: BankSlots) -> BankSlots:
@@ -94,6 +101,26 @@ def _needs_coach(signals: List[str]) -> Tuple[bool, str | None]:
     if "IRRELEVANT" in signals or "RELEVANCE:LOW" in signals or "APPROPRIATE_FOR_BANK:COACH" in signals:
         return True, COACH_TIPS["low_relevance"]
     return False, None
+
+
+def _apply_retry_controls(
+    decision: BankDecision,
+    state_id: str,
+    is_retry: bool,
+    retry_next: int,
+) -> bool:
+    if is_retry and retry_next >= 3:
+        decision.next_action = ACTION_OFFER_RESTART
+        decision.required_question = RESTART_OFFER_TEXT
+        decision.options = RESTART_OPTIONS
+        return True
+    if is_retry and retry_next >= ESCAPE_AFTER_RETRIES:
+        options = ESCAPE_OPTIONS.get(state_id)
+        if options:
+            decision.options = options
+            if not decision.supportive_line:
+                decision.supportive_line = ESCAPE_HINTS.get(state_id)
+    return False
 
 
 def decide_next_action(
@@ -202,18 +229,37 @@ def decide_next_action(
     if "CLARIFICATION_NEEDED" in signals:
         decision.next_action = ACTION_COACH_AND_ASK_REQUIRED
         decision.clarification_text = CLARIFICATION_TIPS.get(next_state)
-        return decision, updated_strikes, retry_count
+        decision.supportive_line = SUPPORTIVE_LINES.get("coach")
+        if _apply_retry_controls(decision, current_state, is_retry, retry_next):
+            return decision, updated_strikes, retry_next
+        return decision, updated_strikes, retry_next
+
+    if "PURPOSE_ILLEGAL" in signals:
+        decision.next_action = ACTION_COACH_AND_ASK_REQUIRED
+        decision.clarification_text = PURPOSE_ILLEGAL_TEXT
+        decision.supportive_line = SUPPORTIVE_LINES.get("coach")
+        if _apply_retry_controls(decision, current_state, is_retry, retry_next):
+            return decision, updated_strikes, retry_next
+        return decision, updated_strikes, retry_next
+
+    if "PURPOSE_UNREALISTIC" in signals:
+        decision.next_action = ACTION_COACH_AND_ASK_REQUIRED
+        decision.clarification_text = PURPOSE_UNREALISTIC_TEXT
+        decision.supportive_line = SUPPORTIVE_LINES.get("coach")
+        if _apply_retry_controls(decision, current_state, is_retry, retry_next):
+            return decision, updated_strikes, retry_next
+        return decision, updated_strikes, retry_next
 
     needs_coach, coach_tip = _needs_coach(signals)
     if needs_coach:
         decision.next_action = ACTION_COACH_AND_ASK_REQUIRED
         decision.coach_tip = coach_tip
-        return decision, updated_strikes, retry_count
+        decision.supportive_line = SUPPORTIVE_LINES.get("coach")
+        if _apply_retry_controls(decision, current_state, is_retry, retry_next):
+            return decision, updated_strikes, retry_next
+        return decision, updated_strikes, retry_next
 
-    if is_retry and retry_next >= 3:
-        decision.next_action = ACTION_OFFER_RESTART
-        decision.required_question = RESTART_OFFER_TEXT
-        decision.options = RESTART_OPTIONS
+    if _apply_retry_controls(decision, current_state, is_retry, retry_next):
         return decision, updated_strikes, retry_next
 
     return decision, updated_strikes, retry_next

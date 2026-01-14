@@ -23,6 +23,7 @@ def _build_response_lines(decision: BankDecision) -> List[str]:
             decision.acknowledgement_line,
             decision.warning_text,
             decision.required_question,
+            decision.supportive_line,
             decision.coach_tip,
         ]
     else:
@@ -32,6 +33,7 @@ def _build_response_lines(decision: BankDecision) -> List[str]:
             decision.warning_text,
             decision.clarification_text,
             decision.coach_tip,
+            decision.supportive_line,
             decision.required_question,
         ]
     for line in order:

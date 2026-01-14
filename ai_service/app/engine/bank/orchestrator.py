@@ -28,6 +28,8 @@ from .templates import (
     END_CONVERSATION_SAFE,
     REPEAT_EXAMPLES,
     RETRY_QUESTIONS,
+    ESCAPE_OPTIONS,
+    ESCAPE_HINTS,
 )
 from .types import BankDecision
 from .utils import mask_id_number
@@ -297,15 +299,23 @@ class BankOrchestrator:
         analysis = await analyze_turn_async(user_text, current_state)
         merged_slots = merge_slots(bank_state.slots, analysis.slots)
 
+        if "PURPOSE_UNREALISTIC" in analysis.signals:
+            logger.info("[BANK] purpose marked unrealistic in state=%s", current_state)
+
         if "REPEAT_LAST_QUESTION" in analysis.signals:
             last_question = bank_state.last_question or _fallback_question_for_state(current_state)
             example = REPEAT_EXAMPLES.get(current_state)
+            retry_count = bank_state.retry_counts.get(current_state, 0)
             decision = BankDecision(
                 next_state=current_state,
                 next_action=ACTION_REPEAT_AND_EXPLAIN,
                 required_question=last_question,
                 coach_tip=example,
             )
+            if retry_count >= 2:
+                decision.supportive_line = ESCAPE_HINTS.get(current_state)
+                decision.options = ESCAPE_OPTIONS.get(current_state)
+            logger.info("[BANK] repeat request state=%s question=%s", current_state, last_question)
             bank_state.turn_count += 1
             bank_state.last_user_text = user_text
             bank_state.last_state_id = current_state

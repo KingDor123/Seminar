@@ -86,13 +86,21 @@ REPEAT_PATTERNS = [
     "מה שאלת",
     "מה שאלת אותי",
     "איזו שאלה",
-    "לא הבנתי",
     "אני לא מבין מה השאלה",
     "אני לא מבינה מה השאלה",
     "תחזור על השאלה",
     "תחזרי על השאלה",
     "תזכיר לי מה שאלת",
 ]
+
+SHORT_REPEAT_UTTERANCES = {
+    "מה",
+    "מה?",
+    "הא",
+    "הא?",
+    "אה",
+    "אה?",
+}
 
 GREETING_WORDS = [
     "שלום",
@@ -125,6 +133,29 @@ INCOME_KEYWORDS = ["מכניס", "הכנסה", "מרוויח", "שכר", "בחו
 AMOUNT_KEYWORDS = ["הלוואה", "סכום", "צריך", "צריכה", "מבקש", "מבקשת", "רוצה", "מעוניין", "מעוניינת"]
 PURPOSE_KEYWORDS = ["רכב", "שיפוץ", "לימודים", "חתונה", "דירה", "עסק", "חופשה", "משכנתא", "סלון"]
 BANK_KEYWORDS = ["הלוואה", "בנק", "ריבית", "תנאים", "בקשה"]
+
+UNREALISTIC_PURPOSE_PATTERNS = [
+    "חד קרן",
+    "חד-קרן",
+    "unicorn",
+    "דרקון",
+    "מכונת זמן",
+    "מכונת הזמן",
+    "time machine",
+]
+
+ILLEGAL_PURPOSE_PATTERNS = [
+    "סמים",
+    "סחר בסמים",
+    "סחר בסם",
+    "נשק",
+    "אקדח",
+    "רובה",
+    "הלבנת הון",
+    "הימורים לא חוקיים",
+    "הימורים לא חוקי",
+    "שוחד",
+]
 
 CONFIRM_POSITIVE = ["כן", "מאשר", "מאשרת", "מסכים", "מסכימה", "מאושר", "בסדר", "מתאים"]
 CONFIRM_NEGATIVE = ["לא מסכים", "לא מסכימה", "לא מאשר", "לא מאשרת"]
@@ -199,6 +230,8 @@ def _detect_greeting(text: str) -> bool:
     return contains_any(text, GREETING_WORDS)
 
 def _detect_repeat_request(text: str) -> bool:
+    if text.strip() in SHORT_REPEAT_UTTERANCES:
+        return True
     return contains_any(text, REPEAT_PATTERNS)
 
 def _detect_threat(text: str) -> bool:
@@ -206,10 +239,26 @@ def _detect_threat(text: str) -> bool:
         return True
     return re.search(r"\bאני א(הרוג|רצח|דקור|כה|רביץ|שבור|שרוף|פגע|ירה)\b", text) is not None
 
+def _detect_purpose_unrealistic(text: str) -> bool:
+    return contains_any(text, UNREALISTIC_PURPOSE_PATTERNS)
+
+def _detect_purpose_illegal(text: str) -> bool:
+    return contains_any(text, ILLEGAL_PURPOSE_PATTERNS)
+
 
 def _extract_purpose(text: str) -> str | None:
     if re.search(r"\bשיפוצ", text) or re.search(r"\bלשפץ", text):
         return "שיפוץ"
+    if re.search(r"\bמחשב\b", text):
+        return "מחשב"
+    if re.search(r"\bבר[\s-]?מצווה\b", text):
+        return "בר מצווה"
+    if re.search(r"\bבת[\s-]?מצווה\b", text):
+        return "בת מצווה"
+    if re.search(r"\bמינוס\b", text):
+        return "סגירת מינוס"
+    if re.search(r"\bחובות?\b", text):
+        return "חובות"
     for keyword in PURPOSE_KEYWORDS:
         if keyword in text:
             return keyword
@@ -217,7 +266,18 @@ def _extract_purpose(text: str) -> str | None:
     if match:
         phrase = match.group(1).strip()
         phrase = re.sub(r"[\.!?]", "", phrase)
-        return phrase[:40]
+        tokens = re.findall(r"[א-ת]+", phrase)
+        if len(tokens) >= 2:
+            return phrase[:40]
+        return None
+    match = re.search(r"(?:לקנות|לרכוש|לממן|לשלם|לסגור|לכסות)\s+(.+)$", text)
+    if match:
+        phrase = match.group(1).strip()
+        phrase = re.sub(r"[\.!?]", "", phrase)
+        tokens = re.findall(r"[א-ת]+", phrase)
+        if len(tokens) >= 2:
+            return phrase[:40]
+        return None
     return None
 
 
@@ -310,6 +370,7 @@ def _required_slots_present(current_state: str, slots: BankSlots) -> bool:
 
 def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
     normalized = normalize_text(text)
+    normalized_lower = normalized.lower()
 
     slots = BankSlots(
         amount=_extract_amount(normalized, current_state),
@@ -328,6 +389,11 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
     repeat_requested = _detect_repeat_request(normalized)
     refuses_repay = _detect_refusal_to_repay(normalized)
     no_income_detected = contains_any(normalized, NO_INCOME_PATTERNS)
+    purpose_unrealistic = _detect_purpose_unrealistic(normalized_lower)
+    purpose_illegal = _detect_purpose_illegal(normalized_lower)
+
+    if purpose_unrealistic or purpose_illegal:
+        slots.purpose = None
 
     required_present = _required_slots_present(current_state, slots)
     any_slot_present = any(
@@ -364,12 +430,17 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
     elif any_slot_present or contains_any(normalized, BANK_KEYWORDS):
         relevance = "MED"
         clarity = "AMBIGUOUS"
+    if purpose_unrealistic or purpose_illegal:
+        relevance = "MED"
+        clarity = "CLEAR"
 
     appropriateness = "OK"
     if repeat_requested:
         appropriateness = "OK"
     elif rude or threat:
         appropriateness = "BAD"
+    elif purpose_unrealistic or purpose_illegal:
+        appropriateness = "COACH"
     elif commanding or missing_greeting or relevance == "LOW":
         appropriateness = "COACH"
 
@@ -393,6 +464,10 @@ def analyze_turn(text: str, current_state: str) -> BankAnalyzerResult:
         signals.append("MISSING_GREETING")
     if greeting_present:
         signals.append("GREETING")
+    if purpose_unrealistic:
+        signals.append("PURPOSE_UNREALISTIC")
+    if purpose_illegal:
+        signals.append("PURPOSE_ILLEGAL")
 
     if slots.amount is not None:
         signals.append("HAS_AMOUNT")

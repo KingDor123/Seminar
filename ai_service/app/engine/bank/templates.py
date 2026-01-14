@@ -33,6 +33,8 @@ INELIGIBLE_OPTIONS = ["1) להתחיל מחדש", "2) לצאת"]
 GOODBYE_TEXT = "תודה, הבקשה הושלמה. יום טוב."
 GOODBYE_RESTART_PROMPT = "הבקשה נסגרה. רוצה להתחיל תרגול חדש? (כן/לא)"
 TERMINATION_LOCK_TEXT = "השיחה הסתיימה. תודה."
+PURPOSE_UNREALISTIC_TEXT = "המטרה צריכה להיות מציאותית ומותרת."
+PURPOSE_ILLEGAL_TEXT = "הבנק לא יכול לסייע במטרה לא חוקית. אפשר לציין מטרה חוקית בלבד."
 
 REQUIRED_QUESTIONS = {
     STATE_ASK_AMOUNT: ASK_AMOUNT_QUESTION,
@@ -71,6 +73,22 @@ REPEAT_EXAMPLES = {
     STATE_ASK_PURPOSE: "דוגמה: רכב",
     STATE_CHECK_INCOME: "דוגמה: 10,000",
     STATE_SIGN_CONFIRM: "דוגמה: מאשר/ת",
+}
+
+SUPPORTIVE_LINES = {
+    "coach": "אני מבינה שזה חשוב לך. כדי להתקדם אני צריכה תשובה קצרה לשאלה הבאה.",
+}
+
+ESCAPE_OPTIONS = {
+    STATE_ASK_AMOUNT: ["1) 10,000", "2) 20,000", "3) 50,000", "4) אחר"],
+    STATE_ASK_PURPOSE: ["1) רכב", "2) שיפוץ", "3) לימודים", "4) מחשב", "5) אחר (כתיבה חופשית)"],
+    STATE_CHECK_INCOME: ["1) 0", "2) 5,000", "3) 10,000", "4) 15,000", "5) אחר"],
+}
+
+ESCAPE_HINTS = {
+    STATE_ASK_AMOUNT: "אפשר לבחור מהרשימה או לכתוב סכום אחר.",
+    STATE_ASK_PURPOSE: "אפשר לבחור מהרשימה או לכתוב מטרה אחרת בקצרה.",
+    STATE_CHECK_INCOME: "אפשר לבחור מהרשימה או לכתוב סכום אחר.",
 }
 
 WARN_RUDE_TEXT = "אני כאן כדי לעזור, אבל לא אוכל להמשיך אם יש קללות או עלבונות."

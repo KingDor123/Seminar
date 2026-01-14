@@ -12,7 +12,7 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 SoftSkill AI Service Online")
     logger.info(f"   - LLM: {settings.OLLAMA_MODEL} @ {settings.OLLAMA_HOST}")
     logger.info(f"   - STT: {settings.WHISPER_MODEL_SIZE}")
-    
+    logger.info(f"   - HEBERT Enabled: {settings.ENABLE_HEBERT}")
 
     # No pre-loading needed for state-machine engine as it's purely API-based (Ollama)
 

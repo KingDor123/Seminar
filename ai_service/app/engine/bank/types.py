@@ -34,6 +34,7 @@ class BankDecision(BaseModel):
     next_action: str
     required_question: Optional[str] = None
     coach_tip: Optional[str] = None
+    supportive_line: Optional[str] = None
     warning_text: Optional[str] = None
     clarification_text: Optional[str] = None
     termination_text: Optional[str] = None
